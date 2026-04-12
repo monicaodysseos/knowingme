@@ -13,7 +13,7 @@ export type GamePhase =
   | 'REVEAL_PHASE'
   | 'SCORE_PHASE'
   | 'FINAL_AWARDS'
-  | 'GAME_OVER ';
+  | 'GAME_OVER';
 
 // ── Player colours (palette of 8) ─────────────────────────────────────────
 
