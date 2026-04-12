@@ -1,0 +1,37 @@
+# fly.toml — KseroSe game server on Fly.io
+app = "ksero-se-server"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3001"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  # Sticky sessions so Socket.IO connections hit the same instance
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 500
+    soft_limit = 200
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3001
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+    # Fly.io sticky sessions via fly-replay header
+    [services.ports.http_options]
+      response.headers = { "fly-sticky" = "true" }
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
