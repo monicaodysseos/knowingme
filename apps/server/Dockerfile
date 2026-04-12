@@ -20,11 +20,16 @@ FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 
-# Root node_modules (workspace-hoisted deps + @ksero-se/types symlink)
+# Root node_modules (workspace-hoisted deps)
 COPY --from=deps /app/node_modules ./node_modules
 
-# The symlink @ksero-se/types → ../../packages/types needs its target present
-COPY --from=builder /app/packages/types ./packages/types
+# Replace the workspace symlink for @ksero-se/types with the real compiled JS.
+# Docker COPY across stages does not reliably preserve/resolve workspace symlinks,
+# so we remove whatever is there (symlink or empty dir) and drop in the built files
+# directly — Node will resolve them just like any regular installed package.
+RUN rm -rf node_modules/@ksero-se/types && mkdir -p node_modules/@ksero-se/types
+COPY --from=builder /app/packages/types/package.json ./node_modules/@ksero-se/types/package.json
+COPY --from=builder /app/packages/types/dist ./node_modules/@ksero-se/types/dist
 
 # Compiled server output
 COPY --from=builder /app/apps/server/dist ./dist

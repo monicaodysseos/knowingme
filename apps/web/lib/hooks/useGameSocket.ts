@@ -56,6 +56,12 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [issuedToken, setIssuedToken] = useState<string | null>(sessionToken ?? null);
 
+  // Sync session token from prop — parent reads localStorage after mount
+  // so the initial value is null but may arrive on the next render.
+  useEffect(() => {
+    if (sessionToken && !issuedToken) setIssuedToken(sessionToken);
+  }, [sessionToken, issuedToken]);
+
   const joinedRef = useRef(false);
 
   const join = useCallback(() => {

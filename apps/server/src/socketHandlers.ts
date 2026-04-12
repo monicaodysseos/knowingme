@@ -115,12 +115,14 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
   // ── Host start ───────────────────────────────────────────────────────────
   socket.on('host:start', () => {
-    const { roomCode, playerId } = socket.data ?? {};
+    const { roomCode, role, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
 
     const ctx = entry.actor.getSnapshot().context;
-    if (ctx.hostId !== playerId) return; // not the host
+    // TV socket has no playerId — it IS the host's screen, so always allow it.
+    // Player sockets must be the designated host.
+    if (role !== 'tv' && ctx.hostId !== playerId) return;
     if (ctx.players.filter((p) => p.isConnected).length < 3) return; // guard
 
     entry.actor.send({ type: 'HOST_START' });

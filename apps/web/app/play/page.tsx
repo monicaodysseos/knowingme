@@ -19,13 +19,16 @@ function PhoneApp() {
   const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, 4);
 
   const [joinName, setJoinName] = useState<string | null>(null);
-  const [sessionToken] = useState<string | null>(() => {
+  // Read localStorage only after mount to avoid server/client hydration mismatch
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem('ksero-session');
       const storedRoom = localStorage.getItem('ksero-room');
-      return stored && storedRoom === roomCode ? stored : null;
-    } catch { return null; }
-  });
+      if (stored && storedRoom === roomCode) setSessionToken(stored);
+    } catch {}
+  }, [roomCode]);
 
   const {
     state,
