@@ -12,6 +12,7 @@ RUN npm ci
 FROM deps AS builder
 COPY packages/types ./packages/types
 COPY apps/server ./apps/server
+RUN npm run build --workspace=@ksero-se/types
 RUN npm run build --workspace=@ksero-se/server
 
 # ── Runtime ─────────────────────────────────────────────────────────────────
