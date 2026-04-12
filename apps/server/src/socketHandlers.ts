@@ -38,10 +38,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       return ack({ ok: true });
     }
 
-    // Player role
-    if (snapshot.value !== 'LOBBY') {
-      // Allow reconnect via session token
-      if (sessionToken) {
+    // Player role — try reconnect first (works in any phase including LOBBY)
+    if (sessionToken) {
+      try {
         const session = await resolveSession(sessionToken);
         if (session && session.roomCode === roomCode) {
           const existing = ctx.players.find((p) => p.sessionToken === sessionToken);
@@ -55,10 +54,16 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
               socketId: existing.socketId,
               newSocketId: socket.id,
             });
+            // Push current state immediately
+            sendCurrentState(io, roomCode, socket.id);
             return ack({ ok: true, playerId: existing.id, sessionToken, color: existing.color });
           }
         }
-      }
+      } catch {}
+    }
+
+    // Fresh join — only allowed during LOBBY
+    if (snapshot.value !== 'LOBBY') {
       return ack({ ok: false, error: 'Game already in progress' });
     }
 
@@ -116,14 +121,18 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     const ctx = entry.actor.getSnapshot().context;
     if (ctx.hostId !== playerId) return; // not the host
+    if (ctx.players.filter((p) => p.isConnected).length < 3) return; // guard
 
     entry.actor.send({ type: 'HOST_START' });
 
-    // Start question submission timer
-    setRoomTimer(io, roomCode, 'question-sub', TIMER.QUESTION_SUBMISSION, () => {
-      entry.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-      checkAndAssignQuestions(io, roomCode);
-    });
+    // Only set timer if the transition succeeded
+    if (entry.actor.getSnapshot().value === 'QUESTION_SUBMISSION') {
+      setRoomTimer(io, roomCode, 'question-sub', TIMER.QUESTION_SUBMISSION, () => {
+        const e = getRoom(roomCode);
+        if (e) e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+        checkAndAssignQuestions(io, roomCode);
+      });
+    }
   });
 
   // ── Submit questions ─────────────────────────────────────────────────────
