@@ -13,19 +13,19 @@ export type GamePhase =
   | 'REVEAL_PHASE'
   | 'SCORE_PHASE'
   | 'FINAL_AWARDS'
-  | 'GAME_OVER';
+  | 'GAME_OVER ';
 
 // ── Player colours (palette of 8) ─────────────────────────────────────────
 
 export const PLAYER_COLORS = [
   { name: 'electric-purple', hex: '#8B5CF6' },
-  { name: 'hot-coral',       hex: '#FF6B6B' },
-  { name: 'neon-teal',       hex: '#0DD3C5' },
-  { name: 'golden-yellow',   hex: '#F59E0B' },
-  { name: 'sky-blue',        hex: '#38BDF8' },
-  { name: 'lime-green',      hex: '#84CC16' },
-  { name: 'flamingo-pink',   hex: '#EC4899' },
-  { name: 'warm-orange',     hex: '#F97316' },
+  { name: 'hot-coral', hex: '#FF6B6B' },
+  { name: 'neon-teal', hex: '#0DD3C5' },
+  { name: 'golden-yellow', hex: '#F59E0B' },
+  { name: 'sky-blue', hex: '#38BDF8' },
+  { name: 'lime-green', hex: '#84CC16' },
+  { name: 'flamingo-pink', hex: '#EC4899' },
+  { name: 'warm-orange', hex: '#F97316' },
 ] as const;
 
 export type PlayerColor = (typeof PLAYER_COLORS)[number];
@@ -122,19 +122,19 @@ export interface GameContext {
 // ── XState machine events ──────────────────────────────────────────────────
 
 export type GameEvent =
-  | { type: 'PLAYER_JOIN';          name: string;         socketId: string; sessionToken: string }
-  | { type: 'PLAYER_RECONNECT';     socketId: string;     sessionToken: string; newSocketId: string }
-  | { type: 'PLAYER_LEAVE';         socketId: string }
+  | { type: 'PLAYER_JOIN'; name: string; socketId: string; sessionToken: string }
+  | { type: 'PLAYER_RECONNECT'; socketId: string; sessionToken: string; newSocketId: string }
+  | { type: 'PLAYER_LEAVE'; socketId: string }
   | { type: 'HOST_START' }
-  | { type: 'SUBMIT_QUESTIONS';     playerId: string;     questions: string[] }
+  | { type: 'SUBMIT_QUESTIONS'; playerId: string; questions: string[] }
   | { type: 'ALL_QUESTIONS_SUBMITTED' }
-  | { type: 'SUBMIT_ANSWER';        playerId: string;     assignmentId: string; answer: string; skipped?: boolean; elapsedMs?: number }
+  | { type: 'SUBMIT_ANSWER'; playerId: string; assignmentId: string; answer: string; skipped?: boolean; elapsedMs?: number }
   | { type: 'SLOT_TIMER_EXPIRED' }
   | { type: 'ALL_SLOT_ANSWERS_IN' }
-  | { type: 'SUBMIT_GUESS';         playerId: string;     text: string }
+  | { type: 'SUBMIT_GUESS'; playerId: string; text: string }
   | { type: 'GUESS_TIMER_EXPIRED' }
   | { type: 'ALL_GUESSES_IN' }
-  | { type: 'MARK_GUESS';           guessId: string;      isCorrect: boolean }
+  | { type: 'MARK_GUESS'; guessId: string; isCorrect: boolean }
   | { type: 'ALL_GUESSES_MARKED' }
   | { type: 'ADVANCE_REVEAL' }
   | { type: 'NEXT_TURN' }
@@ -187,31 +187,31 @@ export interface PhoneState {
 }
 
 export type PhoneAction =
-  | { type: 'WAIT';              message: string }
-  | { type: 'SUBMIT_QUESTIONS';  examples: string[] }
-  | { type: 'ANSWER_QUESTION';   assignmentId: string; questionText: string; slotIndex: number; totalSlots: number; canSkip: boolean }
-  | { type: 'SUBMIT_GUESS';      subjectName: string; subjectColor: PlayerColor; questionText: string }
-  | { type: 'MARK_GUESSES';      guesses: Array<{ id: string; guesserName: string; guesserColor: PlayerColor; text: string }> }
-  | { type: 'VIEW_RESULTS';      scores: ScoreEntry[]; awards?: AwardResult[] };
+  | { type: 'WAIT'; message: string }
+  | { type: 'SUBMIT_QUESTIONS'; examples: string[] }
+  | { type: 'ANSWER_QUESTION'; assignmentId: string; questionText: string; slotIndex: number; totalSlots: number; canSkip: boolean }
+  | { type: 'SUBMIT_GUESS'; subjectName: string; subjectColor: PlayerColor; questionText: string }
+  | { type: 'MARK_GUESSES'; guesses: Array<{ id: string; guesserName: string; guesserColor: PlayerColor; text: string }> }
+  | { type: 'VIEW_RESULTS'; scores: ScoreEntry[]; awards?: AwardResult[] };
 
 // ── Socket event name constants ────────────────────────────────────────────
 
 export const SOCKET_EVENTS = {
   // client → server
-  JOIN:             'join',
-  HOST_START:       'host:start',
+  JOIN: 'join',
+  HOST_START: 'host:start',
   SUBMIT_QUESTIONS: 'submit:questions',
-  SUBMIT_ANSWER:    'submit:answer',
-  SUBMIT_GUESS:     'submit:guess',
-  MARK_GUESS:       'mark:guess',
-  RECONNECT_TOKEN:  'reconnect:token',
-  PLAY_AGAIN:       'play:again',
+  SUBMIT_ANSWER: 'submit:answer',
+  SUBMIT_GUESS: 'submit:guess',
+  MARK_GUESS: 'mark:guess',
+  RECONNECT_TOKEN: 'reconnect:token',
+  PLAY_AGAIN: 'play:again',
 
   // server → client
-  TV_UPDATE:        'tv:update',
-  PHONE_UPDATE:     'phone:update',
-  ERROR:            'error',
-  KICKED:           'kicked',
+  TV_UPDATE: 'tv:update',
+  PHONE_UPDATE: 'phone:update',
+  ERROR: 'error',
+  KICKED: 'kicked',
 } as const;
 
 // ── Join / Room API types ──────────────────────────────────────────────────
