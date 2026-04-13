@@ -44,26 +44,36 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     // Player role — try reconnect first (works in any phase including LOBBY)
     if (sessionToken) {
+      // ── In-memory reconnect (no Redis needed) ──────────────────────────────
+      // The sessionToken is stored on each Player in the actor context.
+      // Checking here first means reconnect always works within the same
+      // server process, even when Redis is unavailable.
+      const existing = ctx.players.find((p) => p.sessionToken === sessionToken);
+      if (existing) {
+        socket.join(roomCode);
+        socket.join(`player:${socket.id}`);
+        socket.data = { roomCode, playerId: existing.id, role: 'player', sessionToken };
+        entry.actor.send({
+          type: 'PLAYER_RECONNECT',
+          sessionToken,
+          socketId: existing.socketId,
+          newSocketId: socket.id,
+        });
+        console.log('[join] reconnected player=%s name=%s', existing.id, existing.name);
+        sendCurrentState(io, roomCode, socket.id);
+        return ack({ ok: true, playerId: existing.id, sessionToken, color: existing.color });
+      }
+
+      // ── Redis fallback (cross-server / post-restart) ────────────────────────
+      // Only relevant if the room was freshly recreated after a server restart
+      // and the player's data isn't in the new actor context.
       try {
         const session = await resolveSession(sessionToken);
         if (session && session.roomCode === roomCode) {
-          const existing = ctx.players.find((p) => p.sessionToken === sessionToken);
-          if (existing) {
-            socket.join(roomCode);
-            socket.join(`player:${socket.id}`);
-            socket.data = { roomCode, playerId: existing.id, role: 'player', sessionToken };
-            entry.actor.send({
-              type: 'PLAYER_RECONNECT',
-              sessionToken,
-              socketId: existing.socketId,
-              newSocketId: socket.id,
-            });
-            // Push current state immediately
-            sendCurrentState(io, roomCode, socket.id);
-            return ack({ ok: true, playerId: existing.id, sessionToken, color: existing.color });
-          }
+          // Room exists but player not in context — can't reconnect to a
+          // restarted room (state is gone). Fall through to fresh join.
         }
-      } catch {}
+      } catch { /* Redis down — already handled by in-memory path above */ }
     }
 
     // Fresh join — only allowed during LOBBY
