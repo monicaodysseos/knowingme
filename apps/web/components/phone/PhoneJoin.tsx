@@ -12,8 +12,7 @@ interface Props {
 export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
   const [name, setName] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleJoin = () => {
     const trimmed = name.trim().slice(0, 16);
     if (!trimmed) return;
     onJoin(trimmed);
@@ -54,13 +53,14 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
         transition={{ delay: 0.1 }}
         className="mx-5 -mt-6 bg-white rounded-3xl shadow-2xl p-6 flex flex-col gap-4"
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2">
             <span className="font-bold text-gray-700 text-lg">Your name</span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value.slice(0, 16))}
+              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
               placeholder="Enter your name…"
               autoFocus
               autoComplete="off"
@@ -84,10 +84,10 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
             </motion.p>
           )}
 
-          <motion.button
-            type="submit"
+          <button
+            type="button"
             disabled={!name.trim()}
-            whileTap={{ scale: 0.95 }}
+            onClick={handleJoin}
             className="w-full py-5 rounded-2xl font-bold text-xl disabled:opacity-40 transition-all shadow-lg"
             style={{
               background: 'linear-gradient(135deg, #F97316, #FF6B6B)',
@@ -97,8 +97,8 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
             }}
           >
             Join Game 🎮
-          </motion.button>
-        </form>
+          </button>
+        </div>
       </motion.div>
     </div>
   );

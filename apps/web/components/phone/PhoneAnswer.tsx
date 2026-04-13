@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import PhoneCountdown from './PhoneCountdown';
 
 interface Props {
@@ -31,8 +30,7 @@ export default function PhoneAnswer({
     setSubmitted(false);
   }, [assignmentId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!answer.trim() || submitted) return;
     setSubmitted(true);
     onSubmit(assignmentId, answer.trim());
@@ -44,9 +42,19 @@ export default function PhoneAnswer({
     onSubmit(assignmentId, '', true);
   };
 
+  if (submitted) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
+        <div className="text-5xl">✅</div>
+        <p className="font-bold text-gray-800 text-xl">Answer locked in!</p>
+        <p className="text-gray-500">Waiting for others…</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-5">
-      {/* Progress dots */}
+    <div className="flex flex-col gap-4">
+      {/* Progress + timer row */}
       <div className="flex items-center justify-between">
         <span className="font-bold text-gray-500 text-base">
           Question {slotIndex + 1} of {totalSlots}
@@ -69,64 +77,52 @@ export default function PhoneAnswer({
         </div>
       </div>
 
-      {/* Timer */}
       <PhoneCountdown timerEnd={timerEnd} totalSeconds={45} />
 
       {/* Question card */}
-      <motion.div
-        key={questionText}
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring' }}
+      <div
         className="bg-white rounded-2xl shadow-lg p-5"
         style={{ borderLeft: '5px solid #F97316' }}
       >
         <p className="text-2xl font-bold text-gray-900 leading-snug">{questionText}</p>
-      </motion.div>
+      </div>
 
-      {/* Answer form */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <textarea
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value.slice(0, 120))}
-          placeholder="Your answer…"
-          rows={3}
-          disabled={submitted}
-          autoFocus
-          className="w-full rounded-2xl px-4 py-4 font-semibold text-gray-900 placeholder-gray-300 outline-none border-2 resize-none transition-all disabled:opacity-50 bg-white shadow-sm"
-          style={{
-            borderColor: answer ? '#F97316' : '#FFD23F',
-            fontSize: 16,
-          }}
-        />
+      {/* Answer input */}
+      <textarea
+        key={assignmentId}
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value.slice(0, 120))}
+        placeholder="Your answer…"
+        rows={3}
+        autoFocus
+        className="w-full rounded-2xl px-4 py-4 font-semibold text-gray-900 placeholder-gray-300 outline-none border-2 resize-none bg-white shadow-sm"
+        style={{ borderColor: answer ? '#F97316' : '#FFD23F', fontSize: 16 }}
+      />
 
-        <motion.button
-          type="submit"
-          disabled={!answer.trim() || submitted}
-          whileTap={{ scale: 0.95 }}
-          className="w-full py-5 rounded-2xl font-bold text-xl text-white disabled:opacity-30 shadow-lg"
-          style={{
-            background: answer.trim() && !submitted
-              ? 'linear-gradient(135deg, #F97316, #FFD23F)'
-              : '#d1d5db',
-            minHeight: 60,
-            fontSize: 20,
-          }}
+      <button
+        type="button"
+        disabled={!answer.trim()}
+        onClick={handleSubmit}
+        className="w-full py-5 rounded-2xl font-bold text-xl text-white shadow-lg disabled:opacity-30"
+        style={{
+          background: answer.trim()
+            ? 'linear-gradient(135deg, #F97316, #FFD23F)'
+            : '#d1d5db',
+          fontSize: 20,
+        }}
+      >
+        Submit Answer
+      </button>
+
+      {canSkip && (
+        <button
+          type="button"
+          onClick={handleSkip}
+          className="w-full py-3 rounded-2xl font-bold text-base text-gray-500 bg-white border border-gray-200 shadow-sm"
         >
-          {submitted ? '✅ Submitted!' : 'Submit Answer'}
-        </motion.button>
-
-        {canSkip && !submitted && (
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="w-full py-3 rounded-2xl font-bold text-base text-gray-500 bg-white border border-gray-200 shadow-sm transition-all"
-            style={{ minHeight: 48 }}
-          >
-            Skip this one (1 skip allowed)
-          </button>
-        )}
-      </form>
+          Skip this one (1 skip allowed)
+        </button>
+      )}
     </div>
   );
 }
