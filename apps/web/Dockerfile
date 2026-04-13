@@ -4,31 +4,30 @@ WORKDIR /app
 # ── Install dependencies ────────────────────────────────────────────────────
 FROM base AS deps
 COPY package.json package-lock.json turbo.json ./
-COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
 COPY packages/types/package.json ./packages/types/
 RUN npm ci
 
 # ── Build ───────────────────────────────────────────────────────────────────
-# esbuild bundles @ksero-se/types source inline (--alias), so there is no
-# runtime dependency on the workspace symlink or any compiled types package.
 FROM deps AS builder
 COPY packages/types ./packages/types
-COPY apps/server ./apps/server
-RUN npm run build --workspace=@ksero-se/server
+COPY apps/web ./apps/web
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build --workspace=@ksero-se/web
 
 # ── Runtime ─────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 
-# node_modules for express, socket.io, xstate, etc. (all kept external by esbuild)
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/packages/types ./packages/types
 
-# Single bundled file — @ksero-se/types is inlined, no workspace symlink needed
-COPY --from=builder /app/apps/server/dist ./dist
-COPY --from=builder /app/apps/server/package.json ./package.json
+WORKDIR /app/apps/web
 
-EXPOSE 3001
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s \
-  CMD wget -qO- http://localhost:${PORT:-3001}/health || exit 1
-CMD ["node", "dist/index.js"]
+EXPOSE 3000
+CMD ["../../node_modules/.bin/next", "start"]

@@ -1,0 +1,10 @@
+# Never copy local node_modules or build artifacts into the Docker build context.
+# The Dockerfile runs `npm ci` inside the container to install Alpine-compatible binaries.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.log
+.git
+.env*

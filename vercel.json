@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npm run build --workspace=@ksero-se/web",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "installCommand": "npm ci"
+}
