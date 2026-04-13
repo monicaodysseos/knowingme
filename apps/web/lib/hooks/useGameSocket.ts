@@ -6,7 +6,7 @@ import type { TVState, PhoneState, JoinPayload, JoinAck } from '@ksero-se/types'
 
 // ── TV hook ────────────────────────────────────────────────────────────────
 
-export function useTVSocket(roomCode: string) {
+export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
   const [state, setState] = useState<TVState | null>(null);
   const [connected, setConnected] = useState(false);
 
@@ -18,10 +18,9 @@ export function useTVSocket(roomCode: string) {
       const payload: JoinPayload = { roomCode, name: '', role: 'tv' };
       socket.emit('join', payload, (ack: JoinAck) => {
         if (!ack.ok) {
-          // Room was lost (server restarted) — clear cached code and reload
-          // so the TV creates a fresh room with a new code.
-          try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
-          window.location.reload();
+          // Room was lost (e.g. server restarted). Tell the parent so it can
+          // create a fresh room — no page reload needed.
+          onRoomExpired?.();
         }
       });
     };

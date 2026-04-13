@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../lib/hooks/useGameSocket';
+import { disconnectSocket } from '../lib/socket';
 import TVLobby from '../components/tv/TVLobby';
 import TVQuestionSubmission from '../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../components/tv/TVAnswerPhase';
@@ -13,15 +14,39 @@ import TVFinalAwards from '../components/tv/TVFinalAwards';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
-// ── Home page — TV screen ──────────────────────────────────────────────────
-// The host opens this on a shared screen. A room is created on load.
+function createRoom(): Promise<string> {
+  return fetch(`${SERVER_URL}/api/rooms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'social' }),
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      const code: string = data.roomCode;
+      try { sessionStorage.setItem('ksero-tv-room', code); } catch {}
+      return code;
+    });
+}
 
 export default function Home() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Create a room on mount
+  // Called when socket reconnects and finds the room gone (server restarted).
+  // Creates a new room in-place — no page reload, no disruption.
+  const handleRoomExpired = useCallback(() => {
+    disconnectSocket(); // close the old socket so we get a fresh connection
+    try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
+    setRoomCode(null);
+    setLoading(true);
+    createRoom()
+      .then((code) => { setRoomCode(code); setLoading(false); })
+      .catch(() => { setError('Server unreachable. Retrying…'); setLoading(false); });
+  }, []);
+
+  // Initial room setup — reuse sessionStorage code if valid,
+  // otherwise create a fresh room via the API.
   useEffect(() => {
     const stored = sessionStorage.getItem('ksero-tv-room');
     if (stored) {
@@ -29,23 +54,9 @@ export default function Home() {
       setLoading(false);
       return;
     }
-
-    fetch(`${SERVER_URL}/api/rooms`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'social' }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        const code: string = data.roomCode;
-        sessionStorage.setItem('ksero-tv-room', code);
-        setRoomCode(code);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Could not connect to server. Is the server running?');
-        setLoading(false);
-      });
+    createRoom()
+      .then((code) => { setRoomCode(code); setLoading(false); })
+      .catch(() => { setError('Could not connect to server.'); setLoading(false); });
   }, []);
 
   if (loading) {
@@ -67,7 +78,7 @@ export default function Home() {
         <div className="text-center">
           <p className="text-red-400 font-bold text-2xl mb-4">{error ?? 'Unknown error'}</p>
           <button
-            onClick={() => { sessionStorage.clear(); window.location.reload(); }}
+            onClick={() => { setError(null); setLoading(true); createRoom().then(c => { setRoomCode(c); setLoading(false); }).catch(() => setError('Still unreachable.')); }}
             className="px-6 py-3 rounded-xl font-bold text-white"
             style={{ background: '#F97316' }}
           >
@@ -78,11 +89,11 @@ export default function Home() {
     );
   }
 
-  return <TVScreen roomCode={roomCode} />;
+  return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} />;
 }
 
-function TVScreen({ roomCode }: { roomCode: string }) {
-  const { state, connected, hostStart, playAgain } = useTVSocket(roomCode);
+function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
+  const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
 
   if (!state) {
     return (
