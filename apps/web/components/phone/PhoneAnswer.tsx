@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import PhoneCountdown from './PhoneCountdown';
 
@@ -25,6 +25,12 @@ export default function PhoneAnswer({
 }: Props) {
   const [answer, setAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  // Reset state whenever the question changes
+  useEffect(() => {
+    setAnswer('');
+    setSubmitted(false);
+  }, [assignmentId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
