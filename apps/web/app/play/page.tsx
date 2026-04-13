@@ -77,9 +77,9 @@ function PhoneApp() {
             animate={{ rotate: 360 }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
             className="w-10 h-10 rounded-full border-4 border-transparent"
-            style={{ borderTopColor: '#8B5CF6' }}
+            style={{ borderTopColor: '#F97316' }}
           />
-          <p className="text-gray-400 font-bold">Connecting to room {roomCode}…</p>
+          <p className="font-bold text-gray-600">Connecting to room {roomCode}…</p>
         </div>
       </PhoneLayout>
     );

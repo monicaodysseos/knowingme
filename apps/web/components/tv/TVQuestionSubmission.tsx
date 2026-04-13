@@ -23,28 +23,29 @@ export default function TVQuestionSubmission({ state }: Props) {
         className="text-center"
       >
         <div className="text-6xl mb-3">📝</div>
-        <h2 className="font-black text-6xl">Submit Your Questions</h2>
-        <p className="text-2xl text-gray-400 mt-2">
+        <h2 className="font-bold text-white" style={{ fontSize: 64 }}>Submit Your Questions</h2>
+        <p className="text-2xl font-semibold mt-2" style={{ color: '#a78bfa' }}>
           Everyone is entering 2 personal prompts on their phone
         </p>
       </motion.div>
 
-      {/* Progress */}
+      {/* Progress card */}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="flex flex-col items-center gap-4"
+        className="bg-white rounded-3xl shadow-2xl px-12 py-6 flex flex-col items-center gap-4"
+        style={{ minWidth: 400 }}
       >
-        <div className="text-3xl font-black">
-          <span style={{ color: '#0DD3C5' }}>{submitted}</span>
-          <span className="text-gray-500"> / {total} submitted</span>
+        <div className="text-3xl font-bold text-gray-900">
+          <span style={{ color: '#F97316' }}>{submitted}</span>
+          <span className="text-gray-400"> / {total} submitted</span>
         </div>
         {/* Progress bar */}
-        <div className="w-96 h-4 bg-surface rounded-full overflow-hidden border border-border">
+        <div className="w-full h-5 bg-gray-100 rounded-full overflow-hidden">
           <motion.div
             className="h-full rounded-full"
-            style={{ background: 'linear-gradient(90deg, #8B5CF6, #0DD3C5)' }}
+            style={{ background: 'linear-gradient(90deg, #F97316, #FFD23F)' }}
             animate={{ width: `${total > 0 ? (submitted / total) * 100 : 0}%` }}
             transition={{ type: 'spring', stiffness: 100 }}
           />
@@ -59,14 +60,13 @@ export default function TVQuestionSubmission({ state }: Props) {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: i * 0.05, type: 'spring' }}
-            className="flex flex-col items-center gap-2"
+            className="flex flex-col items-center gap-2 bg-white rounded-2xl px-4 py-3 shadow-md relative"
+            style={{ minWidth: 90, borderBottom: `4px solid ${p.color.hex}` }}
           >
-            <div className="relative">
-              <PlayerAvatar name={p.name} color={p.color} size="lg" showName />
-              {p.hasSubmittedQuestions && (
-                <span className="absolute -top-1 -right-1 text-2xl">✅</span>
-              )}
-            </div>
+            <PlayerAvatar name={p.name} color={p.color} size="md" />
+            {p.hasSubmittedQuestions && (
+              <span className="absolute -top-2 -right-2 text-xl bg-white rounded-full shadow">✅</span>
+            )}
           </motion.div>
         ))}
       </div>

@@ -18,7 +18,8 @@ export default function TVGuessPhase({ state }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-8 bg-bg px-12">
-      {/* Subject player header */}
+
+      {/* Subject player */}
       <motion.div
         key={subjectPlayer.id}
         initial={{ scale: 0.8, opacity: 0, y: -30 }}
@@ -27,43 +28,37 @@ export default function TVGuessPhase({ state }: Props) {
         className="text-center"
       >
         <PlayerAvatar name={subjectPlayer.name} color={subjectPlayer.color} size="xl" />
-        <h2
-          className="font-black text-5xl mt-4"
-          style={{ color: subjectPlayer.color.hex }}
-        >
+        <h2 className="font-bold mt-4" style={{ fontSize: 52, color: subjectPlayer.color.hex }}>
           {subjectPlayer.name}
         </h2>
-        <p className="text-gray-400 text-xl font-semibold mt-1">answered this question…</p>
+        <p className="text-xl font-semibold mt-1" style={{ color: '#a78bfa' }}>answered this question…</p>
       </motion.div>
 
-      {/* Question card */}
+      {/* Question — white chunky card */}
       <motion.div
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.15, type: 'spring' }}
-        className="w-full max-w-2xl rounded-3xl p-8 text-center"
-        style={{
-          background: `linear-gradient(135deg, ${subjectPlayer.color.hex}22, ${subjectPlayer.color.hex}11)`,
-          border: `2px solid ${subjectPlayer.color.hex}55`,
-          boxShadow: `0 0 60px ${subjectPlayer.color.hex}22`,
-        }}
+        className="w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl px-10 py-8 text-center"
+        style={{ borderLeft: `8px solid ${subjectPlayer.color.hex}` }}
       >
         <div className="text-4xl mb-3">❓</div>
-        <p className="font-bold text-4xl leading-snug text-white">{questionText}</p>
+        <p className="font-bold text-gray-900 leading-snug" style={{ fontSize: 36 }}>{questionText}</p>
       </motion.div>
 
-      {/* Guess count + timer row */}
+      {/* Guess count + timer */}
       <div className="flex items-center gap-10">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-center"
+          className="bg-white rounded-2xl shadow-xl px-8 py-4 text-center"
+          style={{ borderBottom: `4px solid ${subjectPlayer.color.hex}` }}
         >
-          <div className="font-black text-6xl" style={{ color: subjectPlayer.color.hex }}>
+          <div className="font-bold" style={{ fontSize: 56, color: subjectPlayer.color.hex }}>
             {guessCount}
           </div>
-          <div className="text-gray-400 text-xl font-semibold">guesses in</div>
+          <div className="font-semibold text-gray-500 text-lg">guesses in</div>
         </motion.div>
 
         {timerEnd > 0 && (
@@ -72,13 +67,20 @@ export default function TVGuessPhase({ state }: Props) {
       </div>
 
       {/* Guesser avatars */}
-      <div className="flex flex-wrap justify-center gap-5">
+      <div className="flex flex-wrap justify-center gap-4">
         {guessers.map((p) => (
-          <PlayerAvatar key={p.id} name={p.name} color={p.color} size="md" showName />
+          <div
+            key={p.id}
+            className="bg-white rounded-xl shadow px-3 py-2 flex items-center gap-2"
+            style={{ borderLeft: `3px solid ${p.color.hex}` }}
+          >
+            <PlayerAvatar name={p.name} color={p.color} size="sm" />
+            <span className="font-bold text-gray-900 text-sm">{p.name}</span>
+          </div>
         ))}
       </div>
 
-      <p className="text-gray-500 text-xl font-bold">
+      <p className="font-semibold text-xl" style={{ color: '#a78bfa' }}>
         Type your guess on your phone! 📱
       </p>
     </div>

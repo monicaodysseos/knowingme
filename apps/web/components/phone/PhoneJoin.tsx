@@ -20,77 +20,86 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-6 py-10 bg-bg safe-top safe-bottom">
-      {/* Logo */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="text-center"
+    <div
+      className="min-h-screen flex flex-col safe-top safe-bottom"
+      style={{ background: '#FFF5E0' }}
+    >
+      {/* Orange header band */}
+      <div
+        className="px-6 pt-12 pb-10 flex flex-col items-center"
+        style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
       >
-        <h1 className="font-black text-5xl">
-          <span style={{ color: '#8B5CF6' }}>Ksero</span>
-          <span style={{ color: '#0DD3C5' }}>Se</span>
-        </h1>
-        <p className="text-gray-400 font-semibold text-lg mt-1">Joining room</p>
-        <div
-          className="font-black text-4xl tracking-widest mt-1"
-          style={{ color: '#F59E0B', letterSpacing: '0.15em' }}
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="text-center"
         >
-          {roomCode}
-        </div>
-      </motion.div>
+          <h1 className="font-bold leading-none" style={{ fontSize: 56, color: '#fff' }}>
+            Ksero<span style={{ color: '#FFD23F' }}>Se</span>
+          </h1>
+          <p className="text-white/80 font-semibold text-lg mt-1">Joining room</p>
+          <div
+            className="font-bold tracking-[0.2em] mt-1"
+            style={{ fontSize: 52, color: '#FFD23F' }}
+          >
+            {roomCode}
+          </div>
+        </motion.div>
+      </div>
 
-      {/* Form */}
-      <motion.form
-        onSubmit={handleSubmit}
+      {/* Form card */}
+      <motion.div
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="w-full max-w-sm flex flex-col gap-4"
+        className="mx-5 -mt-6 bg-white rounded-3xl shadow-2xl p-6 flex flex-col gap-4"
       >
-        <label className="flex flex-col gap-2">
-          <span className="font-bold text-gray-300 text-lg">Your name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value.slice(0, 16))}
-            placeholder="Enter name…"
-            autoFocus
-            autoComplete="off"
-            maxLength={16}
-            className="w-full rounded-2xl px-5 py-4 text-xl font-bold text-white placeholder-gray-600 outline-none border-2 transition-all"
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-2">
+            <span className="font-bold text-gray-700 text-lg">Your name</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value.slice(0, 16))}
+              placeholder="Enter your name…"
+              autoFocus
+              autoComplete="off"
+              maxLength={16}
+              className="w-full rounded-2xl px-5 py-4 text-xl font-bold text-gray-900 placeholder-gray-300 outline-none border-2 transition-all"
+              style={{
+                background: '#FFF5E0',
+                borderColor: name ? '#F97316' : '#FFD23F',
+              }}
+            />
+            <span className="text-right text-gray-400 text-sm">{name.length}/16</span>
+          </label>
+
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-red-500 font-semibold text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+
+          <motion.button
+            type="submit"
+            disabled={!name.trim()}
+            whileTap={{ scale: 0.95 }}
+            className="w-full py-5 rounded-2xl font-bold text-xl disabled:opacity-40 transition-all shadow-lg"
             style={{
-              background: '#13132a',
-              borderColor: name ? '#8B5CF6' : '#1e1e3a',
-              minHeight: 56,
+              background: 'linear-gradient(135deg, #F97316, #FF6B6B)',
+              color: '#fff',
+              minHeight: 60,
+              fontSize: 22,
             }}
-          />
-          <span className="text-right text-gray-500 text-sm">{name.length}/16</span>
-        </label>
-
-        {error && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-red-400 font-semibold text-center"
           >
-            {error}
-          </motion.p>
-        )}
-
-        <motion.button
-          type="submit"
-          disabled={!name.trim()}
-          whileTap={{ scale: 0.95 }}
-          className="w-full py-5 rounded-2xl font-black text-xl text-white disabled:opacity-30 transition-all"
-          style={{
-            background: 'linear-gradient(135deg, #8B5CF6, #0DD3C5)',
-            minHeight: 56,
-          }}
-        >
-          Join Game 🎮
-        </motion.button>
-      </motion.form>
+            Join Game 🎮
+          </motion.button>
+        </form>
+      </motion.div>
     </div>
   );
 }

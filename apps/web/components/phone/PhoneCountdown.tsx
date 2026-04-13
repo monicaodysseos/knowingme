@@ -22,11 +22,11 @@ export default function PhoneCountdown({ timerEnd, totalSeconds }: Props) {
 
   const pct = Math.max(0, remaining / totalSeconds);
   const danger = remaining <= 10 && remaining > 0;
-  const colour = remaining > 20 ? '#0DD3C5' : remaining > 10 ? '#F59E0B' : '#ef4444';
+  const colour = remaining > 20 ? '#F97316' : remaining > 10 ? '#FFD23F' : '#ef4444';
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 rounded-full bg-surface overflow-hidden">
+      <div className="flex-1 h-3 rounded-full bg-orange-100 overflow-hidden">
         <div
           className="h-full rounded-full transition-all"
           style={{

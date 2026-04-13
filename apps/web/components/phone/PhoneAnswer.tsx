@@ -26,7 +26,6 @@ export default function PhoneAnswer({
   const [answer, setAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  // Reset state whenever the question changes
   useEffect(() => {
     setAnswer('');
     setSubmitted(false);
@@ -47,21 +46,23 @@ export default function PhoneAnswer({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Progress */}
+      {/* Progress dots */}
       <div className="flex items-center justify-between">
-        <span className="text-gray-400 font-bold text-base">
+        <span className="font-bold text-gray-500 text-base">
           Question {slotIndex + 1} of {totalSlots}
         </span>
-        {/* Dots */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {Array.from({ length: totalSlots }).map((_, i) => (
             <div
               key={i}
               className="rounded-full transition-all"
               style={{
-                width: 8,
-                height: 8,
-                background: i < slotIndex ? '#8B5CF6' : i === slotIndex ? '#0DD3C5' : '#1e1e3a',
+                width: 10,
+                height: 10,
+                background:
+                  i < slotIndex ? '#F97316'
+                  : i === slotIndex ? '#FFD23F'
+                  : '#e5e7eb',
               }}
             />
           ))}
@@ -71,16 +72,16 @@ export default function PhoneAnswer({
       {/* Timer */}
       <PhoneCountdown timerEnd={timerEnd} totalSeconds={45} />
 
-      {/* Question */}
+      {/* Question card */}
       <motion.div
         key={questionText}
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring' }}
-        className="rounded-2xl p-5"
-        style={{ background: '#13132a', border: '1px solid #1e1e3a' }}
+        className="bg-white rounded-2xl shadow-lg p-5"
+        style={{ borderLeft: '5px solid #F97316' }}
       >
-        <p className="text-2xl font-bold text-white leading-snug">{questionText}</p>
+        <p className="text-2xl font-bold text-gray-900 leading-snug">{questionText}</p>
       </motion.div>
 
       {/* Answer form */}
@@ -92,10 +93,9 @@ export default function PhoneAnswer({
           rows={3}
           disabled={submitted}
           autoFocus
-          className="w-full rounded-2xl px-4 py-4 font-semibold text-white placeholder-gray-600 outline-none border-2 resize-none transition-all disabled:opacity-50"
+          className="w-full rounded-2xl px-4 py-4 font-semibold text-gray-900 placeholder-gray-300 outline-none border-2 resize-none transition-all disabled:opacity-50 bg-white shadow-sm"
           style={{
-            background: '#13132a',
-            borderColor: answer ? '#0DD3C5' : '#1e1e3a',
+            borderColor: answer ? '#F97316' : '#FFD23F',
             fontSize: 16,
           }}
         />
@@ -104,12 +104,13 @@ export default function PhoneAnswer({
           type="submit"
           disabled={!answer.trim() || submitted}
           whileTap={{ scale: 0.95 }}
-          className="w-full py-5 rounded-2xl font-black text-xl text-white disabled:opacity-30"
+          className="w-full py-5 rounded-2xl font-bold text-xl text-white disabled:opacity-30 shadow-lg"
           style={{
-            background: answer.trim()
-              ? 'linear-gradient(135deg, #0DD3C5, #38BDF8)'
-              : '#1e1e3a',
-            minHeight: 56,
+            background: answer.trim() && !submitted
+              ? 'linear-gradient(135deg, #F97316, #FFD23F)'
+              : '#d1d5db',
+            minHeight: 60,
+            fontSize: 20,
           }}
         >
           {submitted ? '✅ Submitted!' : 'Submit Answer'}
@@ -119,8 +120,8 @@ export default function PhoneAnswer({
           <button
             type="button"
             onClick={handleSkip}
-            className="w-full py-3 rounded-2xl font-bold text-base text-gray-400 transition-all"
-            style={{ background: '#13132a', border: '1px solid #1e1e3a', minHeight: 48 }}
+            className="w-full py-3 rounded-2xl font-bold text-base text-gray-500 bg-white border border-gray-200 shadow-sm transition-all"
+            style={{ minHeight: 48 }}
           >
             Skip this one (1 skip allowed)
           </button>

@@ -11,14 +11,12 @@ const DOTS = ['●', '●', '●'];
 export default function PhoneWaiting({ message }: Props) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center">
-      {/* Animated dots */}
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         {DOTS.map((d, i) => (
           <motion.span
             key={i}
-            className="text-3xl"
-            style={{ color: '#8B5CF6' }}
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.1, 0.8] }}
+            style={{ color: '#F97316', fontSize: 28 }}
+            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }}
             transition={{
               duration: 1.5,
               repeat: Infinity,
@@ -30,7 +28,7 @@ export default function PhoneWaiting({ message }: Props) {
           </motion.span>
         ))}
       </div>
-      <p className="text-gray-300 font-bold text-xl max-w-xs leading-relaxed">{message}</p>
+      <p className="font-bold text-gray-700 text-xl max-w-xs leading-relaxed">{message}</p>
     </div>
   );
 }

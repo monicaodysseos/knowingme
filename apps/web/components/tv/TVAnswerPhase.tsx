@@ -10,8 +10,7 @@ interface Props {
 }
 
 export default function TVAnswerPhase({ state }: Props) {
-  const { players, timerEnd, submissionProgress } = state;
-  const slot = (submissionProgress?.submitted ?? 0);
+  const { players, timerEnd } = state;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-10 bg-bg px-12">
@@ -21,8 +20,8 @@ export default function TVAnswerPhase({ state }: Props) {
         className="text-center"
       >
         <div className="text-6xl mb-3">🤔</div>
-        <h2 className="font-black text-6xl">Answer Time!</h2>
-        <p className="text-2xl text-gray-400 mt-2">
+        <h2 className="font-bold text-white" style={{ fontSize: 64 }}>Answer Time!</h2>
+        <p className="text-2xl font-semibold mt-2" style={{ color: '#a78bfa' }}>
           Everyone is answering their secret questions on their phones
         </p>
       </motion.div>
@@ -32,27 +31,27 @@ export default function TVAnswerPhase({ state }: Props) {
         <CountdownRing timerEnd={timerEnd} totalSeconds={45} size={140} strokeWidth={10} />
       )}
 
-      {/* Players */}
-      <div className="flex flex-wrap justify-center gap-8 max-w-4xl">
+      {/* Players as white cards */}
+      <div className="flex flex-wrap justify-center gap-5 max-w-4xl">
         {players.map((p, i) => (
           <motion.div
             key={p.id}
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: i * 0.06, type: 'spring' }}
+            className="bg-white rounded-2xl px-5 py-4 shadow-lg flex flex-col items-center gap-2"
+            style={{
+              opacity: p.isConnected ? 1 : 0.4,
+              borderBottom: `4px solid ${p.color.hex}`,
+            }}
           >
-            <PlayerAvatar
-              name={p.name}
-              color={p.color}
-              size="lg"
-              showName
-              isConnected={p.isConnected}
-            />
+            <PlayerAvatar name={p.name} color={p.color} size="md" isConnected={p.isConnected} />
+            <span className="font-bold text-gray-900 text-base truncate max-w-[80px]">{p.name}</span>
           </motion.div>
         ))}
       </div>
 
-      <p className="text-gray-500 text-xl font-semibold">
+      <p className="font-semibold text-xl" style={{ color: '#a78bfa' }}>
         Thinking deeply… 💭
       </p>
     </div>

@@ -55,7 +55,7 @@ export default function Home() {
           animate={{ rotate: 360 }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
           className="w-16 h-16 rounded-full border-4 border-transparent"
-          style={{ borderTopColor: '#8B5CF6' }}
+          style={{ borderTopColor: '#F97316' }}
         />
       </div>
     );
@@ -69,7 +69,7 @@ export default function Home() {
           <button
             onClick={() => { sessionStorage.clear(); window.location.reload(); }}
             className="px-6 py-3 rounded-xl font-bold text-white"
-            style={{ background: '#8B5CF6' }}
+            style={{ background: '#F97316' }}
           >
             Retry
           </button>
@@ -91,7 +91,7 @@ function TVScreen({ roomCode }: { roomCode: string }) {
           animate={{ rotate: 360 }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
           className="w-12 h-12 rounded-full border-4 border-transparent"
-          style={{ borderTopColor: '#8B5CF6' }}
+          style={{ borderTopColor: '#F97316' }}
         />
         <p className="text-gray-400 font-bold">Connecting…</p>
       </div>

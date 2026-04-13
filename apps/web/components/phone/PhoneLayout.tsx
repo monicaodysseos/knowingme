@@ -7,14 +7,17 @@ interface Props {
   accent?: string;
 }
 
-export default function PhoneLayout({ children, accent = '#8B5CF6' }: Props) {
+export default function PhoneLayout({ children, accent = '#F97316' }: Props) {
   return (
     <div
       className="min-h-screen flex flex-col safe-top safe-bottom safe-left safe-right"
-      style={{ background: '#0d0d1a' }}
+      style={{ background: '#FFF5E0' }}
     >
-      {/* Top accent bar */}
-      <div className="h-1 w-full flex-shrink-0" style={{ background: accent }} />
+      {/* Top accent bar — thicker and more vivid */}
+      <div
+        className="h-2 w-full flex-shrink-0"
+        style={{ background: `linear-gradient(90deg, ${accent}, #FFD23F)` }}
+      />
       <div className="flex-1 flex flex-col px-5 py-4">{children}</div>
     </div>
   );

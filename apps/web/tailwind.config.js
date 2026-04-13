@@ -4,20 +4,30 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['Nunito', 'sans-serif'],
+        display: ['Fredoka', 'Nunito', 'sans-serif'],
       },
       colors: {
-        bg: '#0d0d1a',
-        surface: '#13132a',
-        border: '#1e1e3a',
-        'electric-purple': '#8B5CF6',
+        bg: '#0d0818',
+        surface: '#180e2a',
+        border: '#2a1850',
+        // Warm primary palette
+        'orange': '#F97316',
+        'orange-dark': '#C2410C',
+        'yellow': '#FFD23F',
+        'yellow-dark': '#D97706',
+        'coral': '#FF6B6B',
+        // Status
         'hot-coral': '#FF6B6B',
+        'lime-green': '#84CC16',
+        // Player accent colours (kept for player chips)
+        'electric-purple': '#8B5CF6',
         'neon-teal': '#0DD3C5',
         'golden-yellow': '#F59E0B',
         'sky-blue': '#38BDF8',
-        'lime-green': '#84CC16',
         'flamingo-pink': '#EC4899',
         'warm-orange': '#F97316',
+        // Phone warm background
+        'phone-bg': '#FFF5E0',
       },
       animation: {
         'pulse-slow': 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite',

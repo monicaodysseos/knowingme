@@ -20,7 +20,7 @@ export default function PhoneMarkGuesses({ guesses, onMark }: Props) {
   const [marked, setMarked] = useState<Record<string, boolean>>({});
 
   const mark = (guessId: string, correct: boolean) => {
-    if (marked[guessId] !== undefined) return; // can't change
+    if (marked[guessId] !== undefined) return;
     setMarked((prev) => ({ ...prev, [guessId]: correct }));
     onMark(guessId, correct);
     try { navigator.vibrate?.(correct ? [20, 30, 20] : 30); } catch {}
@@ -36,10 +36,8 @@ export default function PhoneMarkGuesses({ guesses, onMark }: Props) {
         className="text-center"
       >
         <div className="text-4xl mb-1">🎯</div>
-        <h2 className="font-black text-2xl text-white">Judge the Guesses</h2>
-        <p className="text-gray-400 text-sm mt-1">
-          Did they get your answer right?
-        </p>
+        <h2 className="font-bold text-gray-900" style={{ fontSize: 26 }}>Judge the Guesses</h2>
+        <p className="text-gray-500 text-sm mt-1">Did they get your answer right?</p>
       </motion.div>
 
       <div className="flex flex-col gap-3">
@@ -52,22 +50,22 @@ export default function PhoneMarkGuesses({ guesses, onMark }: Props) {
                 initial={{ x: 30, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: i * 0.06 }}
-                className="rounded-2xl p-4 flex flex-col gap-3"
+                className="rounded-2xl p-4 flex flex-col gap-3 shadow-md"
                 style={{
                   background:
-                    decision === true
-                      ? '#16a34a22'
-                      : decision === false
-                      ? '#dc262622'
-                      : '#13132a',
-                  border: `1px solid ${
-                    decision === true ? '#16a34a77' : decision === false ? '#dc262677' : '#1e1e3a'
+                    decision === true ? '#f0fdf4'
+                    : decision === false ? '#fef2f2'
+                    : '#ffffff',
+                  border: `2px solid ${
+                    decision === true ? '#16a34a'
+                    : decision === false ? '#dc2626'
+                    : '#e5e7eb'
                   }`,
                 }}
               >
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm"
+                    className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white"
                     style={{ background: g.guesserColor.hex }}
                   >
                     {g.guesserName.charAt(0).toUpperCase()}
@@ -79,21 +77,21 @@ export default function PhoneMarkGuesses({ guesses, onMark }: Props) {
                     <span className="ml-auto text-xl">{decision ? '🎯' : '❌'}</span>
                   )}
                 </div>
-                <p className="font-semibold text-lg text-white">&ldquo;{g.text}&rdquo;</p>
+                <p className="font-bold text-lg text-gray-900">&ldquo;{g.text}&rdquo;</p>
 
                 {decision === undefined && (
                   <div className="flex gap-2 mt-1">
                     <button
                       onClick={() => mark(g.id, true)}
-                      className="flex-1 py-3 rounded-xl font-black text-base text-white"
-                      style={{ background: '#16a34a', minHeight: 48 }}
+                      className="flex-1 py-3 rounded-xl font-bold text-base text-white shadow"
+                      style={{ background: '#16a34a', minHeight: 52 }}
                     >
                       Got it 🎯
                     </button>
                     <button
                       onClick={() => mark(g.id, false)}
-                      className="flex-1 py-3 rounded-xl font-black text-base text-white"
-                      style={{ background: '#dc2626', minHeight: 48 }}
+                      className="flex-1 py-3 rounded-xl font-bold text-base text-white shadow"
+                      style={{ background: '#dc2626', minHeight: 52 }}
                     >
                       Nope ❌
                     </button>
@@ -106,13 +104,15 @@ export default function PhoneMarkGuesses({ guesses, onMark }: Props) {
       </div>
 
       {allMarked && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center text-gray-400 font-bold text-base pt-2"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center bg-white rounded-2xl shadow px-4 py-3"
         >
-          All judged! Waiting for reveal… 📺
-        </motion.p>
+          <p className="font-bold text-gray-700 text-base">
+            All judged! Waiting for reveal… 📺
+          </p>
+        </motion.div>
       )}
     </div>
   );

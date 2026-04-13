@@ -36,36 +36,30 @@ export default function PhoneGuess({
       <motion.div
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="text-center"
+        className="bg-white rounded-2xl shadow-lg px-5 py-4 flex items-center gap-4"
+        style={{ borderLeft: `6px solid ${subjectColor.hex}` }}
       >
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center font-black text-3xl mx-auto mb-2"
+          className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-2xl text-white flex-shrink-0"
           style={{
             background: `radial-gradient(circle at 35% 35%, ${subjectColor.hex}ee, ${subjectColor.hex}88)`,
-            boxShadow: `0 0 24px ${subjectColor.hex}44`,
           }}
         >
           {subjectName.charAt(0).toUpperCase()}
         </div>
-        <p className="text-gray-400 font-bold text-base">How did</p>
-        <p className="font-black text-3xl" style={{ color: subjectColor.hex }}>
-          {subjectName}
-        </p>
-        <p className="text-gray-400 font-bold text-base">answer this?</p>
+        <div>
+          <p className="text-gray-500 font-semibold text-sm">How did</p>
+          <p className="font-bold text-xl" style={{ color: subjectColor.hex }}>{subjectName}</p>
+          <p className="text-gray-500 font-semibold text-sm">answer this?</p>
+        </div>
       </motion.div>
 
       {/* Timer */}
       <PhoneCountdown timerEnd={timerEnd} totalSeconds={60} />
 
-      {/* Question */}
-      <div
-        className="rounded-2xl p-5"
-        style={{
-          background: `${subjectColor.hex}18`,
-          border: `1px solid ${subjectColor.hex}44`,
-        }}
-      >
-        <p className="text-xl font-bold text-white leading-snug">{questionText}</p>
+      {/* Question card */}
+      <div className="bg-white rounded-2xl shadow-lg p-5">
+        <p className="text-xl font-bold text-gray-900 leading-snug">{questionText}</p>
       </div>
 
       {/* Guess input */}
@@ -77,10 +71,9 @@ export default function PhoneGuess({
           rows={3}
           disabled={submitted}
           autoFocus
-          className="w-full rounded-2xl px-4 py-4 font-semibold text-white placeholder-gray-600 outline-none border-2 resize-none disabled:opacity-50"
+          className="w-full rounded-2xl px-4 py-4 font-semibold text-gray-900 placeholder-gray-300 outline-none border-2 resize-none disabled:opacity-50 bg-white shadow-sm"
           style={{
-            background: '#13132a',
-            borderColor: guess ? subjectColor.hex : '#1e1e3a',
+            borderColor: guess ? subjectColor.hex : '#FFD23F',
             fontSize: 16,
           }}
         />
@@ -89,10 +82,13 @@ export default function PhoneGuess({
           type="submit"
           disabled={!guess.trim() || submitted}
           whileTap={{ scale: 0.95 }}
-          className="w-full py-5 rounded-2xl font-black text-xl text-white disabled:opacity-30"
+          className="w-full py-5 rounded-2xl font-bold text-xl text-white disabled:opacity-30 shadow-lg"
           style={{
-            background: submitted ? '#1e1e3a' : `linear-gradient(135deg, ${subjectColor.hex}, ${subjectColor.hex}aa)`,
-            minHeight: 56,
+            background: submitted
+              ? '#d1d5db'
+              : `linear-gradient(135deg, ${subjectColor.hex}, ${subjectColor.hex}cc)`,
+            minHeight: 60,
+            fontSize: 20,
           }}
         >
           {submitted ? '✅ Guess Locked In!' : '🤔 Submit Guess'}
