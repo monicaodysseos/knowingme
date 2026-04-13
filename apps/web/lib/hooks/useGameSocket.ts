@@ -79,6 +79,8 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
   // changes, because the token is read from the ref at call time.
   const doJoin = useCallback((socket: ReturnType<typeof connectSocket>) => {
     if (joinedRef.current) return;
+    // Don't attempt a join with an empty name — wait for the user to type one.
+    if (!name.trim()) return;
     joinedRef.current = true;
 
     const payload: JoinPayload = {

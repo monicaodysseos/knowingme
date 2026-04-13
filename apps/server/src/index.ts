@@ -11,8 +11,9 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[FATAL] Unhandled rejection:', reason);
-  process.exit(1);
+  // Log but do NOT exit — an unhandled rejection (e.g. Redis hiccup) should
+  // not take down the whole server and kill every in-progress game.
+  console.error('[WARN] Unhandled rejection (server continues):', reason);
 });
 
 const app = express();

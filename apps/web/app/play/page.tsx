@@ -14,22 +14,49 @@ import PhoneMarkGuesses from '../../components/phone/PhoneMarkGuesses';
 import PhoneResults from '../../components/phone/PhoneResults';
 import PhoneLayout from '../../components/phone/PhoneLayout';
 
-function PhoneApp() {
-  const searchParams = useSearchParams();
-  const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, 4);
+// ── Pre-join screen ───────────────────────────────────────────────────────────
+// Shown before we have a name or session token. No socket is created here.
 
-  const [joinName, setJoinName] = useState<string | null>(null);
-  // Read localStorage only after mount to avoid server/client hydration mismatch
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+interface PreJoinProps {
+  roomCode: string;
+  onReady: (name: string, sessionToken: string | null) => void;
+}
 
+function PreJoin({ roomCode, onReady }: PreJoinProps) {
+  const [error, setError] = useState<string | null>(null);
+
+  // On mount, check localStorage for a stored session for this room.
   useEffect(() => {
     try {
       const stored = localStorage.getItem('ksero-session');
       const storedRoom = localStorage.getItem('ksero-room');
-      if (stored && storedRoom === roomCode) setSessionToken(stored);
+      if (stored && storedRoom === roomCode) {
+        // Reconnect silently with the stored token.
+        onReady('(reconnecting)', stored);
+      }
     } catch {}
-  }, [roomCode]);
+  }, [roomCode, onReady]);
 
+  return (
+    <PhoneJoin
+      roomCode={roomCode}
+      onJoin={(name) => onReady(name, null)}
+      error={error}
+    />
+  );
+}
+
+// ── In-game phone UI ──────────────────────────────────────────────────────────
+// Only rendered once we have a name (or session token). The socket is created
+// here — not before — so there is never a spurious join with an empty name.
+
+interface PhoneGameProps {
+  roomCode: string;
+  name: string;
+  sessionToken: string | null;
+}
+
+function PhoneGame({ roomCode, name, sessionToken }: PhoneGameProps) {
   const {
     state,
     connected,
@@ -42,33 +69,13 @@ function PhoneApp() {
     playAgain,
   } = usePhoneSocket({
     roomCode,
-    name: joinName ?? '',
+    name,
     sessionToken: sessionToken ?? undefined,
   });
 
-  // Auto-join with session token if available
-  useEffect(() => {
-    if (sessionToken && !joinName) {
-      setJoinName('(reconnecting)');
-    }
-  }, [sessionToken, joinName]);
+  const accentColor = '#8B5CF6';
 
-  const accentColor = state && 'playerId' in state
-    ? '#8B5CF6'
-    : '#8B5CF6';
-
-  // ── Join screen ─────────────────────────────────────────────────────────
-  if (!joinName && !sessionToken) {
-    return (
-      <PhoneJoin
-        roomCode={roomCode}
-        onJoin={(name) => setJoinName(name)}
-        error={joinError}
-      />
-    );
-  }
-
-  // ── Connecting / join error ───────────────────────────────────────────────
+  // ── Connecting / join error ─────────────────────────────────────────────
   if (!connected || !state) {
     return (
       <PhoneLayout>
@@ -114,19 +121,16 @@ function PhoneApp() {
           transition={{ duration: 0.25, ease: 'easeInOut' }}
           className="flex-1 flex flex-col"
         >
-          {/* ── Wait ──────────────────────────────────────────────────────── */}
           {action.type === 'WAIT' && (
             <PhoneWaiting message={action.message} />
           )}
 
-          {/* ── Submit Questions ──────────────────────────────────────────── */}
           {action.type === 'SUBMIT_QUESTIONS' && (
             <PhoneQuestionSubmit
               onSubmit={(qs) => submitQuestions(qs)}
             />
           )}
 
-          {/* ── Answer Question ───────────────────────────────────────────── */}
           {action.type === 'ANSWER_QUESTION' && (
             <PhoneAnswer
               assignmentId={action.assignmentId}
@@ -139,7 +143,6 @@ function PhoneApp() {
             />
           )}
 
-          {/* ── Submit Guess ──────────────────────────────────────────────── */}
           {action.type === 'SUBMIT_GUESS' && (
             <PhoneGuess
               subjectName={action.subjectName}
@@ -150,7 +153,6 @@ function PhoneApp() {
             />
           )}
 
-          {/* ── Mark Guesses ─────────────────────────────────────────────── */}
           {action.type === 'MARK_GUESSES' && (
             <PhoneMarkGuesses
               guesses={action.guesses}
@@ -158,7 +160,6 @@ function PhoneApp() {
             />
           )}
 
-          {/* ── Results ──────────────────────────────────────────────────── */}
           {action.type === 'VIEW_RESULTS' && (
             <PhoneResults
               scores={action.scores}
@@ -170,6 +171,34 @@ function PhoneApp() {
         </motion.div>
       </AnimatePresence>
     </PhoneLayout>
+  );
+}
+
+// ── Root page component ───────────────────────────────────────────────────────
+
+function PhoneApp() {
+  const searchParams = useSearchParams();
+  const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, 4);
+
+  // null  → not yet ready (show join screen)
+  // {name, sessionToken} → ready to connect
+  const [ready, setReady] = useState<{ name: string; sessionToken: string | null } | null>(null);
+
+  if (!ready) {
+    return (
+      <PreJoin
+        roomCode={roomCode}
+        onReady={(name, sessionToken) => setReady({ name, sessionToken })}
+      />
+    );
+  }
+
+  return (
+    <PhoneGame
+      roomCode={roomCode}
+      name={ready.name}
+      sessionToken={ready.sessionToken}
+    />
   );
 }
 

@@ -100,7 +100,11 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       return ack({ ok: false, error: 'Failed to join' });
     }
 
-    await saveSession(token, newPlayer.id, roomCode);
+    try {
+      await saveSession(token, newPlayer.id, roomCode);
+    } catch (err) {
+      console.error('[join] saveSession failed (non-fatal):', err);
+    }
 
     socket.data = {
       roomCode,
