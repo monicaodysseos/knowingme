@@ -16,7 +16,14 @@ export function useTVSocket(roomCode: string) {
     const handleConnect = () => {
       setConnected(true);
       const payload: JoinPayload = { roomCode, name: '', role: 'tv' };
-      socket.emit('join', payload, (_ack: JoinAck) => {});
+      socket.emit('join', payload, (ack: JoinAck) => {
+        if (!ack.ok) {
+          // Room was lost (server restarted) — clear cached code and reload
+          // so the TV creates a fresh room with a new code.
+          try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
+          window.location.reload();
+        }
+      });
     };
 
     const handleDisconnect = () => setConnected(false);

@@ -30,6 +30,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const ctx = snapshot.context;
 
     if (role === 'tv') {
+      if (!entry) {
+        // Room was lost (server restart) — tell TV so it can create a fresh one
+        return ack({ ok: false, error: 'Room not found' });
+      }
       socket.join(`tv:${roomCode}`);
       socket.join(roomCode);
       socket.data = { roomCode, role: 'tv' };
