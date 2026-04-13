@@ -127,7 +127,7 @@ function PhoneGame({ roomCode, name, sessionToken }: PhoneGameProps) {
 
           {action.type === 'SUBMIT_QUESTIONS' && (
             <PhoneQuestionSubmit
-              onSubmit={(qs) => submitQuestions(qs)}
+              onSubmit={(qs, onAck) => submitQuestions(qs, onAck)}
             />
           )}
 

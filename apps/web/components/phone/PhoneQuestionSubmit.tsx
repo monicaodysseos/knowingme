@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { EXAMPLE_PROMPTS } from '@ksero-se/types';
 
 interface Props {
-  onSubmit: (questions: [string, string]) => void;
+  onSubmit: (questions: [string, string], onAck?: (ok: boolean, error?: string) => void) => void;
 }
 
 export default function PhoneQuestionSubmit({ onSubmit }: Props) {
@@ -12,6 +12,8 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
   const [q1, setQ1] = useState('');
   const [q2, setQ2] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [serverOk, setServerOk] = useState<boolean | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const value = step === 1 ? q1 : q2;
   const setValue = step === 1 ? setQ1 : setQ2;
@@ -29,17 +31,46 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
     if (step === 1) {
       setStep(2);
     } else {
-      console.log('[PhoneQuestionSubmit] submitting', q1, q2);
       setSubmitted(true);
-      onSubmit([q1.trim(), q2.trim()]);
+      onSubmit([q1.trim(), q2.trim()], (ok, error) => {
+        setServerOk(ok);
+        setServerError(error ?? null);
+      });
     }
   };
 
+  const handleRetry = () => {
+    setSubmitted(false);
+    setServerOk(null);
+    setServerError(null);
+  };
+
   if (submitted) {
+    // Server rejected — show error with retry
+    if (serverOk === false) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
+          <div className="text-5xl">⚠️</div>
+          <p className="font-bold text-red-600 text-xl">Server didn't receive it</p>
+          <p className="text-gray-500 text-sm">{serverError}</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="px-8 py-4 rounded-2xl font-bold text-white shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    // Waiting for ack OR confirmed
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div className="text-5xl">⏳</div>
-        <p className="font-bold text-gray-800 text-xl">Questions submitted!</p>
+        <div className="text-5xl">{serverOk === true ? '✅' : '⏳'}</div>
+        <p className="font-bold text-gray-800 text-xl">
+          {serverOk === true ? 'Questions confirmed!' : 'Submitting…'}
+        </p>
         <p className="text-gray-500">Waiting for everyone else…</p>
       </div>
     );

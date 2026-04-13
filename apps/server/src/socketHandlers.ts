@@ -176,22 +176,36 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // ── Submit questions ─────────────────────────────────────────────────────
-  socket.on('submit:questions', (questions: string[]) => {
+  socket.on('submit:questions', (questions: string[], ack?: (res: { ok: boolean; error?: string }) => void) => {
     const { roomCode, playerId } = socket.data ?? {};
+    console.log('[submit:questions] socket=%s room=%s player=%s', socket.id.slice(0, 8), roomCode, playerId);
+
     const entry = getRoom(roomCode);
-    if (!entry || !playerId) return;
+    if (!entry || !playerId) {
+      console.log('[submit:questions] REJECTED: no room or no playerId');
+      ack?.({ ok: false, error: `Not joined (playerId=${playerId ?? 'none'})` });
+      return;
+    }
 
     const qs = questions
       .map((q: string) => q.trim().slice(0, 80))
       .filter((q: string) => q.length > 0)
       .slice(0, 2);
 
-    if (qs.length < 2) return;
+    if (qs.length < 2) {
+      console.log('[submit:questions] REJECTED: only %d valid questions', qs.length);
+      ack?.({ ok: false, error: 'Need 2 non-empty questions' });
+      return;
+    }
 
     entry.actor.send({ type: 'SUBMIT_QUESTIONS', playerId, questions: qs });
+    ack?.({ ok: true });
 
     const ctx = entry.actor.getSnapshot().context;
-    const allDone = ctx.players.every((p) => p.submittedQuestionIds.length >= 2);
+    const submitted = ctx.players.filter((p) => p.submittedQuestionIds.length >= 2).length;
+    console.log('[submit:questions] recorded for %s — %d/%d done', playerId, submitted, ctx.players.length);
+
+    const allDone = submitted === ctx.players.length;
     if (allDone) {
       clearRoomTimer(roomCode, 'question-sub');
       entry.actor.send({ type: 'ALL_QUESTIONS_SUBMITTED' });

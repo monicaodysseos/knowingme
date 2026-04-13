@@ -149,9 +149,16 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
     };
   }, [doJoin]); // re-runs only when roomCode or name change
 
-  const submitQuestions = useCallback((questions: string[]) => {
-    getSocket().emit('submit:questions', questions);
-  }, []);
+  const submitQuestions = useCallback(
+    (questions: string[], onAck?: (ok: boolean, error?: string) => void) => {
+      getSocket().emit('submit:questions', questions, (res?: { ok: boolean; error?: string }) => {
+        const ok = res?.ok ?? false;
+        if (!ok) console.error('[submitQuestions] server rejected:', res?.error);
+        onAck?.(ok, res?.error);
+      });
+    },
+    [],
+  );
 
   const submitAnswer = useCallback((assignmentId: string, answer: string, skipped = false) => {
     getSocket().emit('submit:answer', { assignmentId, answer, skipped });
