@@ -108,8 +108,8 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
         // Store in ref only — no setState, so no cascade re-render/re-join.
         tokenRef.current = ack.sessionToken;
         try {
-          localStorage.setItem('ksero-session', ack.sessionToken);
-          localStorage.setItem('ksero-room', roomCode);
+          sessionStorage.setItem('ksero-session', ack.sessionToken);
+          sessionStorage.setItem('ksero-room', roomCode);
         } catch {}
       }
     });

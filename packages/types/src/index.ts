@@ -130,7 +130,7 @@ export type GameEvent =
   | { type: 'ALL_QUESTIONS_SUBMITTED' }
   | { type: 'SUBMIT_ANSWER'; playerId: string; assignmentId: string; answer: string; skipped?: boolean; elapsedMs?: number }
   | { type: 'SLOT_TIMER_EXPIRED' }
-  | { type: 'ALL_SLOT_ANSWERS_IN' }
+  | { type: 'ALL_ANSWERS_IN' }
   | { type: 'SUBMIT_GUESS'; playerId: string; text: string }
   | { type: 'GUESS_TIMER_EXPIRED' }
   | { type: 'ALL_GUESSES_IN' }
@@ -160,6 +160,8 @@ export interface TVState {
   currentTurn?: {
     subjectPlayer: { id: string; name: string; color: PlayerColor };
     questionText: string;
+    questionIndex: number;    // 0-based index within this subject's turns
+    totalForSubject: number;  // total turns for this subject
     guessCount: number; // how many guesses received (no text until reveal)
     guessesRevealed: Array<{
       id: string;

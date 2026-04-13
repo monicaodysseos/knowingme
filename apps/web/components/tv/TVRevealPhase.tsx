@@ -13,7 +13,7 @@ export default function TVRevealPhase({ state }: Props) {
   const { currentTurn } = state;
   if (!currentTurn) return null;
 
-  const { subjectPlayer, questionText, guessesRevealed, answer } = currentTurn;
+  const { subjectPlayer, questionText, questionIndex, totalForSubject, guessesRevealed, answer } = currentTurn;
   const showAnswer = answer !== undefined;
 
   return (
@@ -22,9 +22,16 @@ export default function TVRevealPhase({ state }: Props) {
       {/* Subject */}
       <div className="flex items-center gap-4">
         <PlayerAvatar name={subjectPlayer.name} color={subjectPlayer.color} size="md" />
-        <h2 className="font-bold" style={{ fontSize: 40, color: subjectPlayer.color.hex }}>
-          {subjectPlayer.name}&apos;s Round
-        </h2>
+        <div>
+          <h2 className="font-bold" style={{ fontSize: 40, color: subjectPlayer.color.hex }}>
+            {subjectPlayer.name}&apos;s Round
+          </h2>
+          {totalForSubject > 1 && (
+            <p className="font-semibold text-gray-400 text-lg">
+              Question {questionIndex + 1} of {totalForSubject}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Question */}

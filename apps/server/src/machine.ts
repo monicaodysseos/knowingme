@@ -19,8 +19,8 @@ import { buildSeededPool } from './questions';
 
 export const TIMER = {
   QUESTION_SUBMISSION: 120_000, // 2 min
-  ANSWER_SLOT: 45_000,          // 45 s per slot
-  GUESS: 60_000,                // 60 s
+  ANSWER_PHASE: 180_000,        // 3 min for the entire answer phase
+  GUESS: 60_000,                // 60 s per guess turn
 };
 
 const QUESTIONS_PER_PLAYER = 5;
@@ -79,23 +79,25 @@ function buildPlayerTurns(
   players: Player[],
   assignments: QuestionAssignment[],
 ): PlayerTurn[] {
-  // For each player, pick one of their answered assignments
+  // For each player, include ALL of their answered assignments as separate turns
   const turns: PlayerTurn[] = [];
   const shuffledPlayers = shuffle(players);
 
   for (const player of shuffledPlayers) {
-    const answered = assignments.filter(
-      (a) => a.assignedToPlayerId === player.id && a.answer && !a.skipped,
+    const answered = shuffle(
+      assignments.filter(
+        (a) => a.assignedToPlayerId === player.id && a.answer !== undefined && !a.skipped,
+      ),
     );
-    if (answered.length === 0) continue;
-    const featured = answered[Math.floor(Math.random() * answered.length)];
-    turns.push({
-      subjectPlayerId: player.id,
-      assignmentId: featured.id,
-      questionText: featured.questionText,
-      answer: featured.answer!,
-      guesses: [],
-    });
+    for (const a of answered) {
+      turns.push({
+        subjectPlayerId: player.id,
+        assignmentId: a.id,
+        questionText: a.questionText,
+        answer: a.answer!,
+        guesses: [],
+      });
+    }
   }
 
   return turns;
@@ -584,7 +586,7 @@ export const gameMachine = setup({
     ANSWER_PHASE: {
       entry: {
         type: 'setTimer',
-        params: { duration: TIMER.ANSWER_SLOT },
+        params: { duration: TIMER.ANSWER_PHASE },
       },
       on: {
         PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
@@ -592,34 +594,14 @@ export const gameMachine = setup({
         SUBMIT_ANSWER: {
           actions: 'recordAnswer',
         },
-        ALL_SLOT_ANSWERS_IN: [
-          {
-            guard: ({ context }) =>
-              context.currentQuestionSlot + 1 >= QUESTIONS_PER_PLAYER,
-            actions: 'buildTurns',
-            target: 'GUESS_PHASE',
-          },
-          {
-            actions: ['advanceSlot', {
-              type: 'setTimer',
-              params: { duration: TIMER.ANSWER_SLOT },
-            }],
-          },
-        ],
-        SLOT_TIMER_EXPIRED: [
-          {
-            guard: ({ context }) =>
-              context.currentQuestionSlot + 1 >= QUESTIONS_PER_PLAYER,
-            actions: 'buildTurns',
-            target: 'GUESS_PHASE',
-          },
-          {
-            actions: ['advanceSlot', {
-              type: 'setTimer',
-              params: { duration: TIMER.ANSWER_SLOT },
-            }],
-          },
-        ],
+        ALL_ANSWERS_IN: {
+          actions: 'buildTurns',
+          target: 'GUESS_PHASE',
+        },
+        SLOT_TIMER_EXPIRED: {
+          actions: 'buildTurns',
+          target: 'GUESS_PHASE',
+        },
       },
     },
 

@@ -28,8 +28,8 @@ function PreJoin({ roomCode, onReady }: PreJoinProps) {
   // On mount, check localStorage for a stored session for this room.
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('ksero-session');
-      const storedRoom = localStorage.getItem('ksero-room');
+      const stored = sessionStorage.getItem('ksero-session');
+      const storedRoom = sessionStorage.getItem('ksero-room');
       if (stored && storedRoom === roomCode) {
         // Reconnect silently with the stored token.
         onReady('(reconnecting)', stored);

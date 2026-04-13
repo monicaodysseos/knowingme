@@ -13,7 +13,7 @@ export default function TVGuessPhase({ state }: Props) {
   const { currentTurn, players, timerEnd } = state;
   if (!currentTurn) return null;
 
-  const { subjectPlayer, questionText, guessCount } = currentTurn;
+  const { subjectPlayer, questionText, questionIndex, totalForSubject, guessCount } = currentTurn;
   const guessers = players.filter((p) => p.id !== subjectPlayer.id && p.isConnected);
 
   return (
@@ -32,6 +32,11 @@ export default function TVGuessPhase({ state }: Props) {
           {subjectPlayer.name}
         </h2>
         <p className="text-xl font-semibold mt-1" style={{ color: '#a78bfa' }}>answered this question…</p>
+        {totalForSubject > 1 && (
+          <p className="font-bold mt-1" style={{ color: subjectPlayer.color.hex, fontSize: 20 }}>
+            Question {questionIndex + 1} of {totalForSubject}
+          </p>
+        )}
       </motion.div>
 
       {/* Question — white chunky card */}

@@ -163,8 +163,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       ack?.({ ok: true });
       setRoomTimer(io, roomCode, 'question-sub', TIMER.QUESTION_SUBMISSION, () => {
         const e = getRoom(roomCode);
-        if (e) e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-        checkAndAssignQuestions(io, roomCode);
+        if (e) {
+          e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+          if (e.actor.getSnapshot().value === 'ANSWER_PHASE') {
+            startAnswerPhase(io, roomCode);
+          }
+        }
       });
     } else {
       ack?.({ ok: false, error: 'Transition failed (guard not met?)' });
@@ -191,7 +195,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (allDone) {
       clearRoomTimer(roomCode, 'question-sub');
       entry.actor.send({ type: 'ALL_QUESTIONS_SUBMITTED' });
-      startAnswerSlot(io, roomCode, 0);
+      startAnswerPhase(io, roomCode);
     }
   });
 
@@ -210,7 +214,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       elapsedMs: 0,
     });
 
-    checkSlotComplete(io, roomCode);
+    checkAnswerPhaseComplete(io, roomCode);
   });
 
   // ── Submit guess ─────────────────────────────────────────────────────────
@@ -296,32 +300,27 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
 // ── Timer helpers ──────────────────────────────────────────────────────────
 
-function checkAndAssignQuestions(io: Server, roomCode: string): void {
+/** Called after ALL_QUESTIONS_SUBMITTED or question-sub timer expires. */
+function startAnswerPhase(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
-  const snapshot = entry.actor.getSnapshot();
-  if (snapshot.value !== 'ANSWER_PHASE') return; // already moved
-  startAnswerSlot(io, roomCode, 0);
-}
+  if (entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
 
-function startAnswerSlot(io: Server, roomCode: string, slot: number): void {
-  const entry = getRoom(roomCode);
-  if (!entry) return;
-
-  setRoomTimer(io, roomCode, 'answer-slot', TIMER.ANSWER_SLOT, () => {
-    entry.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-    const ctx = entry.actor.getSnapshot().context;
-    if (entry.actor.getSnapshot().value === 'ANSWER_PHASE') {
-      startAnswerSlot(io, roomCode, ctx.currentQuestionSlot);
-    } else if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
+  setRoomTimer(io, roomCode, 'answer', TIMER.ANSWER_PHASE, () => {
+    const e = getRoom(roomCode);
+    if (!e) return;
+    e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+    if (e.actor.getSnapshot().value === 'GUESS_PHASE') {
       startGuessPhaseTurn(io, roomCode);
     }
   });
 }
 
-function checkSlotComplete(io: Server, roomCode: string): void {
+/** Check whether all players have answered all their questions; if so, advance. */
+function checkAnswerPhaseComplete(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
+  if (entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
   const ctx = entry.actor.getSnapshot().context;
 
   const byPlayer: Record<string, typeof ctx.questionAssignments> = {};
@@ -330,20 +329,15 @@ function checkSlotComplete(io: Server, roomCode: string): void {
     byPlayer[a.assignedToPlayerId].push(a);
   }
 
-  const slot = ctx.currentQuestionSlot;
-  const allIn = ctx.players.every((p) => {
-    const slots = byPlayer[p.id] ?? [];
-    const slotA = slots[slot];
-    return slotA ? slotA.answer !== undefined || slotA.skipped === true : true;
+  const allDone = ctx.players.every((p) => {
+    const mine = byPlayer[p.id] ?? [];
+    return mine.length > 0 && mine.every((a) => a.answer !== undefined || a.skipped === true);
   });
 
-  if (allIn) {
-    clearRoomTimer(roomCode, 'answer-slot');
-    entry.actor.send({ type: 'ALL_SLOT_ANSWERS_IN' });
-    const newVal = entry.actor.getSnapshot().value;
-    if (newVal === 'ANSWER_PHASE') {
-      startAnswerSlot(io, roomCode, entry.actor.getSnapshot().context.currentQuestionSlot);
-    } else if (newVal === 'GUESS_PHASE') {
+  if (allDone) {
+    clearRoomTimer(roomCode, 'answer');
+    entry.actor.send({ type: 'ALL_ANSWERS_IN' });
+    if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
       startGuessPhaseTurn(io, roomCode);
     }
   }

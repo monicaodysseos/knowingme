@@ -139,6 +139,15 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         }))
       : [];
 
+    // Compute which question number this is for the subject (0-based)
+    let questionIndex = 0;
+    for (let i = 0; i < ctx.currentTurnIndex; i++) {
+      if (ctx.playerTurns[i].subjectPlayerId === currentTurn.subjectPlayerId) questionIndex++;
+    }
+    const totalForSubject = ctx.playerTurns.filter(
+      (t) => t.subjectPlayerId === currentTurn.subjectPlayerId,
+    ).length;
+
     tvCurrentTurn = {
       subjectPlayer: {
         id: currentTurn.subjectPlayerId,
@@ -146,6 +155,8 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         color: subjectPlayer?.color ?? ctx.players[0]?.color,
       },
       questionText: currentTurn.questionText,
+      questionIndex,
+      totalForSubject,
       guessCount: currentTurn.guesses.length,
       guessesRevealed,
       answer: ['REVEAL_PHASE', 'SCORE_PHASE'].includes(phase)
@@ -209,17 +220,23 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
           if (!byPlayer[a.assignedToPlayerId]) byPlayer[a.assignedToPlayerId] = [];
           byPlayer[a.assignedToPlayerId].push(a);
         }
-        const mySlots = byPlayer[player.id] ?? [];
-        const slotAssignment = mySlots[ctx.currentQuestionSlot];
-        if (!slotAssignment || slotAssignment.answer !== undefined || slotAssignment.skipped) {
-          action = { type: 'WAIT', message: 'Answer submitted! Waiting for others…' };
+        const myAssignments = byPlayer[player.id] ?? [];
+        // Find the first unanswered, non-skipped assignment for this player
+        const nextAssignment = myAssignments.find(
+          (a) => a.answer === undefined && !a.skipped,
+        );
+        const answeredCount = myAssignments.filter(
+          (a) => a.answer !== undefined || a.skipped,
+        ).length;
+        if (!nextAssignment) {
+          action = { type: 'WAIT', message: 'All done! Waiting for others…' };
         } else {
           action = {
             type: 'ANSWER_QUESTION',
-            assignmentId: slotAssignment.id,
-            questionText: slotAssignment.questionText,
-            slotIndex: ctx.currentQuestionSlot,
-            totalSlots: 5,
+            assignmentId: nextAssignment.id,
+            questionText: nextAssignment.questionText,
+            slotIndex: answeredCount,
+            totalSlots: myAssignments.length,
             canSkip: !player.hasSkipped,
           };
         }
