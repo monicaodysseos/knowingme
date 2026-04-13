@@ -68,18 +68,34 @@ function PhoneApp() {
     );
   }
 
-  // ── Connecting ────────────────────────────────────────────────────────────
+  // ── Connecting / join error ───────────────────────────────────────────────
   if (!connected || !state) {
     return (
       <PhoneLayout>
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-            className="w-10 h-10 rounded-full border-4 border-transparent"
-            style={{ borderTopColor: '#F97316' }}
-          />
-          <p className="font-bold text-gray-600">Connecting to room {roomCode}…</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-4 text-center">
+          {joinError ? (
+            <>
+              <div className="text-5xl">😕</div>
+              <p className="font-bold text-gray-800 text-xl">{joinError}</p>
+              <button
+                onClick={() => { window.location.reload(); }}
+                className="px-8 py-4 rounded-2xl font-bold text-white text-lg shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
+              >
+                Try Again
+              </button>
+            </>
+          ) : (
+            <>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                className="w-10 h-10 rounded-full border-4 border-transparent"
+                style={{ borderTopColor: '#F97316' }}
+              />
+              <p className="font-bold text-gray-600">Connecting to room {roomCode}…</p>
+            </>
+          )}
         </div>
       </PhoneLayout>
     );

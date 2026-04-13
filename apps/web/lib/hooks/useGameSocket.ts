@@ -66,6 +66,10 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
 
   const join = useCallback(() => {
     const socket = connectSocket();
+    // joinedRef guards against double-join within one connection.
+    // It is reset by the useEffect below whenever this callback is recreated
+    // (i.e. name or token changed), so a stale true from a prior empty-name
+    // attempt never blocks the real join.
     if (joinedRef.current) return;
     joinedRef.current = true;
 
@@ -94,13 +98,21 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
   }, [roomCode, name, issuedToken]);
 
   useEffect(() => {
+    // Reset the guard whenever join changes (name or token changed).
+    // This prevents a stale true from an earlier empty-name attempt
+    // from blocking the real join after the user types their name.
+    joinedRef.current = false;
+
     const socket = connectSocket();
 
     const handleConnect = () => {
       setConnected(true);
       join();
     };
-    const handleDisconnect = () => setConnected(false);
+    const handleDisconnect = () => {
+      setConnected(false);
+      joinedRef.current = false; // allow re-join after reconnect
+    };
     const handleUpdate = (data: PhoneState) => setPhoneState(data);
 
     socket.on('connect', handleConnect);

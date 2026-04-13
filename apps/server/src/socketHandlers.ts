@@ -105,6 +105,11 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       sessionToken: token,
     };
 
+    // Safety-net: push current state directly to this socket in case the
+    // actor.subscribe broadcast fired before the socket finished joining
+    // the player room (timing edge case).
+    sendCurrentState(io, roomCode, socket.id);
+
     return ack({
       ok: true,
       playerId: newPlayer.id,
