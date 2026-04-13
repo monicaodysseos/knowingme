@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --packages=external --alias:@ksero-se/types=../../packages/types/src/index.ts --outfile=dist/index.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --alias:@ksero-se/types=../../packages/types/src/index.ts --external:bufferutil --external:utf-8-validate --external:hiredis --outfile=dist/index.js",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit"
   },

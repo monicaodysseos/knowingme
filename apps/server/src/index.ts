@@ -6,6 +6,15 @@ import cookieParser from 'cookie-parser';
 import { createRoom } from './roomManager';
 import { registerSocketHandlers } from './socketHandlers';
 
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.stack ?? err.message);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  process.exit(1);
+});
+
 const app = express();
 const httpServer = createServer(app);
 

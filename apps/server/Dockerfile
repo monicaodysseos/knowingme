@@ -14,8 +14,6 @@ RUN npm run build --workspace=@ksero-se/server
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=builder /app/apps/server/dist ./dist
-COPY --from=builder /app/apps/server/package.json ./package.json
+COPY --from=builder /app/apps/server/dist/index.js ./index.js
 EXPOSE 3001
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]
