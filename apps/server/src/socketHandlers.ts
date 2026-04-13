@@ -110,12 +110,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       return ack({ ok: false, error: 'Failed to join' });
     }
 
-    try {
-      await saveSession(token, newPlayer.id, roomCode);
-    } catch (err) {
-      console.error('[join] saveSession failed (non-fatal):', err);
-    }
-
+    // Set socket.data and send ack IMMEDIATELY — before Redis, so that any
+    // event fired right after join (e.g. submit:questions) finds the player.
     socket.data = {
       roomCode,
       playerId: newPlayer.id,
@@ -128,11 +124,16 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     // the player room (timing edge case).
     sendCurrentState(io, roomCode, socket.id);
 
-    return ack({
+    ack({
       ok: true,
       playerId: newPlayer.id,
       sessionToken: token,
       color: newPlayer.color,
+    });
+
+    // Fire-and-forget Redis save — don't block the ack on a flaky connection.
+    saveSession(token, newPlayer.id, roomCode).catch((err) => {
+      console.error('[join] saveSession failed (non-fatal):', err);
     });
   });
 
