@@ -255,14 +255,17 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     entry.actor.send({ type: 'PLAYER_LEAVE', socketId: socket.id });
 
-    // If all players disconnected, clean up room after 60s
+    // Only clean up if ALL players have been gone for 10 minutes AND
+    // the room is still in LOBBY (never delete an in-progress game).
     setTimeout(() => {
       const e = getRoom(roomCode);
       if (!e) return;
-      const ctx = e.actor.getSnapshot().context;
-      const anyConnected = ctx.players.some((p) => p.isConnected);
+      const snap = e.actor.getSnapshot();
+      // Never auto-delete a room that has progressed past the lobby
+      if (snap.value !== 'LOBBY') return;
+      const anyConnected = snap.context.players.some((p) => p.isConnected);
       if (!anyConnected) deleteRoom(roomCode);
-    }, 60_000);
+    }, 10 * 60 * 1000); // 10 minutes
   });
 }
 
