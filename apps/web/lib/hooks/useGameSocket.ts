@@ -18,8 +18,7 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
       const payload: JoinPayload = { roomCode, name: '', role: 'tv' };
       socket.emit('join', payload, (ack: JoinAck) => {
         if (!ack.ok) {
-          // Room was lost (e.g. server restarted). Tell the parent so it can
-          // create a fresh room — no page reload needed.
+          // Room gone (server restarted) — let parent create a new one.
           onRoomExpired?.();
         }
       });
@@ -39,7 +38,7 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
       socket.off('disconnect', handleDisconnect);
       socket.off('tv:update', handleUpdate);
     };
-  }, [roomCode]);
+  }, [roomCode, onRoomExpired]);
 
   const hostStart = useCallback(() => getSocket().emit('host:start'), []);
   const playAgain = useCallback(() => getSocket().emit('play:again'), []);
@@ -60,79 +59,89 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
   const [connected, setConnected] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
-  const [issuedToken, setIssuedToken] = useState<string | null>(sessionToken ?? null);
 
-  // Sync session token from prop — parent reads localStorage after mount
-  // so the initial value is null but may arrive on the next render.
-  useEffect(() => {
-    if (sessionToken && !issuedToken) setIssuedToken(sessionToken);
-  }, [sessionToken, issuedToken]);
-
+  // ── Refs that must NOT trigger re-renders when they change ────────────────
+  // Storing the token in a ref (not state) is critical: a state change here
+  // would recreate the `doJoin` callback → re-run the effect → spurious
+  // second join with whatever name happens to be in closure at that moment.
+  const tokenRef = useRef<string | null>(sessionToken ?? null);
   const joinedRef = useRef(false);
 
-  const join = useCallback(() => {
-    const socket = connectSocket();
-    // joinedRef guards against double-join within one connection.
-    // It is reset by the useEffect below whenever this callback is recreated
-    // (i.e. name or token changed), so a stale true from a prior empty-name
-    // attempt never blocks the real join.
+  // One-way sync: accept an externally-provided session token (from localStorage,
+  // loaded after mount) into the ref without triggering a re-render loop.
+  useEffect(() => {
+    if (sessionToken && !tokenRef.current) {
+      tokenRef.current = sessionToken;
+    }
+  }, [sessionToken]);
+
+  // doJoin only changes when roomCode or name change — NOT when the token
+  // changes, because the token is read from the ref at call time.
+  const doJoin = useCallback((socket: ReturnType<typeof connectSocket>) => {
     if (joinedRef.current) return;
     joinedRef.current = true;
 
     const payload: JoinPayload = {
       roomCode,
       name,
-      sessionToken: issuedToken ?? undefined,
+      sessionToken: tokenRef.current ?? undefined,
       role: 'player',
     };
 
     socket.emit('join', payload, (ack: JoinAck) => {
       if (!ack.ok) {
         setJoinError(ack.error ?? 'Failed to join');
-        joinedRef.current = false;
+        joinedRef.current = false; // allow retry
         return;
       }
+
+      setJoinError(null);
       setPlayerId(ack.playerId ?? null);
+
       if (ack.sessionToken) {
-        setIssuedToken(ack.sessionToken);
+        // Store in ref only — no setState, so no cascade re-render/re-join.
+        tokenRef.current = ack.sessionToken;
         try {
           localStorage.setItem('ksero-session', ack.sessionToken);
           localStorage.setItem('ksero-room', roomCode);
         } catch {}
       }
     });
-  }, [roomCode, name, issuedToken]);
+  }, [roomCode, name]); // token intentionally NOT in deps — read via ref
 
   useEffect(() => {
-    // Reset the guard whenever join changes (name or token changed).
-    // This prevents a stale true from an earlier empty-name attempt
-    // from blocking the real join after the user types their name.
-    joinedRef.current = false;
-
     const socket = connectSocket();
 
     const handleConnect = () => {
       setConnected(true);
-      join();
+      doJoin(socket);
     };
+
     const handleDisconnect = () => {
       setConnected(false);
-      joinedRef.current = false; // allow re-join after reconnect
+      joinedRef.current = false; // must be reset so reconnect can re-join
     };
+
     const handleUpdate = (data: PhoneState) => setPhoneState(data);
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('phone:update', handleUpdate);
 
-    if (socket.connected) { handleConnect(); }
+    // If socket is already connected when this effect runs (name changed),
+    // call doJoin immediately — but joinedRef guards against a double-call
+    // within the same connection so this is safe.
+    if (socket.connected) {
+      setConnected(true);
+      doJoin(socket);
+    }
 
     return () => {
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('phone:update', handleUpdate);
     };
-  }, [join]);
+  }, [doJoin]); // re-runs only when roomCode or name change
 
   const submitQuestions = useCallback((questions: string[]) => {
     getSocket().emit('submit:questions', questions);
@@ -161,7 +170,6 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
     connected,
     joinError,
     playerId,
-    sessionToken: issuedToken,
     submitQuestions,
     submitAnswer,
     submitGuess,
