@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
@@ -184,13 +184,13 @@ function PhoneApp() {
   // {name, sessionToken} → ready to connect
   const [ready, setReady] = useState<{ name: string; sessionToken: string | null } | null>(null);
 
+  const handleReady = useCallback(
+    (name: string, sessionToken: string | null) => setReady({ name, sessionToken }),
+    [],
+  );
+
   if (!ready) {
-    return (
-      <PreJoin
-        roomCode={roomCode}
-        onReady={(name, sessionToken) => setReady({ name, sessionToken })}
-      />
-    );
+    return <PreJoin roomCode={roomCode} onReady={handleReady} />;
   }
 
   return (

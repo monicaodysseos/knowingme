@@ -127,26 +127,47 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // ── Host start ───────────────────────────────────────────────────────────
-  socket.on('host:start', () => {
+  socket.on('host:start', (ack?: (res: { ok: boolean; error?: string }) => void) => {
     const { roomCode, role, playerId } = socket.data ?? {};
+    console.log('[host:start] roomCode=%s role=%s playerId=%s', roomCode, role, playerId);
+
     const entry = getRoom(roomCode);
-    if (!entry) return;
+    if (!entry) {
+      console.log('[host:start] room not found');
+      ack?.({ ok: false, error: 'Room not found' });
+      return;
+    }
 
     const ctx = entry.actor.getSnapshot().context;
     // TV socket has no playerId — it IS the host's screen, so always allow it.
     // Player sockets must be the designated host.
-    if (role !== 'tv' && ctx.hostId !== playerId) return;
-    if (ctx.players.filter((p) => p.isConnected).length < 3) return; // guard
+    if (role !== 'tv' && ctx.hostId !== playerId) {
+      console.log('[host:start] not authorized');
+      ack?.({ ok: false, error: 'Not authorized' });
+      return;
+    }
+
+    // Guard: require at least 3 players to have joined (regardless of current
+    // connection state — a player may be mid-reconnect when host clicks Start).
+    if (ctx.players.length < 3) {
+      console.log('[host:start] not enough players: %d joined', ctx.players.length);
+      ack?.({ ok: false, error: `Need 3 players (have ${ctx.players.length})` });
+      return;
+    }
 
     entry.actor.send({ type: 'HOST_START' });
+    console.log('[host:start] sent HOST_START, new state:', entry.actor.getSnapshot().value);
 
     // Only set timer if the transition succeeded
     if (entry.actor.getSnapshot().value === 'QUESTION_SUBMISSION') {
+      ack?.({ ok: true });
       setRoomTimer(io, roomCode, 'question-sub', TIMER.QUESTION_SUBMISSION, () => {
         const e = getRoom(roomCode);
         if (e) e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
         checkAndAssignQuestions(io, roomCode);
       });
+    } else {
+      ack?.({ ok: false, error: 'Transition failed (guard not met?)' });
     }
   });
 

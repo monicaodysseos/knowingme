@@ -40,7 +40,11 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
     };
   }, [roomCode, onRoomExpired]);
 
-  const hostStart = useCallback(() => getSocket().emit('host:start'), []);
+  const hostStart = useCallback(() => {
+    getSocket().emit('host:start', (res?: { ok: boolean; error?: string }) => {
+      if (res && !res.ok) console.warn('[hostStart] server rejected:', res.error);
+    });
+  }, []);
   const playAgain = useCallback(() => getSocket().emit('play:again'), []);
 
   return { state, connected, hostStart, playAgain };
