@@ -227,23 +227,26 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       }
 
       case 'GUESS_PHASE':
-        if (isSubject) {
+        if (!currentTurn) {
+          // No turns built (nobody submitted answers) — show wait, server will skip ahead
+          action = { type: 'WAIT', message: 'Almost there…' };
+        } else if (isSubject) {
           action = { type: 'WAIT', message: 'Others are guessing your answer… 👀' };
         } else {
-          const alreadyGuessed = currentTurn?.guesses.some(
+          const alreadyGuessed = currentTurn.guesses.some(
             (g) => g.guesserPlayerId === player.id,
           );
           if (alreadyGuessed) {
             action = { type: 'WAIT', message: 'Guess submitted! Waiting for others…' };
           } else {
             const subjectPlayer = ctx.players.find(
-              (p) => p.id === currentTurn?.subjectPlayerId,
+              (p) => p.id === currentTurn.subjectPlayerId,
             );
             action = {
               type: 'SUBMIT_GUESS',
               subjectName: subjectPlayer?.name ?? '?',
               subjectColor: subjectPlayer?.color ?? ctx.players[0].color,
-              questionText: currentTurn?.questionText ?? '',
+              questionText: currentTurn.questionText,
             };
           }
         }

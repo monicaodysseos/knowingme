@@ -353,6 +353,15 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
 
+  const ctx = entry.actor.getSnapshot().context;
+  // No turns built (everyone skipped / nobody answered) — skip straight to end
+  if (!ctx.playerTurns[ctx.currentTurnIndex]) {
+    console.log('[startGuessPhaseTurn] no turn at index %d — skipping to reveal', ctx.currentTurnIndex);
+    entry.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
+    startReveal(io, roomCode);
+    return;
+  }
+
   setRoomTimer(io, roomCode, 'guess', TIMER.GUESS, () => {
     entry.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
     startReveal(io, roomCode);
@@ -365,7 +374,14 @@ function startReveal(io: Server, roomCode: string): void {
 
   const ctx = entry.actor.getSnapshot().context;
   const turn = ctx.playerTurns[ctx.currentTurnIndex];
-  if (!turn) return;
+  if (!turn) {
+    // No turn (empty playerTurns) — fast-forward to FINAL_AWARDS
+    entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
+    setRoomTimer(io, roomCode, 'score-display', 1000, () => {
+      advanceToNextTurn(io, roomCode);
+    });
+    return;
+  }
 
   const total = turn.guesses.length;
 
