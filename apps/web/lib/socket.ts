@@ -10,7 +10,7 @@ export function getSocket(): Socket {
     socket = io(SERVER_URL, {
       autoConnect: false,
       withCredentials: true,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
     });
   }
   return socket;
