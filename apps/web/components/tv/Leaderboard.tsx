@@ -9,10 +9,10 @@ interface Props {
   highlight?: boolean;
 }
 
-const RANK_STYLES: Record<number, { icon: string; color: string }> = {
-  0: { icon: '🥇', color: '#F59E0B' },
-  1: { icon: '🥈', color: '#9CA3AF' },
-  2: { icon: '🥉', color: '#CD7F32' },
+const RANK_STYLES: Record<number, { color: string; bg: string }> = {
+  0: { color: '#ffffff', bg: '#F59E0B' },
+  1: { color: '#ffffff', bg: '#9CA3AF' },
+  2: { color: '#ffffff', bg: '#CD7F32' },
 };
 
 export default function Leaderboard({ scores, highlight = false }: Props) {
@@ -35,10 +35,16 @@ export default function Leaderboard({ scores, highlight = false }: Props) {
                 transform: rank === 0 && highlight ? 'scale(1.03)' : 'scale(1)',
               }}
             >
-              {/* Rank */}
-              <span className="w-10 text-center font-bold" style={{ fontSize: rs ? 28 : 22, color: rs?.color ?? '#6B7280' }}>
-                {rs ? rs.icon : `${rank + 1}`}
-              </span>
+              {/* Rank badge */}
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center font-black text-base flex-shrink-0"
+                style={{
+                  background: rs?.bg ?? '#E5E7EB',
+                  color: rs?.color ?? '#6B7280',
+                }}
+              >
+                {rank + 1}
+              </div>
 
               <PlayerAvatar name={entry.playerName} color={entry.color} size="sm" />
 

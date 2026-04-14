@@ -5,6 +5,14 @@
 export type GameMode = 'corporate' | 'social';
 export type QuestionTier = 'T1' | 'T2';
 
+// ── Player characters (selectable avatars) ────────────────────────────────
+
+export const PLAYER_CHARACTERS = [
+  'blob', 'star', 'diamond', 'cloud', 'hex', 'drop', 'shield', 'crown',
+] as const;
+
+export type PlayerCharacter = (typeof PLAYER_CHARACTERS)[number];
+
 export type GamePhase =
   | 'LOBBY'
   | 'QUESTION_SUBMISSION'
@@ -37,6 +45,7 @@ export interface Player {
   socketId: string;
   name: string;         // max 16 chars
   color: PlayerColor;
+  avatar: PlayerCharacter;
   isHost: boolean;
   isConnected: boolean;
   submittedQuestionIds: string[]; // ids of questions they submitted
@@ -122,7 +131,7 @@ export interface GameContext {
 // ── XState machine events ──────────────────────────────────────────────────
 
 export type GameEvent =
-  | { type: 'PLAYER_JOIN'; name: string; socketId: string; sessionToken: string }
+  | { type: 'PLAYER_JOIN'; name: string; socketId: string; sessionToken: string; avatar: PlayerCharacter }
   | { type: 'PLAYER_RECONNECT'; socketId: string; sessionToken: string; newSocketId: string }
   | { type: 'PLAYER_LEAVE'; socketId: string }
   | { type: 'HOST_START' }
@@ -150,6 +159,7 @@ export interface TVState {
     id: string;
     name: string;
     color: PlayerColor;
+    avatar: PlayerCharacter;
     isConnected: boolean;
     isHost: boolean;
     hasSubmittedQuestions?: boolean;
@@ -158,7 +168,7 @@ export interface TVState {
   timerEnd: number;
   mode: GameMode;
   currentTurn?: {
-    subjectPlayer: { id: string; name: string; color: PlayerColor };
+    subjectPlayer: { id: string; name: string; color: PlayerColor; avatar: PlayerCharacter };
     questionText: string;
     questionIndex: number;    // 0-based index within this subject's turns
     totalForSubject: number;  // total turns for this subject
@@ -167,6 +177,7 @@ export interface TVState {
       id: string;
       guesserName: string;
       guesserColor: PlayerColor;
+      guesserAvatar: PlayerCharacter;
       text: string;
       isCorrect?: boolean;
     }>;
@@ -178,6 +189,8 @@ export interface TVState {
     total: number;
     submitted: number;
   };
+  isRoundEnd?: boolean;   // true if next turn is a different subject (or no more turns)
+  isLastRound?: boolean;  // true if no more turns remain after this one (→ FINAL_AWARDS next)
 }
 
 // What a phone client receives
@@ -223,6 +236,7 @@ export interface JoinPayload {
   name: string;
   sessionToken?: string; // set if reconnecting
   role: 'tv' | 'player';
+  avatar?: PlayerCharacter;
 }
 
 export interface JoinAck {

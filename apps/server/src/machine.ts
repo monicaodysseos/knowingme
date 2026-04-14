@@ -6,13 +6,14 @@ import type {
   GameMode,
   Player,
   PlayerColor,
+  PlayerCharacter,
   Question,
   QuestionAssignment,
   PlayerTurn,
   AwardResult,
   DuoMatrix,
 } from '@ksero-se/types';
-import { PLAYER_COLORS } from '@ksero-se/types';
+import { PLAYER_COLORS, PLAYER_CHARACTERS } from '@ksero-se/types';
 import { buildSeededPool } from './questions';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -35,6 +36,13 @@ function pickColor(players: Player[]): PlayerColor {
   return available.length > 0
     ? available[Math.floor(Math.random() * available.length)]
     : PLAYER_COLORS[players.length % PLAYER_COLORS.length];
+}
+
+function pickAvatar(players: Player[], requested?: PlayerCharacter): PlayerCharacter {
+  if (requested) return requested;
+  const used = new Set(players.map((p) => p.avatar));
+  const available = PLAYER_CHARACTERS.filter((c) => !used.has(c));
+  return available.length > 0 ? available[0] : PLAYER_CHARACTERS[players.length % PLAYER_CHARACTERS.length];
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -317,11 +325,13 @@ export const gameMachine = setup({
       players: ({ context, event }) => {
         if (event.type !== 'PLAYER_JOIN') return context.players;
         const color = pickColor(context.players);
+        const avatar = pickAvatar(context.players, event.avatar);
         const newPlayer: Player = {
           id: uuidv4(),
           socketId: event.socketId,
           name: event.name.slice(0, 16),
           color,
+          avatar,
           isHost: context.players.length === 0,
           isConnected: true,
           submittedQuestionIds: [],
@@ -531,6 +541,7 @@ export const gameMachine = setup({
         submittedQuestionIds: [],
         hasSkipped: false,
         fastestSubmitMs: Infinity,
+        // preserve avatar + color across play-again
       })),
       hostId: context.hostId,
       questionPool: buildSeededPool(),

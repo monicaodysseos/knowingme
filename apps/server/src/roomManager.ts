@@ -134,6 +134,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
           id: g.id,
           guesserName: g.guesserName,
           guesserColor: g.guesserColor,
+          guesserAvatar: ctx.players.find((p) => p.id === g.guesserPlayerId)?.avatar ?? 'blob',
           text: g.text,
           isCorrect: g.isCorrect,
         }))
@@ -153,6 +154,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         id: currentTurn.subjectPlayerId,
         name: subjectPlayer?.name ?? '?',
         color: subjectPlayer?.color ?? ctx.players[0]?.color,
+        avatar: subjectPlayer?.avatar ?? 'blob',
       },
       questionText: currentTurn.questionText,
       questionIndex,
@@ -173,6 +175,15 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       }
     : undefined;
 
+  // Compute round-end flags for SCORE_PHASE
+  let isRoundEnd: boolean | undefined;
+  let isLastRound: boolean | undefined;
+  if (phase === 'SCORE_PHASE' && currentTurn) {
+    const nextTurn = ctx.playerTurns[ctx.currentTurnIndex + 1];
+    isLastRound = !nextTurn;
+    isRoundEnd = !nextTurn || nextTurn.subjectPlayerId !== currentTurn.subjectPlayerId;
+  }
+
   const tvState: TVState = {
     phase: phase as TVState['phase'],
     roomCode,
@@ -180,6 +191,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       id: p.id,
       name: p.name,
       color: p.color,
+      avatar: p.avatar,
       isConnected: p.isConnected,
       isHost: p.isHost,
       hasSubmittedQuestions: p.submittedQuestionIds.length >= 2,
@@ -190,6 +202,8 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
     currentTurn: tvCurrentTurn,
     awards: ctx.awards.length ? ctx.awards : undefined,
     submissionProgress,
+    isRoundEnd,
+    isLastRound,
   };
 
   io.to(`tv:${roomCode}`).emit('tv:update', tvState);

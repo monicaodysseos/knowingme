@@ -98,12 +98,12 @@ export default function TVLobby({ state, onStart }: Props) {
                   className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-md"
                   style={{ borderLeft: `5px solid ${p.color.hex}` }}
                 >
-                  <PlayerAvatar name={p.name} color={p.color} size="sm" />
+                  <PlayerAvatar name={p.name} color={p.color} avatar={p.avatar} size="sm" />
                   <span className="font-bold text-xl text-gray-900">
                     {p.name}
                   </span>
                   {p.isHost && (
-                    <span className="ml-auto text-sm font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                    <span className="ml-auto text-xs font-black bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full uppercase tracking-wide">
                       HOST
                     </span>
                   )}
@@ -132,7 +132,7 @@ export default function TVLobby({ state, onStart }: Props) {
                 fontSize: 26,
               }}
             >
-              {canStart ? '▶  Start Game' : 'Waiting for players…'}
+              {canStart ? 'Start Game' : 'Waiting for players…'}
             </button>
           </motion.div>
         </div>

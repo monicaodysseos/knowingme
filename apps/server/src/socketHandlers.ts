@@ -100,6 +100,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       name: trimmedName,
       socketId: socket.id,
       sessionToken: token,
+      avatar: payload.avatar ?? 'blob',
     });
 
     // After the send, get the new player's id
@@ -284,8 +285,13 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const allMarked = newTurn?.guesses.every((g) => g.isCorrect !== undefined) ?? false;
     if (allMarked && entry.actor.getSnapshot().value === 'REVEAL_PHASE') {
       entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
-      // Auto-advance to next turn after score display (4s)
-      setRoomTimer(io, roomCode, 'score-display', 4000, () => {
+      // Determine how long to show SCORE_PHASE based on round boundary
+      const scoreCtx = entry.actor.getSnapshot().context;
+      const nextTurn = scoreCtx.playerTurns[scoreCtx.currentTurnIndex + 1];
+      const isLastRound = !nextTurn;
+      const isRoundEnd = isLastRound || nextTurn.subjectPlayerId !== scoreCtx.playerTurns[scoreCtx.currentTurnIndex]?.subjectPlayerId;
+      const delay = isLastRound ? 600 : isRoundEnd ? 5000 : 1500;
+      setRoomTimer(io, roomCode, 'score-display', delay, () => {
         advanceToNextTurn(io, roomCode);
       });
     }

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
+import type { PlayerCharacter } from '@ksero-se/types';
 
 import PhoneJoin from '../../components/phone/PhoneJoin';
 import PhoneWaiting from '../../components/phone/PhoneWaiting';
@@ -15,24 +16,21 @@ import PhoneResults from '../../components/phone/PhoneResults';
 import PhoneLayout from '../../components/phone/PhoneLayout';
 
 // ── Pre-join screen ───────────────────────────────────────────────────────────
-// Shown before we have a name or session token. No socket is created here.
 
 interface PreJoinProps {
   roomCode: string;
-  onReady: (name: string, sessionToken: string | null) => void;
+  onReady: (name: string, avatar: PlayerCharacter, sessionToken: string | null) => void;
 }
 
 function PreJoin({ roomCode, onReady }: PreJoinProps) {
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
-  // On mount, check localStorage for a stored session for this room.
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem('ksero-session');
       const storedRoom = sessionStorage.getItem('ksero-room');
       if (stored && storedRoom === roomCode) {
-        // Reconnect silently with the stored token.
-        onReady('(reconnecting)', stored);
+        onReady('(reconnecting)', 'blob', stored);
       }
     } catch {}
   }, [roomCode, onReady]);
@@ -40,23 +38,22 @@ function PreJoin({ roomCode, onReady }: PreJoinProps) {
   return (
     <PhoneJoin
       roomCode={roomCode}
-      onJoin={(name) => onReady(name, null)}
+      onJoin={(name, avatar) => onReady(name, avatar, null)}
       error={error}
     />
   );
 }
 
 // ── In-game phone UI ──────────────────────────────────────────────────────────
-// Only rendered once we have a name (or session token). The socket is created
-// here — not before — so there is never a spurious join with an empty name.
 
 interface PhoneGameProps {
   roomCode: string;
   name: string;
+  avatar: PlayerCharacter;
   sessionToken: string | null;
 }
 
-function PhoneGame({ roomCode, name, sessionToken }: PhoneGameProps) {
+function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
   const {
     state,
     connected,
@@ -70,23 +67,28 @@ function PhoneGame({ roomCode, name, sessionToken }: PhoneGameProps) {
   } = usePhoneSocket({
     roomCode,
     name,
+    avatar,
     sessionToken: sessionToken ?? undefined,
   });
 
-  const accentColor = '#8B5CF6';
+  const accentColor = '#F97316';
 
-  // ── Connecting / join error ─────────────────────────────────────────────
   if (!connected || !state) {
     return (
       <PhoneLayout>
         <div className="flex-1 flex flex-col items-center justify-center gap-5 px-4 text-center">
           {joinError ? (
             <>
-              <div className="text-5xl">😕</div>
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-2xl"
+                style={{ background: '#EF4444' }}
+              >
+                !
+              </div>
               <p className="font-bold text-gray-800 text-xl">{joinError}</p>
               <button
                 onClick={() => { window.location.reload(); }}
-                className="px-8 py-4 rounded-2xl font-bold text-white text-lg shadow-lg"
+                className="px-8 py-4 rounded-full font-bold text-white text-lg shadow-lg"
                 style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
               >
                 Try Again
@@ -180,12 +182,15 @@ function PhoneApp() {
   const searchParams = useSearchParams();
   const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, 4);
 
-  // null  → not yet ready (show join screen)
-  // {name, sessionToken} → ready to connect
-  const [ready, setReady] = useState<{ name: string; sessionToken: string | null } | null>(null);
+  const [ready, setReady] = useState<{
+    name: string;
+    avatar: PlayerCharacter;
+    sessionToken: string | null;
+  } | null>(null);
 
   const handleReady = useCallback(
-    (name: string, sessionToken: string | null) => setReady({ name, sessionToken }),
+    (name: string, avatar: PlayerCharacter, sessionToken: string | null) =>
+      setReady({ name, avatar, sessionToken }),
     [],
   );
 
@@ -197,6 +202,7 @@ function PhoneApp() {
     <PhoneGame
       roomCode={roomCode}
       name={ready.name}
+      avatar={ready.avatar}
       sessionToken={ready.sessionToken}
     />
   );

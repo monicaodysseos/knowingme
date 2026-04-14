@@ -50,13 +50,18 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
     if (serverOk === false) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-          <div className="text-5xl">⚠️</div>
-          <p className="font-bold text-red-600 text-xl">Server didn't receive it</p>
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-xl"
+            style={{ background: '#DC2626' }}
+          >
+            !
+          </div>
+          <p className="font-black text-red-600 text-xl">Server didn&apos;t receive it</p>
           <p className="text-gray-500 text-sm">{serverError}</p>
           <button
             type="button"
             onClick={handleRetry}
-            className="px-8 py-4 rounded-2xl font-bold text-white shadow-lg"
+            className="px-8 py-4 rounded-full font-bold text-white shadow-lg"
             style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
           >
             Try Again
@@ -67,11 +72,16 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
     // Waiting for ack OR confirmed
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div className="text-5xl">{serverOk === true ? '✅' : '⏳'}</div>
-        <p className="font-bold text-gray-800 text-xl">
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-xl"
+          style={{ background: serverOk === true ? '#16a34a' : '#F97316' }}
+        >
+          {serverOk === true ? '✓' : '…'}
+        </div>
+        <p className="font-black text-gray-800 text-xl">
           {serverOk === true ? 'Questions confirmed!' : 'Submitting…'}
         </p>
-        <p className="text-gray-500">Waiting for everyone else…</p>
+        <p className="text-gray-500 font-bold">Waiting for everyone else…</p>
       </div>
     );
   }
@@ -80,8 +90,7 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
     <div className="flex-1 flex flex-col gap-6 justify-center px-1">
       {/* Header */}
       <div className="text-center">
-        <div className="text-4xl mb-2">📝</div>
-        <h2 className="font-bold text-gray-900" style={{ fontSize: 26 }}>
+        <h2 className="font-black text-gray-900" style={{ fontSize: 26, letterSpacing: '-0.5px' }}>
           Question {step} of 2
         </h2>
         <p className="text-gray-500 text-sm mt-1">
@@ -126,10 +135,10 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
       <button
         type="button"
         onClick={surpriseMe}
-        className="w-full py-4 rounded-2xl font-bold text-base border-2 bg-white"
+        className="w-full py-4 rounded-full font-bold text-base border-2 bg-white"
         style={{ borderColor: '#FFD23F', color: '#F97316' }}
       >
-        🎲 Surprise me
+        Surprise me
       </button>
 
       {/* Next / Submit */}
@@ -137,7 +146,7 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
         type="button"
         disabled={!canAdvance}
         onClick={handleAction}
-        className="w-full py-5 rounded-2xl font-bold text-xl text-white shadow-lg disabled:opacity-30"
+        className="w-full py-5 rounded-full font-black text-xl text-white shadow-lg disabled:opacity-30"
         style={{
           background: canAdvance
             ? 'linear-gradient(135deg, #F97316, #FF6B6B)'
@@ -145,7 +154,7 @@ export default function PhoneQuestionSubmit({ onSubmit }: Props) {
           fontSize: 20,
         }}
       >
-        {step === 1 ? 'Next →' : 'Submit ✅'}
+        {step === 1 ? 'Next' : 'Submit'}
       </button>
     </div>
   );

@@ -19,9 +19,8 @@ export default function TVAnswerPhase({ state }: Props) {
         animate={{ y: 0, opacity: 1 }}
         className="text-center"
       >
-        <div className="text-6xl mb-3">🤔</div>
-        <h2 className="font-bold text-white" style={{ fontSize: 64 }}>Answer Time!</h2>
-        <p className="text-2xl font-semibold mt-2" style={{ color: '#a78bfa' }}>
+        <h2 className="font-black text-white" style={{ fontSize: 64, letterSpacing: '-2px' }}>Answer Time</h2>
+        <p className="text-2xl font-bold mt-2" style={{ color: '#a78bfa' }}>
           Everyone is answering their secret questions on their phones
         </p>
       </motion.div>
@@ -45,14 +44,14 @@ export default function TVAnswerPhase({ state }: Props) {
               borderBottom: `4px solid ${p.color.hex}`,
             }}
           >
-            <PlayerAvatar name={p.name} color={p.color} size="md" isConnected={p.isConnected} />
+            <PlayerAvatar name={p.name} color={p.color} avatar={p.avatar} size="md" isConnected={p.isConnected} />
             <span className="font-bold text-gray-900 text-base truncate max-w-[80px]">{p.name}</span>
           </motion.div>
         ))}
       </div>
 
-      <p className="font-semibold text-xl" style={{ color: '#a78bfa' }}>
-        Thinking deeply… 💭
+      <p className="font-bold text-xl uppercase tracking-widest" style={{ color: '#a78bfa' }}>
+        Thinking deeply…
       </p>
     </div>
   );

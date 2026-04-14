@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { connectSocket, getSocket } from '../socket';
-import type { TVState, PhoneState, JoinPayload, JoinAck } from '@ksero-se/types';
+import type { TVState, PhoneState, JoinPayload, JoinAck, PlayerCharacter } from '@ksero-se/types';
 
 // ── TV hook ────────────────────────────────────────────────────────────────
 
@@ -55,10 +55,11 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
 interface UsePhoneSocketOptions {
   roomCode: string;
   name: string;
+  avatar?: PlayerCharacter;
   sessionToken?: string;
 }
 
-export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketOptions) {
+export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhoneSocketOptions) {
   const [state, setPhoneState] = useState<PhoneState | null>(null);
   const [connected, setConnected] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export function usePhoneSocket({ roomCode, name, sessionToken }: UsePhoneSocketO
       name,
       sessionToken: tokenRef.current ?? undefined,
       role: 'player',
+      avatar,
     };
 
     socket.emit('join', payload, (ack: JoinAck) => {

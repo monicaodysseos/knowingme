@@ -27,7 +27,7 @@ export default function TVGuessPhase({ state }: Props) {
         transition={{ type: 'spring', stiffness: 200 }}
         className="text-center"
       >
-        <PlayerAvatar name={subjectPlayer.name} color={subjectPlayer.color} size="xl" />
+        <PlayerAvatar name={subjectPlayer.name} color={subjectPlayer.color} avatar={subjectPlayer.avatar} size="xl" />
         <h2 className="font-bold mt-4" style={{ fontSize: 52, color: subjectPlayer.color.hex }}>
           {subjectPlayer.name}
         </h2>
@@ -47,8 +47,7 @@ export default function TVGuessPhase({ state }: Props) {
         className="w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl px-10 py-8 text-center"
         style={{ borderLeft: `8px solid ${subjectPlayer.color.hex}` }}
       >
-        <div className="text-4xl mb-3">❓</div>
-        <p className="font-bold text-gray-900 leading-snug" style={{ fontSize: 36 }}>{questionText}</p>
+          <p className="font-black text-gray-900 leading-snug" style={{ fontSize: 36, letterSpacing: '-0.5px' }}>{questionText}</p>
       </motion.div>
 
       {/* Guess count + timer */}
@@ -79,14 +78,14 @@ export default function TVGuessPhase({ state }: Props) {
             className="bg-white rounded-xl shadow px-3 py-2 flex items-center gap-2"
             style={{ borderLeft: `3px solid ${p.color.hex}` }}
           >
-            <PlayerAvatar name={p.name} color={p.color} size="sm" />
+            <PlayerAvatar name={p.name} color={p.color} avatar={p.avatar} size="sm" />
             <span className="font-bold text-gray-900 text-sm">{p.name}</span>
           </div>
         ))}
       </div>
 
-      <p className="font-semibold text-xl" style={{ color: '#a78bfa' }}>
-        Type your guess on your phone! 📱
+      <p className="font-bold text-xl uppercase tracking-widest" style={{ color: '#a78bfa' }}>
+        Type your guess on your phone
       </p>
     </div>
   );

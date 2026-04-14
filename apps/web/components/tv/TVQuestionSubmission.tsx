@@ -22,9 +22,8 @@ export default function TVQuestionSubmission({ state }: Props) {
         animate={{ y: 0, opacity: 1 }}
         className="text-center"
       >
-        <div className="text-6xl mb-3">📝</div>
-        <h2 className="font-bold text-white" style={{ fontSize: 64 }}>Submit Your Questions</h2>
-        <p className="text-2xl font-semibold mt-2" style={{ color: '#a78bfa' }}>
+        <h2 className="font-black text-white" style={{ fontSize: 64, letterSpacing: '-2px' }}>Submit Questions</h2>
+        <p className="text-2xl font-bold mt-2" style={{ color: '#a78bfa' }}>
           Everyone is entering 2 personal prompts on their phone
         </p>
       </motion.div>
@@ -63,9 +62,14 @@ export default function TVQuestionSubmission({ state }: Props) {
             className="flex flex-col items-center gap-2 bg-white rounded-2xl px-4 py-3 shadow-md relative"
             style={{ minWidth: 90, borderBottom: `4px solid ${p.color.hex}` }}
           >
-            <PlayerAvatar name={p.name} color={p.color} size="md" />
+            <PlayerAvatar name={p.name} color={p.color} avatar={p.avatar} size="md" />
             {p.hasSubmittedQuestions && (
-              <span className="absolute -top-2 -right-2 text-xl bg-white rounded-full shadow">✅</span>
+              <div
+                className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-xs shadow"
+                style={{ background: '#16a34a' }}
+              >
+                ✓
+              </div>
             )}
           </motion.div>
         ))}

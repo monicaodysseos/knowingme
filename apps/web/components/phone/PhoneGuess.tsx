@@ -31,9 +31,14 @@ export default function PhoneGuess({
   if (submitted) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div className="text-5xl">🤔</div>
-        <p className="font-bold text-gray-800 text-xl">Guess locked in!</p>
-        <p className="text-gray-500">Waiting for the reveal…</p>
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center font-black text-white text-2xl"
+          style={{ background: '#8B5CF6' }}
+        >
+          ✓
+        </div>
+        <p className="font-black text-gray-800 text-xl">Guess locked in!</p>
+        <p className="text-gray-500 font-bold">Watch the TV for the reveal…</p>
       </div>
     );
   }
@@ -80,7 +85,7 @@ export default function PhoneGuess({
         type="button"
         disabled={!guess.trim()}
         onClick={handleSubmit}
-        className="w-full py-5 rounded-2xl font-bold text-xl text-white shadow-lg disabled:opacity-30"
+        className="w-full py-5 rounded-full font-black text-xl text-white shadow-lg disabled:opacity-30"
         style={{
           background: guess.trim()
             ? `linear-gradient(135deg, ${subjectColor.hex}, ${subjectColor.hex}cc)`
@@ -88,7 +93,7 @@ export default function PhoneGuess({
           fontSize: 20,
         }}
       >
-        🤔 Submit Guess
+        Submit Guess
       </button>
     </div>
   );

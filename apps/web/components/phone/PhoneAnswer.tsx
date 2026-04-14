@@ -45,9 +45,14 @@ export default function PhoneAnswer({
   if (submitted) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div className="text-5xl">✅</div>
-        <p className="font-bold text-gray-800 text-xl">Answer locked in!</p>
-        <p className="text-gray-500">Waiting for others…</p>
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center font-black text-white text-2xl"
+          style={{ background: '#16a34a' }}
+        >
+          ✓
+        </div>
+        <p className="font-black text-gray-800 text-xl">Answer locked in!</p>
+        <p className="text-gray-500 font-bold">Waiting for others…</p>
       </div>
     );
   }
