@@ -283,22 +283,31 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         }
         break;
 
-      case 'REVEAL_PHASE':
-        if (isSubject) {
-          const unmarked = currentTurn?.guesses.filter((g) => g.isCorrect === undefined) ?? [];
+      case 'REVEAL_PHASE': {
+        // All guesses are revealed when revealIndex reaches the last guess
+        const totalGuesses = currentTurn?.guesses.length ?? 0;
+        const allRevealed = totalGuesses > 0 && ctx.revealIndex >= totalGuesses - 1;
+        if (allRevealed && currentTurn?.answer) {
+          const subjectPlayerObj = ctx.players.find((p) => p.id === currentTurn.subjectPlayerId);
           action = {
-            type: 'MARK_GUESSES',
-            guesses: unmarked.map((g) => ({
+            type: 'VOTE_GUESSES',
+            questionText: currentTurn.questionText,
+            subjectName: subjectPlayerObj?.name ?? '?',
+            subjectColor: subjectPlayerObj?.color ?? ctx.players[0].color,
+            answer: currentTurn.answer,
+            guesses: currentTurn.guesses.map((g) => ({
               id: g.id,
               guesserName: g.guesserName,
               guesserColor: g.guesserColor,
+              guesserAvatar: ctx.players.find((p) => p.id === g.guesserPlayerId)?.avatar ?? 'blob',
               text: g.text,
             })),
           };
         } else {
-          action = { type: 'WAIT', message: 'Reveal in progress on the TV! 📺' };
+          action = { type: 'WAIT', message: 'Watch the TV for the reveal…' };
         }
         break;
+      }
 
       case 'SCORE_PHASE':
         action = { type: 'WAIT', message: 'Check the scoreboard! 🏆' };
@@ -318,6 +327,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       playerId: player.id,
       timerEnd: ctx.timerEnd,
       action,
+      turnIndex: ctx.currentTurnIndex,
     };
 
     io.to(`player:${player.socketId}`).emit('phone:update', phoneState);

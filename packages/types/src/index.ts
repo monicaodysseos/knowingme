@@ -199,6 +199,7 @@ export interface PhoneState {
   playerId: string;
   timerEnd: number;
   action: PhoneAction;
+  turnIndex: number;  // current turn index — used as a remount key on the phone
 }
 
 export type PhoneAction =
@@ -206,7 +207,20 @@ export type PhoneAction =
   | { type: 'SUBMIT_QUESTIONS'; examples: string[] }
   | { type: 'ANSWER_QUESTION'; assignmentId: string; questionText: string; slotIndex: number; totalSlots: number; canSkip: boolean }
   | { type: 'SUBMIT_GUESS'; subjectName: string; subjectColor: PlayerColor; questionText: string }
-  | { type: 'MARK_GUESSES'; guesses: Array<{ id: string; guesserName: string; guesserColor: PlayerColor; text: string }> }
+  | {
+      type: 'VOTE_GUESSES';
+      questionText: string;
+      subjectName: string;
+      subjectColor: PlayerColor;
+      answer: string;
+      guesses: Array<{
+        id: string;
+        guesserName: string;
+        guesserColor: PlayerColor;
+        guesserAvatar: PlayerCharacter;
+        text: string;
+      }>;
+    }
   | { type: 'VIEW_RESULTS'; scores: ScoreEntry[]; awards?: AwardResult[] };
 
 // ── Socket event name constants ────────────────────────────────────────────
@@ -218,7 +232,7 @@ export const SOCKET_EVENTS = {
   SUBMIT_QUESTIONS: 'submit:questions',
   SUBMIT_ANSWER: 'submit:answer',
   SUBMIT_GUESS: 'submit:guess',
-  MARK_GUESS: 'mark:guess',
+  SUBMIT_VOTE: 'submit:vote',
   RECONNECT_TOKEN: 'reconnect:token',
   PLAY_AGAIN: 'play:again',
 

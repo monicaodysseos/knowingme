@@ -11,7 +11,7 @@ import PhoneWaiting from '../../components/phone/PhoneWaiting';
 import PhoneQuestionSubmit from '../../components/phone/PhoneQuestionSubmit';
 import PhoneAnswer from '../../components/phone/PhoneAnswer';
 import PhoneGuess from '../../components/phone/PhoneGuess';
-import PhoneMarkGuesses from '../../components/phone/PhoneMarkGuesses';
+import PhoneVoteGuesses from '../../components/phone/PhoneVoteGuesses';
 import PhoneResults from '../../components/phone/PhoneResults';
 import PhoneLayout from '../../components/phone/PhoneLayout';
 
@@ -27,9 +27,8 @@ function PreJoin({ roomCode, onReady }: PreJoinProps) {
 
   useEffect(() => {
     try {
-      const stored = sessionStorage.getItem('ksero-session');
-      const storedRoom = sessionStorage.getItem('ksero-room');
-      if (stored && storedRoom === roomCode) {
+      const stored = localStorage.getItem(`ksero-${roomCode}-session`);
+      if (stored) {
         onReady('(reconnecting)', 'blob', stored);
       }
     } catch {}
@@ -62,7 +61,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     submitQuestions,
     submitAnswer,
     submitGuess,
-    markGuess,
+    submitVote,
     playAgain,
   } = usePhoneSocket({
     roomCode,
@@ -116,7 +115,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     <PhoneLayout accent={accentColor}>
       <AnimatePresence mode="wait">
         <motion.div
-          key={`${phase}-${action.type}`}
+          key={`${phase}-${action.type}-${state.turnIndex}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
@@ -155,10 +154,14 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {action.type === 'MARK_GUESSES' && (
-            <PhoneMarkGuesses
+          {action.type === 'VOTE_GUESSES' && (
+            <PhoneVoteGuesses
+              questionText={action.questionText}
+              subjectName={action.subjectName}
+              subjectColor={action.subjectColor}
+              answer={action.answer}
               guesses={action.guesses}
-              onMark={markGuess}
+              onVote={submitVote}
             />
           )}
 

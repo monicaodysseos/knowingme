@@ -67,8 +67,13 @@ function assignQuestions(
 
   for (const player of players) {
     const ownIds = new Set(player.submittedQuestionIds);
-    const eligible = shuffle(tieredPool.filter((q) => !ownIds.has(q.id)));
-    const picked = eligible.slice(0, QUESTIONS_PER_PLAYER);
+    const eligible = tieredPool.filter((q) => !ownIds.has(q.id));
+
+    // Player-submitted questions always take priority over seeded ones.
+    // This ensures the questions players wrote for others actually appear.
+    const playerSubmitted = shuffle(eligible.filter((q) => q.submittedByPlayerId !== undefined));
+    const seeded = shuffle(eligible.filter((q) => q.submittedByPlayerId === undefined));
+    const picked = [...playerSubmitted, ...seeded].slice(0, QUESTIONS_PER_PLAYER);
 
     for (const q of picked) {
       assignments.push({
@@ -529,6 +534,10 @@ export const gameMachine = setup({
       revealIndex: () => -1,
     }),
 
+    resetTurnIndex: assign({
+      currentTurnIndex: () => 0,
+    }),
+
     computeAwards: assign({
       awards: ({ context }) =>
         computeAwards(context.players, context.playerTurns, context.duoMatrix),
@@ -627,8 +636,16 @@ export const gameMachine = setup({
         SUBMIT_GUESS: {
           actions: 'recordGuess',
         },
-        ALL_GUESSES_IN: { target: 'REVEAL_PHASE' },
-        GUESS_TIMER_EXPIRED: { target: 'REVEAL_PHASE' },
+        ALL_GUESSES_IN: [
+          // More turns to guess: self-transition (re-runs entry → restarts timer, advances turn)
+          { guard: 'hasMoreTurns', target: 'GUESS_PHASE', reenter: true, actions: 'nextTurn' },
+          // All turns guessed: enter REVEAL_PHASE from the beginning (turn 0)
+          { target: 'REVEAL_PHASE', actions: 'resetTurnIndex' },
+        ],
+        GUESS_TIMER_EXPIRED: [
+          { guard: 'hasMoreTurns', target: 'GUESS_PHASE', reenter: true, actions: 'nextTurn' },
+          { target: 'REVEAL_PHASE', actions: 'resetTurnIndex' },
+        ],
       },
     },
 
@@ -664,7 +681,7 @@ export const gameMachine = setup({
           {
             guard: 'hasMoreTurns',
             actions: 'nextTurn',
-            target: 'GUESS_PHASE',
+            target: 'REVEAL_PHASE',  // batch reveal: stay in reveal sequence
           },
           {
             actions: ['nextTurn', 'computeAwards'],

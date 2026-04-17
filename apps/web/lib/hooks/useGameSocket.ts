@@ -110,8 +110,9 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
         // Store in ref only — no setState, so no cascade re-render/re-join.
         tokenRef.current = ack.sessionToken;
         try {
-          sessionStorage.setItem('ksero-session', ack.sessionToken);
-          sessionStorage.setItem('ksero-room', roomCode);
+          // localStorage survives tab switches and URL re-entry; room-scoped key
+          // prevents cross-game interference.
+          localStorage.setItem(`ksero-${roomCode}-session`, ack.sessionToken);
         } catch {}
       }
     });
@@ -172,8 +173,8 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     try { navigator.vibrate?.(30); } catch {}
   }, []);
 
-  const markGuess = useCallback((guessId: string, isCorrect: boolean) => {
-    getSocket().emit('mark:guess', { guessId, isCorrect });
+  const submitVote = useCallback((votes: Array<{ guessId: string; isCorrect: boolean }>) => {
+    getSocket().emit('submit:vote', votes);
   }, []);
 
   const playAgain = useCallback(() => {
@@ -188,7 +189,7 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     submitQuestions,
     submitAnswer,
     submitGuess,
-    markGuess,
+    submitVote,
     playAgain,
   };
 }

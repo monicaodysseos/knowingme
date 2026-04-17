@@ -191,7 +191,7 @@ export default function TVRevealPhase({ state }: Props) {
               </p>
               {stage === 'marking' && (
                 <p className="text-gray-400 mt-4 font-bold text-base">
-                  {subjectPlayer.name} is marking guesses on their phone
+                  Everyone is voting on their phones…
                 </p>
               )}
             </div>

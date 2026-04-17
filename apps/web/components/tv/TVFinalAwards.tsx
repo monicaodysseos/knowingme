@@ -106,16 +106,40 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
 
       <AnimatePresence mode="wait">
         {phase === 'done' ? (
-          /* ── All awards shown — Play Again ──────────────────────────── */
+          /* ── All awards shown — Summary + Play Again ─────────────────── */
           <motion.div
             key="done"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-8 z-10"
+            className="flex flex-col items-center gap-8 z-10 w-full max-w-xl px-8"
           >
             <h1 className="font-black text-white text-center" style={{ fontSize: 64, letterSpacing: '-2px' }}>
               That&apos;s a wrap!
             </h1>
+
+            {/* Awards summary */}
+            <div className="flex flex-col gap-3 w-full">
+              {orderedAwards.map((award) => (
+                <motion.div
+                  key={award.type}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="rounded-2xl px-6 py-4 flex items-center gap-4"
+                  style={{ background: '#ffffff12', border: '2px solid #ffffff20' }}
+                >
+                  <div style={{ flexShrink: 0 }}>{AWARD_ICONS[award.type]}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-white" style={{ fontSize: 18 }}>{award.title}</p>
+                    <p className="font-black truncate" style={{ color: ACCENT_COLORS[award.type], fontSize: 20 }}>
+                      {award.winners.join(' + ')}
+                    </p>
+                    <p className="text-gray-400 text-sm">{award.stat}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
             {showPlayAgain && (
               <motion.button
                 initial={{ scale: 0.8, opacity: 0 }}

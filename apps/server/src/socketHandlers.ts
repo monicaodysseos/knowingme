@@ -14,6 +14,10 @@ import type { JoinPayload, JoinAck } from '@ksero-se/types';
 
 // ── Room creation endpoint (HTTP) ─ see index.ts ──────────────────────────
 
+// ── Module-level vote tracking (per room, per reveal turn) ────────────────
+// roomCode → guessId → playerId → isCorrect
+const roomVotes = new Map<string, Record<string, Record<string, boolean>>>();
+
 // ── Socket handlers ────────────────────────────────────────────────────────
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
@@ -263,34 +267,56 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (allIn) {
       clearRoomTimer(roomCode, 'guess');
       entry.actor.send({ type: 'ALL_GUESSES_IN' });
-      startReveal(io, roomCode);
+      const newState = entry.actor.getSnapshot().value;
+      if (newState === 'GUESS_PHASE') {
+        // More turns to guess — restart the timer for the next turn
+        startGuessPhaseTurn(io, roomCode);
+      } else if (newState === 'REVEAL_PHASE') {
+        // All turns guessed — begin the batch reveal from turn 0
+        startReveal(io, roomCode);
+      }
     }
   });
 
-  // ── Mark guess ───────────────────────────────────────────────────────────
-  socket.on('mark:guess', (data: { guessId: string; isCorrect: boolean }) => {
+  // ── Submit vote (democratic guess scoring) ────────────────────────────────
+  socket.on('submit:vote', (votes: Array<{ guessId: string; isCorrect: boolean }>) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
-
-    const ctx = entry.actor.getSnapshot().context;
-    const turn = ctx.playerTurns[ctx.currentTurnIndex];
-    if (!turn || turn.subjectPlayerId !== playerId) return; // only subject can mark
     if (entry.actor.getSnapshot().value !== 'REVEAL_PHASE') return;
 
-    entry.actor.send({ type: 'MARK_GUESS', guessId: data.guessId, isCorrect: data.isCorrect });
+    // Record votes for this player
+    const turnVotes = roomVotes.get(roomCode) ?? {};
+    for (const vote of votes) {
+      if (!turnVotes[vote.guessId]) turnVotes[vote.guessId] = {};
+      turnVotes[vote.guessId][playerId] = vote.isCorrect;
+    }
+    roomVotes.set(roomCode, turnVotes);
 
-    const newCtx = entry.actor.getSnapshot().context;
-    const newTurn = newCtx.playerTurns[newCtx.currentTurnIndex];
-    const allMarked = newTurn?.guesses.every((g) => g.isCorrect !== undefined) ?? false;
-    if (allMarked && entry.actor.getSnapshot().value === 'REVEAL_PHASE') {
+    // Check if all connected players have voted on all guesses for this turn
+    const ctx = entry.actor.getSnapshot().context;
+    const turn = ctx.playerTurns[ctx.currentTurnIndex];
+    if (!turn) return;
+
+    const connectedPlayers = ctx.players.filter((p) => p.isConnected);
+    const allVotesIn = turn.guesses.every((g) =>
+      connectedPlayers.every((p) => turnVotes[g.id]?.[p.id] !== undefined),
+    );
+
+    if (allVotesIn) {
+      // Tally majority vote per guess and apply to machine
+      for (const g of turn.guesses) {
+        const vals = Object.values(turnVotes[g.id] ?? {});
+        const yesCount = vals.filter(Boolean).length;
+        entry.actor.send({ type: 'MARK_GUESS', guessId: g.id, isCorrect: yesCount > vals.length / 2 });
+      }
       entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
-      // Determine how long to show SCORE_PHASE based on round boundary
+
       const scoreCtx = entry.actor.getSnapshot().context;
       const nextTurn = scoreCtx.playerTurns[scoreCtx.currentTurnIndex + 1];
       const isLastRound = !nextTurn;
-      const isRoundEnd = isLastRound || nextTurn.subjectPlayerId !== scoreCtx.playerTurns[scoreCtx.currentTurnIndex]?.subjectPlayerId;
-      const delay = isLastRound ? 600 : isRoundEnd ? 5000 : 1500;
+      const isRoundEnd = isLastRound || nextTurn?.subjectPlayerId !== scoreCtx.playerTurns[scoreCtx.currentTurnIndex]?.subjectPlayerId;
+      const delay = isLastRound ? 1000 : isRoundEnd ? 5000 : 1500;
       setRoomTimer(io, roomCode, 'score-display', delay, () => {
         advanceToNextTurn(io, roomCode);
       });
@@ -299,11 +325,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
   // ── Play again ───────────────────────────────────────────────────────────
   socket.on('play:again', () => {
-    const { roomCode, playerId } = socket.data ?? {};
+    const { roomCode, playerId, role } = socket.data ?? {};
     const entry = getRoom(roomCode);
-    if (!entry || !playerId) return;
+    if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
-    if (ctx.hostId !== playerId) return;
+    // TV (role === 'tv') always allowed; player sockets must be the host
+    if (role !== 'tv' && ctx.hostId !== playerId) return;
     entry.actor.send({ type: 'PLAY_AGAIN' });
   });
 
@@ -379,21 +406,30 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
   if (!entry) return;
 
   const ctx = entry.actor.getSnapshot().context;
-  // No turns built (everyone skipped / nobody answered) — skip straight to end
+  // No turns built (everyone skipped / nobody answered) — skip straight ahead
   if (!ctx.playerTurns[ctx.currentTurnIndex]) {
-    console.log('[startGuessPhaseTurn] no turn at index %d — skipping to reveal', ctx.currentTurnIndex);
+    console.log('[startGuessPhaseTurn] no turn at index %d — skipping', ctx.currentTurnIndex);
     entry.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
-    startReveal(io, roomCode);
+    const newState = entry.actor.getSnapshot().value;
+    if (newState === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
+    else if (newState === 'REVEAL_PHASE') startReveal(io, roomCode);
     return;
   }
 
   setRoomTimer(io, roomCode, 'guess', TIMER.GUESS, () => {
-    entry.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
-    startReveal(io, roomCode);
+    const e = getRoom(roomCode);
+    if (!e) return;
+    e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
+    const newState = e.actor.getSnapshot().value;
+    if (newState === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
+    else if (newState === 'REVEAL_PHASE') startReveal(io, roomCode);
   });
 }
 
 function startReveal(io: Server, roomCode: string): void {
+  // Clear votes from the previous turn so fresh voting can begin
+  roomVotes.set(roomCode, {});
+
   const entry = getRoom(roomCode);
   if (!entry) return;
 
@@ -443,7 +479,9 @@ function advanceToNextTurn(io: Server, roomCode: string): void {
   entry.actor.send({ type: 'NEXT_TURN' });
 
   const newVal = entry.actor.getSnapshot().value;
-  if (newVal === 'GUESS_PHASE') {
-    startGuessPhaseTurn(io, roomCode);
+  if (newVal === 'REVEAL_PHASE') {
+    // More turns to reveal — start the next turn's reveal sequence
+    startReveal(io, roomCode);
   }
+  // FINAL_AWARDS: no action needed — machine broadcasts the phase change
 }
