@@ -37,6 +37,7 @@ function getTVTrack(): HTMLAudioElement | null {
 
 // Module-level singleton for the lobby track.
 let _lobbyTrack: HTMLAudioElement | null = null;
+let _lobbyPauseGuard: (() => void) | null = null;
 
 function getLobbyTrack(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
@@ -50,6 +51,7 @@ function getLobbyTrack(): HTMLAudioElement | null {
 
 // Module-level singleton for the final awards track.
 let _finalTrack: HTMLAudioElement | null = null;
+let _finalPauseGuard: (() => void) | null = null;
 
 function getFinalTrack(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
@@ -63,6 +65,7 @@ function getFinalTrack(): HTMLAudioElement | null {
 
 // Module-level singleton for the question submission track.
 let _questionsTrack: HTMLAudioElement | null = null;
+let _questionsPauseGuard: (() => void) | null = null;
 
 function getQuestionsTrack(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
@@ -76,6 +79,7 @@ function getQuestionsTrack(): HTMLAudioElement | null {
 
 // Module-level singleton for the answer phase track.
 let _answerPhaseTrack: HTMLAudioElement | null = null;
+let _answerPauseGuard: (() => void) | null = null;
 
 function getAnswerPhaseTrack(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
@@ -90,6 +94,9 @@ function getAnswerPhaseTrack(): HTMLAudioElement | null {
 export function playFinalMusic(): void {
   const audio = getFinalTrack();
   if (!audio) return;
+  if (_finalPauseGuard) audio.removeEventListener('pause', _finalPauseGuard);
+  _finalPauseGuard = () => { audio.play().catch(() => {}); };
+  audio.addEventListener('pause', _finalPauseGuard);
   audio.currentTime = 0;
   audio.play().catch(() => {});
 }
@@ -97,26 +104,27 @@ export function playFinalMusic(): void {
 export function stopFinalMusic(): void {
   const audio = getFinalTrack();
   if (!audio) return;
+  if (_finalPauseGuard) { audio.removeEventListener('pause', _finalPauseGuard); _finalPauseGuard = null; }
   audio.pause();
   audio.currentTime = 0;
 }
 
-/** Call this once inside a user-gesture handler (e.g. the unlock button) so the
- *  browser allows HTMLAudio autoplay for the rest of the session. */
+/** Call this once inside a user-gesture handler so the browser allows
+ *  HTMLAudio autoplay for the rest of the session. Only the TV track needs
+ *  pre-warming here — all music tracks self-guard against pause races. */
 export function unlockTVAudio(): void {
-  // Pre-warm tracks that will be played LATER (outside the gesture context).
-  // Do NOT include the lobby track here — it is played directly in the gesture
-  // handler via playLobbyMusic(), so pre-warming it would race and pause it.
-  for (const getTrack of [getTVTrack, getFinalTrack, getQuestionsTrack, getAnswerPhaseTrack]) {
-    const audio = getTrack();
-    if (!audio) continue;
-    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-  }
+  const tv = getTVTrack();
+  if (tv) tv.play().then(() => { tv.pause(); tv.currentTime = 0; }).catch(() => {});
 }
 
 export function playLobbyMusic(): void {
   const audio = getLobbyTrack();
   if (!audio) return;
+  // Remove any existing guard before re-attaching
+  if (_lobbyPauseGuard) audio.removeEventListener('pause', _lobbyPauseGuard);
+  // Guard against accidental pauses from TV remote spacebar / media keys
+  _lobbyPauseGuard = () => { audio.play().catch(() => {}); };
+  audio.addEventListener('pause', _lobbyPauseGuard);
   audio.currentTime = 0;
   audio.play().catch(() => {});
 }
@@ -124,6 +132,11 @@ export function playLobbyMusic(): void {
 export function stopLobbyMusic(): void {
   const audio = getLobbyTrack();
   if (!audio) return;
+  // Remove guard first so our intentional pause isn't immediately reversed
+  if (_lobbyPauseGuard) {
+    audio.removeEventListener('pause', _lobbyPauseGuard);
+    _lobbyPauseGuard = null;
+  }
   audio.pause();
   audio.currentTime = 0;
 }
@@ -131,6 +144,9 @@ export function stopLobbyMusic(): void {
 export function playQuestionsMusic(): void {
   const audio = getQuestionsTrack();
   if (!audio) return;
+  if (_questionsPauseGuard) audio.removeEventListener('pause', _questionsPauseGuard);
+  _questionsPauseGuard = () => { audio.play().catch(() => {}); };
+  audio.addEventListener('pause', _questionsPauseGuard);
   audio.currentTime = 0;
   audio.play().catch(() => {});
 }
@@ -138,6 +154,7 @@ export function playQuestionsMusic(): void {
 export function stopQuestionsMusic(): void {
   const audio = getQuestionsTrack();
   if (!audio) return;
+  if (_questionsPauseGuard) { audio.removeEventListener('pause', _questionsPauseGuard); _questionsPauseGuard = null; }
   audio.pause();
   audio.currentTime = 0;
 }
@@ -145,6 +162,9 @@ export function stopQuestionsMusic(): void {
 export function playAnswerPhaseMusic(): void {
   const audio = getAnswerPhaseTrack();
   if (!audio) return;
+  if (_answerPauseGuard) audio.removeEventListener('pause', _answerPauseGuard);
+  _answerPauseGuard = () => { audio.play().catch(() => {}); };
+  audio.addEventListener('pause', _answerPauseGuard);
   audio.currentTime = 0;
   audio.play().catch(() => {});
 }
@@ -152,6 +172,7 @@ export function playAnswerPhaseMusic(): void {
 export function stopAnswerPhaseMusic(): void {
   const audio = getAnswerPhaseTrack();
   if (!audio) return;
+  if (_answerPauseGuard) { audio.removeEventListener('pause', _answerPauseGuard); _answerPauseGuard = null; }
   audio.pause();
   audio.currentTime = 0;
 }
