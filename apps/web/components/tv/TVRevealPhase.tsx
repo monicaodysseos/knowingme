@@ -69,7 +69,7 @@ export default function TVRevealPhase({ state }: Props) {
         stopDrum();
         setStage('answer');
         playReveal();
-        const t3 = setTimeout(() => setStage('marking'), 2500);
+        const t3 = setTimeout(() => setStage('marking'), 3000);
         return () => clearTimeout(t3);
       }, 1800);
       return () => clearTimeout(t2);
@@ -150,6 +150,42 @@ export default function TVRevealPhase({ state }: Props) {
             </motion.div>
           ))}
         </AnimatePresence>
+
+        {/* Inline answer card — slides in below guesses after the overlay dismisses */}
+        <AnimatePresence>
+          {stage === 'marking' && answer && (
+            <motion.div
+              key="answer-inline"
+              initial={{ y: 24, opacity: 0, scale: 0.96 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              style={{
+                background: subjectPlayer.color.hex,
+                border: `2.5px solid ${Y2K.dark}`,
+                borderRadius: 'clamp(10px, 1.2vw, 18px)',
+                padding: 'clamp(8px, 1vh, 14px) clamp(12px, 1.3vw, 20px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'clamp(10px, 1.2vw, 18px)',
+                boxShadow: `0 4px 0 rgba(11,4,41,0.4)`,
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
+              <Y2KAvatar avatar={subjectPlayer.avatar} size={36} />
+              <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(14px, 1.5vw, 22px)', color: '#fff', minWidth: '8vw', WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
+                {subjectPlayer.name}
+              </span>
+              <span style={{ flex: 1, fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(14px, 1.5vw, 22px)', color: '#fff', textAlign: 'right' }}>
+                &ldquo;{answer}&rdquo;
+              </span>
+              <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(14px, 1.4vw, 20px)', color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
+                ← the answer
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Overlays */}
@@ -184,11 +220,12 @@ export default function TVRevealPhase({ state }: Props) {
           </motion.div>
         )}
 
-        {(stage === 'answer' || stage === 'marking') && answer && (
+        {stage === 'answer' && answer && (
           <motion.div
             key="answer-reveal"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.05, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 200, damping: 18 }}
             style={{ position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(11,4,41,0.92)', backdropFilter: 'blur(4px)', padding: '4vh 6vw' }}
           >
@@ -211,11 +248,6 @@ export default function TVRevealPhase({ state }: Props) {
                 <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(48px, 6.5vw, 100px)', color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, textShadow: `4px 4px 0 ${Y2K.dark}`, letterSpacing: '-1px', lineHeight: 1.05 }}>
                   &ldquo;{answer}&rdquo;
                 </div>
-                {stage === 'marking' && (
-                  <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(13px, 1.3vw, 20px)', color: 'rgba(255,255,255,0.8)', marginTop: 'clamp(10px, 1.5vh, 20px)' }}>
-                    {subjectPlayer.name} is marking the answers on their phone…
-                  </div>
-                )}
               </div>
             </div>
           </motion.div>

@@ -111,7 +111,7 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
       const t = setTimeout(() => {
         setIntroPhase(null);
         stopRoundStartMusic();
-      }, 5000);
+      }, 8000);
       return () => {
         clearTimeout(t);
         stopRoundStartMusic();
