@@ -48,11 +48,64 @@ function getLobbyTrack(): HTMLAudioElement | null {
   return _lobbyTrack;
 }
 
+// Module-level singleton for the final awards track.
+let _finalTrack: HTMLAudioElement | null = null;
+
+function getFinalTrack(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!_finalTrack) {
+    _finalTrack = new Audio('/finalsong.wav');
+    _finalTrack.loop = true;
+    _finalTrack.volume = 0.6;
+  }
+  return _finalTrack;
+}
+
+// Module-level singleton for the question submission track.
+let _questionsTrack: HTMLAudioElement | null = null;
+
+function getQuestionsTrack(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!_questionsTrack) {
+    _questionsTrack = new Audio('/questionssong.wav');
+    _questionsTrack.loop = true;
+    _questionsTrack.volume = 0.6;
+  }
+  return _questionsTrack;
+}
+
+// Module-level singleton for the answer phase track.
+let _answerPhaseTrack: HTMLAudioElement | null = null;
+
+function getAnswerPhaseTrack(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!_answerPhaseTrack) {
+    _answerPhaseTrack = new Audio('/answeringquestionssong.wav');
+    _answerPhaseTrack.loop = true;
+    _answerPhaseTrack.volume = 0.6;
+  }
+  return _answerPhaseTrack;
+}
+
+export function playFinalMusic(): void {
+  const audio = getFinalTrack();
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+export function stopFinalMusic(): void {
+  const audio = getFinalTrack();
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+}
+
 /** Call this once inside a user-gesture handler (e.g. the unlock button) so the
  *  browser allows HTMLAudio autoplay for the rest of the session. */
 export function unlockTVAudio(): void {
-  // Pre-warm both tracks inside the user gesture
-  for (const getTrack of [getTVTrack, getLobbyTrack]) {
+  // Pre-warm all tracks inside the user gesture
+  for (const getTrack of [getTVTrack, getLobbyTrack, getFinalTrack, getQuestionsTrack, getAnswerPhaseTrack]) {
     const audio = getTrack();
     if (!audio) continue;
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
@@ -68,6 +121,34 @@ export function playLobbyMusic(): void {
 
 export function stopLobbyMusic(): void {
   const audio = getLobbyTrack();
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+}
+
+export function playQuestionsMusic(): void {
+  const audio = getQuestionsTrack();
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+export function stopQuestionsMusic(): void {
+  const audio = getQuestionsTrack();
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+}
+
+export function playAnswerPhaseMusic(): void {
+  const audio = getAnswerPhaseTrack();
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+export function stopAnswerPhaseMusic(): void {
+  const audio = getAnswerPhaseTrack();
   if (!audio) return;
   audio.pause();
   audio.currentTime = 0;

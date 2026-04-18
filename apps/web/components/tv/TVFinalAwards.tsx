@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState, AwardResult } from '@ksero-se/types';
 import ParticleBurst from './ParticleBurst';
 import { Y2K } from '../../lib/y2k';
-import { useGameSounds } from '../../lib/hooks/useGameSounds';
+import { useGameSounds, playFinalMusic, stopFinalMusic } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -101,6 +101,11 @@ function Heart({ size = 24, color = '#FF4FB4', x = 0, y = 0, rotate = 0 }: { siz
 export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   const { awards = [] } = state;
   const { playDrumroll, playAwardFanfare, playGameOver } = useGameSounds();
+
+  useEffect(() => {
+    playFinalMusic();
+    return stopFinalMusic;
+  }, []);
 
   const orderedAwards = AWARD_ORDER
     .map((type) => awards.find((a) => a.type === type))

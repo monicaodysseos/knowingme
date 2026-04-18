@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import CountdownRing from './CountdownRing';
 import { Y2K } from '../../lib/y2k';
+import { playQuestionsMusic, stopQuestionsMusic } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -61,6 +63,11 @@ function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { s
 
 export default function TVQuestionSubmission({ state }: Props) {
   const { players, submissionProgress, timerEnd } = state;
+
+  useEffect(() => {
+    playQuestionsMusic();
+    return stopQuestionsMusic;
+  }, []);
   const total = submissionProgress?.total ?? players.length;
   const submitted = submissionProgress?.submitted ?? 0;
 
