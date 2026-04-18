@@ -19,6 +19,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <Script
+          src="https://cdn.cookiehub.eu/c2/0cd5ea0b.js"
+          strategy="beforeInteractive"
+        />
+        <Script id="cookiehub-init" strategy="beforeInteractive">
+          {`
+            document.addEventListener("DOMContentLoaded", function(event) {
+              var cpm = {};
+              window.cookiehub.load(cpm);
+            });
+          `}
+        </Script>
+        <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-275M4Q5MZL"
           strategy="afterInteractive"
         />
