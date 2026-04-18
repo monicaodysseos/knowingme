@@ -96,6 +96,20 @@ export default function Home() {
 function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
   const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
 
+  // Keep the TV screen awake using the Wake Lock API.
+  // Re-acquire on visibility change since the lock is released when the tab hides.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    let lock: WakeLockSentinel | null = null;
+    const acquire = () => {
+      (navigator as Navigator & { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
+        .wakeLock.request('screen').then((l) => { lock = l; }).catch(() => {});
+    };
+    acquire();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') acquire(); });
+    return () => { lock?.release().catch(() => {}); };
+  }, []);
+
   // Unlock audio and start lobby music on the very first interaction with the page.
   // Browsers block autoplay until a user gesture — this catches any click/tap/keypress.
   useEffect(() => {

@@ -101,11 +101,11 @@ export default function TVRevealPhase({ state }: Props) {
       <div className="flex items-center gap-4">
         <Y2KAvatar avatar={subjectPlayer.avatar} size={52} />
         <div>
-          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 34, color: subjectPlayer.color.hex, WebkitTextStroke: `1.5px ${Y2K.dark}`, textShadow: `2px 2px 0 ${Y2K.dark}`, letterSpacing: '-0.5px', lineHeight: 1 }}>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(24px, 3vw, 42px)', color: subjectPlayer.color.hex, WebkitTextStroke: `1.5px ${Y2K.dark}`, textShadow: `2px 2px 0 ${Y2K.dark}`, letterSpacing: '-0.5px', lineHeight: 1 }}>
             {subjectPlayer.name}&apos;s Round
           </div>
           {totalForSubject > 1 && (
-            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(11px, 1.1vw, 16px)', color: 'rgba(255,255,255,0.55)' }}>
               Question {questionIndex + 1} of {totalForSubject}
             </div>
           )}
@@ -113,14 +113,14 @@ export default function TVRevealPhase({ state }: Props) {
       </div>
 
       {/* Question */}
-      <Sticker color="#fff" r={20} style={{ width: '100%', maxWidth: 600, padding: '16px 24px', textAlign: 'center' }}>
-        <p style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
+      <Sticker color="#fff" r={20} style={{ width: '100%', maxWidth: 'min(700px, 80vw)', padding: 'clamp(12px, 1.5vh, 22px) clamp(16px, 2vw, 32px)', textAlign: 'center' }}>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(18px, 2.2vw, 30px)', color: Y2K.dark, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
           {questionText}
         </p>
       </Sticker>
 
       {/* Guesses list — revealed one by one */}
-      <div style={{ width: '100%', maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ width: '100%', maxWidth: 'min(700px, 80vw)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Chunky size={12} color={Y2K.cyan} shadow={Y2K.dark}>what everyone guessed</Chunky>
         <AnimatePresence>
           {visibleGuesses.map((g) => (
@@ -200,23 +200,33 @@ export default function TVRevealPhase({ state }: Props) {
             exit={stage === 'answer' ? { scale: 0.9, opacity: 0 } : undefined}
             transition={{ type: 'spring', stiffness: 200, damping: 18 }}
             className={stage === 'answer' ? 'absolute inset-0 z-30 flex items-center justify-center' : 'w-full'}
-            style={stage === 'answer' ? { background: 'rgba(11,4,41,0.92)', backdropFilter: 'blur(4px)' } : { maxWidth: 600 }}
+            style={stage === 'answer' ? { background: 'rgba(11,4,41,0.92)', backdropFilter: 'blur(4px)' } : { maxWidth: 'min(700px, 80vw)' }}
           >
-            <div style={{ width: '100%', maxWidth: 600 }}>
-              <Sticker color={subjectPlayer.color.hex} r={24} style={{ padding: '24px 28px', textAlign: 'center', position: 'relative' }}>
+            <div style={{ width: '100%', maxWidth: 'min(700px, 80vw)' }}>
+              <div style={{
+                background: subjectPlayer.color.hex,
+                borderRadius: 'clamp(20px, 2.5vw, 36px)',
+                border: 'none',
+                boxShadow: `0 8px 0 rgba(11,4,41,0.5), 0 2px 24px rgba(11,4,41,0.3)`,
+                padding: 'clamp(20px, 3vh, 40px) clamp(24px, 3vw, 48px)',
+                textAlign: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '36px 36px 50% 50%', pointerEvents: 'none' }} />
                 {stage === 'answer' && <ParticleBurst trigger />}
-                <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.8)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(12px, 1.3vw, 18px)', color: 'rgba(255,255,255,0.85)', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 'clamp(8px, 1vh, 16px)' }}>
                   {subjectPlayer.name} actually said…
                 </div>
-                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 48, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, textShadow: `4px 4px 0 ${Y2K.dark}`, letterSpacing: '-1px', lineHeight: 1.05 }}>
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(36px, 5vw, 72px)', color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, textShadow: `4px 4px 0 ${Y2K.dark}`, letterSpacing: '-1px', lineHeight: 1.05 }}>
                   &ldquo;{answer}&rdquo;
                 </div>
                 {stage === 'marking' && (
-                  <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 12 }}>
+                  <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(11px, 1.1vw, 16px)', color: 'rgba(255,255,255,0.8)', marginTop: 'clamp(8px, 1vh, 16px)' }}>
                     {subjectPlayer.name} is marking the answers on their phone…
                   </div>
                 )}
-              </Sticker>
+              </div>
             </div>
           </motion.div>
         )}

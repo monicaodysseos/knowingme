@@ -103,9 +103,11 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   const { playDrumroll, playAwardFanfare, playGameOver } = useGameSounds();
 
   useEffect(() => {
-    playFinalMusic();
-    return stopFinalMusic;
-  }, []);
+    if (phase === 'done') {
+      playFinalMusic();
+      return stopFinalMusic;
+    }
+  }, [phase]);
 
   const orderedAwards = AWARD_ORDER
     .map((type) => awards.find((a) => a.type === type))

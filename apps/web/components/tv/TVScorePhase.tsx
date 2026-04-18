@@ -51,7 +51,7 @@ function ChromeTitle({ text, size = 56, tilt = -2 }: { text: string; size?: numb
 }
 
 export default function TVScorePhase({ state }: Props) {
-  const { scores, currentTurn, isRoundEnd, isLastRound } = state;
+  const { scores, players, currentTurn, isRoundEnd, isLastRound } = state;
 
   if (isLastRound) {
     return <div className="min-h-screen" style={{ background: Y2K.dark }} />;
@@ -93,7 +93,7 @@ export default function TVScorePhase({ state }: Props) {
           className="flex flex-col items-center gap-5 w-full"
         >
           <ChromeTitle text="leaderboard ✦" size={52} tilt={-1.5} />
-          <Leaderboard scores={scores} highlight />
+          <Leaderboard scores={scores} players={players} highlight />
         </motion.div>
       )}
 
