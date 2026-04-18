@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
@@ -44,51 +44,48 @@ export default function TVRevealPhase({ state }: Props) {
   const { currentTurn } = state;
   const [stage, setStage] = useState<RevealStage>('guesses');
   const [visibleCount, setVisibleCount] = useState(0);
-  const answerRef = useRef<string | undefined>(undefined);
-  const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { playBlink, playDrumroll, playReveal } = useGameSounds();
 
-  // Reset when question changes
+  // Reset everything when the question changes
   useEffect(() => {
-    answerRef.current = undefined;
     setStage('guesses');
     setVisibleCount(0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTurn?.questionText ?? '']);
 
-  // Stagger guesses one-by-one, 800ms apart, with a blink sound each
+  // Reveal guesses one by one, 800 ms apart, blink sound each time
   useEffect(() => {
+    if (stage !== 'guesses') return;
     const total = currentTurn?.guessesRevealed.length ?? 0;
-    if (stage !== 'guesses' || visibleCount >= total) return;
+    if (visibleCount >= total) return;
     const t = setTimeout(() => {
       setVisibleCount((v) => v + 1);
       playBlink();
-    }, visibleCount === 0 ? 400 : 800);
+    }, visibleCount === 0 ? 500 : 800);
     return () => clearTimeout(t);
   }, [visibleCount, currentTurn?.guessesRevealed.length, stage, playBlink]);
 
-  // After 8 s from phase entry, start drumroll → reveal answer
+  // Once all guesses are visible, wait 2 s then drumroll → answer
   useEffect(() => {
-    const newAnswer = currentTurn?.answer;
-    if (newAnswer && !answerRef.current) {
-      answerRef.current = newAnswer;
-      stageTimerRef.current = setTimeout(() => {
-        setStage('drumroll');
-        const stopDrum = playDrumroll(1800);
-        stageTimerRef.current = setTimeout(() => {
-          stopDrum();
-          setStage('answer');
-          playReveal();
-          stageTimerRef.current = setTimeout(() => {
-            setStage('marking');
-          }, 2500);
-        }, 1800);
-      }, 8000);
-    }
-    return () => {
-      if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
-    };
-  }, [currentTurn?.answer, playDrumroll, playReveal]);
+    if (stage !== 'guesses') return;
+    const total = currentTurn?.guessesRevealed.length ?? 0;
+    if (visibleCount < total || total === 0) return;
+
+    const t1 = setTimeout(() => {
+      setStage('drumroll');
+      const stopDrum = playDrumroll(1800);
+      const t2 = setTimeout(() => {
+        stopDrum();
+        setStage('answer');
+        playReveal();
+        const t3 = setTimeout(() => setStage('marking'), 2500);
+        return () => clearTimeout(t3);
+      }, 1800);
+      return () => clearTimeout(t2);
+    }, 2000);
+
+    return () => clearTimeout(t1);
+  }, [visibleCount, currentTurn?.guessesRevealed.length, stage, playDrumroll, playReveal]);
 
   if (!currentTurn) return null;
 

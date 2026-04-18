@@ -86,17 +86,27 @@ function buildPlayerTurns(
   players: Player[],
   assignments: QuestionAssignment[],
 ): PlayerTurn[] {
-  // For each player, include ALL of their answered assignments as separate turns
-  const turns: PlayerTurn[] = [];
-  const shuffledPlayers = shuffle(players);
+  // Group answered assignments by player (preserving assignment order = question slot order)
+  const byPlayer: Record<string, QuestionAssignment[]> = {};
+  for (const a of assignments) {
+    if (a.answer === undefined || a.skipped) continue;
+    if (!byPlayer[a.assignedToPlayerId]) byPlayer[a.assignedToPlayerId] = [];
+    byPlayer[a.assignedToPlayerId].push(a);
+  }
 
-  for (const player of shuffledPlayers) {
-    const answered = shuffle(
-      assignments.filter(
-        (a) => a.assignedToPlayerId === player.id && a.answer !== undefined && !a.skipped,
-      ),
-    );
-    for (const a of answered) {
+  // Shuffle player order once — same order used across all question rounds
+  const activePlayers = shuffle(
+    players.filter((p) => (byPlayer[p.id]?.length ?? 0) > 0),
+  );
+
+  const maxSlots = Math.max(0, ...activePlayers.map((p) => byPlayer[p.id].length));
+
+  // Interleave: slot 0 for all players, then slot 1 for all players, etc.
+  const turns: PlayerTurn[] = [];
+  for (let slot = 0; slot < maxSlots; slot++) {
+    for (const player of activePlayers) {
+      const a = byPlayer[player.id][slot];
+      if (!a) continue;
       turns.push({
         subjectPlayerId: player.id,
         assignmentId: a.id,

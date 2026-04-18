@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../lib/socket';
 import { Y2K } from '../lib/y2k';
+import { unlockTVAudio } from '../lib/hooks/useGameSounds';
 import TVLobby from '../components/tv/TVLobby';
 import TVQuestionSubmission from '../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../components/tv/TVAnswerPhase';
@@ -101,7 +102,9 @@ function AudioUnlockButton() {
     if (!w.__audioCtx) {
       w.__audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     }
-    w.__audioCtx.resume().then(() => setUnlocked(true)).catch(() => {});
+    w.__audioCtx.resume().catch(() => {});
+    // Also unlock HTMLAudio autoplay — must happen inside a user gesture handler
+    unlockTVAudio();
     setUnlocked(true);
   };
 

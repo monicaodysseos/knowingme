@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 
 // Lazy singleton AudioContext — created on first user interaction
 function getAudioCtx(): AudioContext | null {
@@ -20,30 +20,43 @@ function ensureRunning(ctx: AudioContext): void {
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 }
 
-export function useGameSounds() {
-  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
+// Module-level singleton for the TV guess-phase track.
+// Created once, reused across renders. Must be pre-warmed by a user gesture
+// (the TV's unlock button) before autoplay policy allows it to play.
+let _tvTrack: HTMLAudioElement | null = null;
 
+function getTVTrack(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!_tvTrack) {
+    _tvTrack = new Audio('/thumb-tap-tango.wav');
+    _tvTrack.loop = true;
+    _tvTrack.volume = 0.55;
+  }
+  return _tvTrack;
+}
+
+/** Call this once inside a user-gesture handler (e.g. the unlock button) so the
+ *  browser allows HTMLAudio autoplay for the rest of the session. */
+export function unlockTVAudio(): void {
+  const audio = getTVTrack();
+  if (!audio) return;
+  audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+}
+
+export function useGameSounds() {
   // ── Background music (looping audio file during GUESS_PHASE) ────────────
   const playTick = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    // Stop any previous instance
-    if (bgAudioRef.current) {
-      bgAudioRef.current.pause();
-      bgAudioRef.current.currentTime = 0;
-    }
-    const audio = new Audio('/thumb-tap-tango.wav');
-    audio.loop = true;
-    audio.volume = 0.55;
-    bgAudioRef.current = audio;
+    const audio = getTVTrack();
+    if (!audio) return;
+    audio.currentTime = 0;
     audio.play().catch(() => {});
   }, []);
 
   const stopTick = useCallback(() => {
-    if (bgAudioRef.current) {
-      bgAudioRef.current.pause();
-      bgAudioRef.current.currentTime = 0;
-      bgAudioRef.current = null;
-    }
+    const audio = getTVTrack();
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
   }, []);
 
   // ── Drumroll (white noise, gated rapidly, building gain) ─────────────────
