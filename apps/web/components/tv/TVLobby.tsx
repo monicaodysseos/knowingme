@@ -83,6 +83,11 @@ export default function TVLobby({ state, onStart }: Props) {
   );
   useEffect(() => { setSiteUrl(window.location.origin); }, []);
 
+  useEffect(() => {
+    playLobbyMusic();
+    return stopLobbyMusic;
+  }, []);
+
   const joinUrl = `${siteUrl}/play?room=${roomCode}`;
 
   return (
@@ -203,7 +208,7 @@ export default function TVLobby({ state, onStart }: Props) {
               }}
             >
               <button
-                onClick={onStart}
+                onClick={() => { stopLobbyMusic(); onStart(); }}
                 disabled={!canStart}
                 style={{
                   fontFamily: Y2K.display,
