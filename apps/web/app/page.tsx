@@ -1,188 +1,263 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTVSocket } from '../lib/hooks/useGameSocket';
-import { disconnectSocket } from '../lib/socket';
-import { unlockTVAudio, playLobbyMusic } from '../lib/hooks/useGameSounds';
-import TVLobby from '../components/tv/TVLobby';
-import TVQuestionSubmission from '../components/tv/TVQuestionSubmission';
-import TVAnswerPhase from '../components/tv/TVAnswerPhase';
-import TVGuessPhase from '../components/tv/TVGuessPhase';
-import TVRevealPhase from '../components/tv/TVRevealPhase';
-import TVScorePhase from '../components/tv/TVScorePhase';
-import TVFinalAwards from '../components/tv/TVFinalAwards';
+import { Y2K } from '../lib/y2k';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
-
-function createRoom(): Promise<string> {
-  return fetch(`${SERVER_URL}/api/rooms`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'social' }),
-  })
-    .then((r) => r.json())
-    .then((data) => {
-      const code: string = data.roomCode;
-      try { sessionStorage.setItem('ksero-tv-room', code); } catch {}
-      return code;
-    });
+function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number | string; y?: number | string; rotate?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
+      <path d="M12 2 L13.5 9.5 L21 11 L13.5 12.5 L12 20 L10.5 12.5 L3 11 L10.5 9.5 Z" fill={color} stroke={Y2K.dark} strokeWidth="1" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-export default function Home() {
-  const [roomCode, setRoomCode] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default function LandingPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<'idle' | 'join'>('idle');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Called when socket reconnects and finds the room gone (server restarted).
-  // Creates a new room in-place — no page reload, no disruption.
-  const handleRoomExpired = useCallback(() => {
-    disconnectSocket(); // close the old socket so we get a fresh connection
-    try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
-    setRoomCode(null);
-    setLoading(true);
-    createRoom()
-      .then((code) => { setRoomCode(code); setLoading(false); })
-      .catch(() => { setError('Server unreachable. Retrying…'); setLoading(false); });
-  }, []);
-
-  // Initial room setup — reuse sessionStorage code if valid,
-  // otherwise create a fresh room via the API.
-  useEffect(() => {
-    const stored = sessionStorage.getItem('ksero-tv-room');
-    if (stored) {
-      setRoomCode(stored);
-      setLoading(false);
+  const handleJoin = () => {
+    const trimmed = code.trim().toUpperCase();
+    if (trimmed.length < 4) {
+      setError('enter the 4-letter room code ✦');
+      inputRef.current?.focus();
       return;
     }
-    createRoom()
-      .then((code) => { setRoomCode(code); setLoading(false); })
-      .catch(() => { setError('Could not connect to server.'); setLoading(false); });
-  }, []);
+    router.push(`/play?room=${trimmed.slice(0, 4)}`);
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-          className="w-16 h-16 rounded-full border-4 border-transparent"
-          style={{ borderTopColor: '#F97316' }}
-        />
-      </div>
-    );
-  }
-
-  if (error || !roomCode) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <div className="text-center">
-          <p className="text-red-400 font-bold text-2xl mb-4">{error ?? 'Unknown error'}</p>
-          <button
-            onClick={() => { setError(null); setLoading(true); createRoom().then(c => { setRoomCode(c); setLoading(false); }).catch(() => setError('Still unreachable.')); }}
-            className="px-6 py-3 rounded-xl font-bold text-white"
-            style={{ background: '#F97316' }}
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} />;
-}
-
-function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
-  const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
-
-  // Keep the TV screen awake using the Wake Lock API.
-  // Re-acquire on visibility change since the lock is released when the tab hides.
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
-    let lock: WakeLockSentinel | null = null;
-    const acquire = () => {
-      (navigator as Navigator & { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
-        .wakeLock.request('screen').then((l) => { lock = l; }).catch(() => {});
-    };
-    acquire();
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') acquire(); });
-    return () => { lock?.release().catch(() => {}); };
-  }, []);
-
-  // Unlock audio and start lobby music on the very first interaction with the page.
-  // Browsers block autoplay until a user gesture — this catches any click/tap/keypress.
-  useEffect(() => {
-    let unlocked = false;
-    const unlock = () => {
-      if (unlocked) return;
-      unlocked = true;
-      const w = window as typeof window & { __audioCtx?: AudioContext };
-      if (!w.__audioCtx) {
-        w.__audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      }
-      w.__audioCtx.resume().catch(() => {});
-      unlockTVAudio();
-      playLobbyMusic();
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('keydown', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
-    document.addEventListener('click', unlock);
-    document.addEventListener('keydown', unlock);
-    document.addEventListener('touchstart', unlock);
-    return () => {
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('keydown', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
-  }, []);
-
-  if (!state) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-bg">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-          className="w-12 h-12 rounded-full border-4 border-transparent"
-          style={{ borderTopColor: '#F97316' }}
-        />
-        <p className="text-gray-400 font-bold">Connecting…</p>
-      </div>
-    );
-  }
+  const openJoin = () => {
+    setMode('join');
+    setCode('');
+    setError('');
+    setTimeout(() => inputRef.current?.focus(), 80);
+  };
 
   return (
-    <AnimatePresence mode="wait">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      style={{ background: Y2K.dark }}
+    >
+      {/* Decorative sparkles */}
+      <Sparkle size={32} color={Y2K.yellow} x={60} y={60} rotate={15} />
+      <Sparkle size={22} color={Y2K.cyan} x="calc(100vw - 100px)" y={80} rotate={-10} />
+      <Sparkle size={18} color={Y2K.pink} x={40} y="calc(100vh - 100px)" rotate={30} />
+      <Sparkle size={26} color={Y2K.yellow} x="calc(100vw - 80px)" y="calc(100vh - 120px)" rotate={-20} />
+
+      {/* Logo / Title */}
       <motion.div
-        key={state.phase}
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 1.02 }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 120 }}
+        className="text-center mb-14"
       >
-        {state.phase === 'LOBBY' && (
-          <TVLobby state={state} onStart={hostStart} />
-        )}
-        {state.phase === 'QUESTION_SUBMISSION' && (
-          <TVQuestionSubmission state={state} />
-        )}
-        {state.phase === 'ANSWER_PHASE' && (
-          <TVAnswerPhase state={state} />
-        )}
-        {state.phase === 'GUESS_PHASE' && (
-          <TVGuessPhase state={state} />
-        )}
-        {state.phase === 'REVEAL_PHASE' && (
-          <TVRevealPhase state={state} />
-        )}
-        {state.phase === 'SCORE_PHASE' && (
-          <TVScorePhase state={state} />
-        )}
-        {(state.phase === 'FINAL_AWARDS' || state.phase === 'GAME_OVER') && (
-          <TVFinalAwards state={state} onPlayAgain={playAgain} />
-        )}
+        <div style={{
+          fontFamily: Y2K.display,
+          fontWeight: 900,
+          fontSize: 'clamp(52px, 10vw, 110px)',
+          letterSpacing: '-3px',
+          lineHeight: 1,
+          transform: 'rotate(-2deg)',
+          WebkitTextStroke: '2px rgba(11,4,41,0.5)',
+          textShadow: '4px 4px 0 rgba(11,4,41,0.4)',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          display: 'inline-block',
+        }}>
+          ksero · se ✿
+        </div>
+        <p style={{
+          fontFamily: Y2K.body,
+          fontWeight: 700,
+          fontSize: 'clamp(14px, 2vw, 20px)',
+          color: Y2K.cyan,
+          marginTop: 12,
+          letterSpacing: '0.04em',
+        }}>
+          the party game where you think you know your friends
+        </p>
       </motion.div>
-    </AnimatePresence>
+
+      {/* Buttons */}
+      <AnimatePresence mode="wait">
+        {mode === 'idle' && (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ type: 'spring', stiffness: 120 }}
+            className="flex flex-col items-center gap-5"
+            style={{ width: 'min(360px, 90vw)' }}
+          >
+            {/* New Game */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => router.push('/tv')}
+              style={{
+                width: '100%',
+                padding: '20px 0',
+                borderRadius: 20,
+                background: Y2K.hotPink,
+                border: `3px solid ${Y2K.dark}`,
+                boxShadow: `0 6px 0 rgba(11,4,41,0.55)`,
+                fontFamily: Y2K.display,
+                fontWeight: 900,
+                fontSize: 'clamp(20px, 3vw, 28px)',
+                color: '#fff',
+                cursor: 'pointer',
+                letterSpacing: '0.04em',
+                WebkitTextStroke: `0.5px ${Y2K.dark}`,
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
+              new game ✦
+            </motion.button>
+
+            {/* Join Game */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={openJoin}
+              style={{
+                width: '100%',
+                padding: '20px 0',
+                borderRadius: 20,
+                background: '#fff',
+                border: `3px solid ${Y2K.dark}`,
+                boxShadow: `0 6px 0 rgba(11,4,41,0.55)`,
+                fontFamily: Y2K.display,
+                fontWeight: 900,
+                fontSize: 'clamp(20px, 3vw, 28px)',
+                color: Y2K.dark,
+                cursor: 'pointer',
+                letterSpacing: '0.04em',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.25)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
+              join game ✦
+            </motion.button>
+          </motion.div>
+        )}
+
+        {mode === 'join' && (
+          <motion.div
+            key="join"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ type: 'spring', stiffness: 120 }}
+            className="flex flex-col items-center gap-4"
+            style={{ width: 'min(360px, 90vw)' }}
+          >
+            <div style={{
+              fontFamily: Y2K.display,
+              fontWeight: 900,
+              fontSize: 20,
+              color: Y2K.cyan,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}>
+              enter room code
+            </div>
+
+            {/* Code input */}
+            <input
+              ref={inputRef}
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+                setError('');
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+              placeholder="A1B2"
+              maxLength={4}
+              style={{
+                width: '100%',
+                padding: '18px 20px',
+                borderRadius: 16,
+                background: '#fff',
+                border: `3px solid ${error ? '#ef4444' : Y2K.dark}`,
+                boxShadow: `0 5px 0 rgba(11,4,41,0.45)`,
+                fontFamily: Y2K.display,
+                fontWeight: 900,
+                fontSize: 36,
+                color: Y2K.dark,
+                textAlign: 'center',
+                letterSpacing: '0.25em',
+                outline: 'none',
+                textTransform: 'uppercase',
+              }}
+            />
+
+            {error && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#ef4444', textAlign: 'center' }}
+              >
+                {error}
+              </motion.p>
+            )}
+
+            {/* Join button */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleJoin}
+              style={{
+                width: '100%',
+                padding: '18px 0',
+                borderRadius: 20,
+                background: Y2K.hotPink,
+                border: `3px solid ${Y2K.dark}`,
+                boxShadow: `0 6px 0 rgba(11,4,41,0.55)`,
+                fontFamily: Y2K.display,
+                fontWeight: 900,
+                fontSize: 24,
+                color: '#fff',
+                cursor: 'pointer',
+                letterSpacing: '0.04em',
+                WebkitTextStroke: `0.5px ${Y2K.dark}`,
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
+              let me in ✦
+            </motion.button>
+
+            {/* Back */}
+            <button
+              onClick={() => setMode('idle')}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontFamily: Y2K.body,
+                fontWeight: 700,
+                fontSize: 14,
+                color: 'rgba(255,255,255,0.45)',
+                cursor: 'pointer',
+                letterSpacing: '0.04em',
+              }}
+            >
+              ← back
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
