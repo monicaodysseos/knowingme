@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../lib/socket';
+import { Y2K } from '../lib/y2k';
 import TVLobby from '../components/tv/TVLobby';
 import TVQuestionSubmission from '../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../components/tv/TVAnswerPhase';
@@ -90,6 +91,52 @@ export default function Home() {
   }
 
   return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} />;
+}
+
+function AudioUnlockButton() {
+  const [unlocked, setUnlocked] = useState(false);
+
+  const unlock = () => {
+    const w = window as typeof window & { __audioCtx?: AudioContext };
+    if (!w.__audioCtx) {
+      w.__audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    }
+    w.__audioCtx.resume().then(() => setUnlocked(true)).catch(() => {});
+    setUnlocked(true);
+  };
+
+  if (unlocked) return null;
+
+  return (
+    <button
+      onClick={unlock}
+      title="Click to enable sound"
+      style={{
+        position: 'fixed',
+        bottom: 20,
+        right: 20,
+        zIndex: 9999,
+        width: 44,
+        height: 44,
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,0.12)',
+        border: `2px solid rgba(255,255,255,0.3)`,
+        backdropFilter: 'blur(8px)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 20,
+        transition: 'all 0.2s',
+        color: '#fff',
+        fontFamily: Y2K.body,
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.22)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+    >
+      🔇
+    </button>
+  );
 }
 
 function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
