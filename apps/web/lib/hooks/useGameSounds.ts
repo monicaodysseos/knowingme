@@ -104,8 +104,10 @@ export function stopFinalMusic(): void {
 /** Call this once inside a user-gesture handler (e.g. the unlock button) so the
  *  browser allows HTMLAudio autoplay for the rest of the session. */
 export function unlockTVAudio(): void {
-  // Pre-warm all tracks inside the user gesture
-  for (const getTrack of [getTVTrack, getLobbyTrack, getFinalTrack, getQuestionsTrack, getAnswerPhaseTrack]) {
+  // Pre-warm tracks that will be played LATER (outside the gesture context).
+  // Do NOT include the lobby track here — it is played directly in the gesture
+  // handler via playLobbyMusic(), so pre-warming it would race and pause it.
+  for (const getTrack of [getTVTrack, getFinalTrack, getQuestionsTrack, getAnswerPhaseTrack]) {
     const audio = getTrack();
     if (!audio) continue;
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
