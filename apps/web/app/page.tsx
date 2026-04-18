@@ -311,7 +311,7 @@ export default function LandingPage() {
         >
           {[
             { k: '3', l: 'rounds' },
-            { k: '4–12', l: 'players' },
+            { k: '3–12', l: 'players' },
             { k: '~10', l: 'min' },
             { k: '✦', l: 'shade' },
           ].map((s, i) => (
