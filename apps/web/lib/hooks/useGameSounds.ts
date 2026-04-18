@@ -21,36 +21,28 @@ function ensureRunning(ctx: AudioContext): void {
 }
 
 export function useGameSounds() {
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // ── Tick (looping during GUESS_PHASE) ────────────────────────────────────
+  // ── Background music (looping audio file during GUESS_PHASE) ────────────
   const playTick = useCallback(() => {
-    const ctx = getAudioCtx();
-    if (!ctx) return;
-    ensureRunning(ctx);
-
-    function doTick() {
-      const now = ctx!.currentTime;
-      const osc = ctx!.createOscillator();
-      const gain = ctx!.createGain();
-      osc.connect(gain);
-      gain.connect(ctx!.destination);
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(600, now);
-      gain.gain.setValueAtTime(0.05, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-      osc.start(now);
-      osc.stop(now + 0.09);
+    if (typeof window === 'undefined') return;
+    // Stop any previous instance
+    if (bgAudioRef.current) {
+      bgAudioRef.current.pause();
+      bgAudioRef.current.currentTime = 0;
     }
-
-    doTick();
-    tickRef.current = setInterval(doTick, 800);
+    const audio = new Audio('/thumb-tap-tango.wav');
+    audio.loop = true;
+    audio.volume = 0.55;
+    bgAudioRef.current = audio;
+    audio.play().catch(() => {});
   }, []);
 
   const stopTick = useCallback(() => {
-    if (tickRef.current !== null) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
+    if (bgAudioRef.current) {
+      bgAudioRef.current.pause();
+      bgAudioRef.current.currentTime = 0;
+      bgAudioRef.current = null;
     }
   }, []);
 

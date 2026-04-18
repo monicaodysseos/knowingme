@@ -157,6 +157,8 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
   }
 
   return (
+    <>
+    <AudioUnlockButton />
     <AnimatePresence mode="wait">
       <motion.div
         key={state.phase}
@@ -188,5 +190,6 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
         )}
       </motion.div>
     </AnimatePresence>
+    </>
   );
 }
