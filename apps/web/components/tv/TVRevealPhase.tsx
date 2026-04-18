@@ -43,15 +43,35 @@ function Chunky({ children, size = 16, color = '#fff', shadow = Y2K.dark }: { ch
 export default function TVRevealPhase({ state }: Props) {
   const { currentTurn } = state;
   const [stage, setStage] = useState<RevealStage>('guesses');
+  const [visibleCount, setVisibleCount] = useState(0);
   const answerRef = useRef<string | undefined>(undefined);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { playDrumroll, playReveal } = useGameSounds();
+  const { playBlink, playDrumroll, playReveal } = useGameSounds();
 
+  // Reset when question changes
+  useEffect(() => {
+    answerRef.current = undefined;
+    setStage('guesses');
+    setVisibleCount(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTurn?.questionText ?? '']);
+
+  // Stagger guesses one-by-one, 800ms apart, with a blink sound each
+  useEffect(() => {
+    const total = currentTurn?.guessesRevealed.length ?? 0;
+    if (stage !== 'guesses' || visibleCount >= total) return;
+    const t = setTimeout(() => {
+      setVisibleCount((v) => v + 1);
+      playBlink();
+    }, visibleCount === 0 ? 400 : 800);
+    return () => clearTimeout(t);
+  }, [visibleCount, currentTurn?.guessesRevealed.length, stage, playBlink]);
+
+  // After 8 s from phase entry, start drumroll → reveal answer
   useEffect(() => {
     const newAnswer = currentTurn?.answer;
     if (newAnswer && !answerRef.current) {
       answerRef.current = newAnswer;
-      // Show all guesses for 5 s, then drumroll, then reveal answer
       stageTimerRef.current = setTimeout(() => {
         setStage('drumroll');
         const stopDrum = playDrumroll(1800);
@@ -63,22 +83,17 @@ export default function TVRevealPhase({ state }: Props) {
             setStage('marking');
           }, 2500);
         }, 1800);
-      }, 10000);
+      }, 8000);
     }
     return () => {
       if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
     };
   }, [currentTurn?.answer, playDrumroll, playReveal]);
 
-  useEffect(() => {
-    answerRef.current = undefined;
-    setStage('guesses');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTurn?.questionText ?? '']);
-
   if (!currentTurn) return null;
 
   const { subjectPlayer, questionText, questionIndex, totalForSubject, guessesRevealed, answer } = currentTurn;
+  const visibleGuesses = guessesRevealed.slice(0, visibleCount);
 
   return (
     <div
@@ -107,16 +122,16 @@ export default function TVRevealPhase({ state }: Props) {
         </p>
       </Sticker>
 
-      {/* Guesses list */}
+      {/* Guesses list — revealed one by one */}
       <div style={{ width: '100%', maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Chunky size={12} color={Y2K.cyan} shadow={Y2K.dark}>what everyone guessed</Chunky>
         <AnimatePresence>
-          {guessesRevealed.map((g, i) => (
+          {visibleGuesses.map((g) => (
             <motion.div
               key={g.id}
-              initial={{ x: 60, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 22, delay: i * 0.04 }}
+              initial={{ x: 60, opacity: 0, scale: 0.95 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
               style={{
                 background: g.isCorrect === true ? '#fff' : 'rgba(255,255,255,0.6)',
                 border: `2.5px solid ${g.isCorrect === true ? '#19B06B' : g.isCorrect === false ? '#FF1E8E' : Y2K.dark}`,
@@ -201,7 +216,7 @@ export default function TVRevealPhase({ state }: Props) {
                 </div>
                 {stage === 'marking' && (
                   <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 12 }}>
-                    Everyone is voting on their phones…
+                    {subjectPlayer.name} is marking the answers on their phone…
                   </div>
                 )}
               </Sticker>

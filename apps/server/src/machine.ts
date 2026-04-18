@@ -59,31 +59,23 @@ function assignQuestions(
   pool: Question[],
   _mode: GameMode,
 ): QuestionAssignment[] {
-  // Only use player-submitted questions, shuffled once globally.
-  // Players may receive their own questions.
-  const submittedPool = shuffle(pool.filter((q) => q.submittedByPlayerId !== undefined));
-  if (submittedPool.length === 0) return [];
+  // Only use player-submitted questions.
+  // Each player gets their own independent shuffle so question order differs per player.
+  const submitted = pool.filter((q) => q.submittedByPlayerId !== undefined);
+  if (submitted.length === 0) return [];
 
   const assignments: QuestionAssignment[] = [];
-  players.forEach((player, pi) => {
-    const count = Math.min(QUESTIONS_PER_PLAYER, submittedPool.length);
-    const start = (pi * QUESTIONS_PER_PLAYER) % submittedPool.length;
-    const seen = new Set<string>();
-    let idx = start;
-    let scanned = 0;
-    while (seen.size < count && scanned < submittedPool.length) {
-      const q = submittedPool[idx % submittedPool.length];
-      idx++;
-      scanned++;
-      if (!seen.has(q.id)) {
-        seen.add(q.id);
-        assignments.push({
-          id: uuidv4(),
-          questionId: q.id,
-          questionText: q.text,
-          assignedToPlayerId: player.id,
-        });
-      }
+  players.forEach((player) => {
+    // Fresh shuffle for every player — guarantees different order and no duplicates within their set
+    const playerPool = shuffle(submitted);
+    const count = Math.min(QUESTIONS_PER_PLAYER, playerPool.length);
+    for (let j = 0; j < count; j++) {
+      assignments.push({
+        id: uuidv4(),
+        questionId: playerPool[j].id,
+        questionText: playerPool[j].text,
+        assignedToPlayerId: player.id,
+      });
     }
   });
 

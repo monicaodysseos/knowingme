@@ -88,6 +88,26 @@ export function useGameSounds() {
     return () => { try { source.stop(); } catch {} };
   }, []);
 
+  // ── Blink (single guess card appearing) ─────────────────────────────────
+  const playBlink = useCallback(() => {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    ensureRunning(ctx);
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1400, now);
+    osc.frequency.exponentialRampToValueAtTime(900, now + 0.1);
+    gain.gain.setValueAtTime(0.0, now);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+    osc.start(now);
+    osc.stop(now + 0.16);
+  }, []);
+
   // ── Reveal arpeggio (C5 → E5 → G5 → C6, sine) ───────────────────────────
   const playReveal = useCallback(() => {
     const ctx = getAudioCtx();
@@ -171,5 +191,5 @@ export function useGameSounds() {
     });
   }, []);
 
-  return { playTick, stopTick, playDrumroll, playReveal, playAwardFanfare, playGameOver };
+  return { playTick, stopTick, playBlink, playDrumroll, playReveal, playAwardFanfare, playGameOver };
 }
