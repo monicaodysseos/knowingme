@@ -10,27 +10,18 @@ const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #f
 const DISPLAY = "'Rubik', 'Nunito', sans-serif";
 const BODY = "'Space Grotesk', 'Nunito', sans-serif";
 
-function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
+function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0, className = '' }: { size?: number; color?: string; x?: number; y?: number; rotate?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}
       style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
       <path d="M12 2 L13.5 9.5 L21 11 L13.5 12.5 L12 20 L10.5 12.5 L3 11 L10.5 9.5 Z" fill={color} stroke={DARK} strokeWidth="1" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function Heart({ size = 22, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
-      <path d="M12 21 C12 21 3 14 3 8 C3 5.2 5.2 3 8 3 C9.7 3 11.2 3.9 12 5.1 C12.8 3.9 14.3 3 16 3 C18.8 3 21 5.2 21 8 C21 14 12 21 12 21Z" fill={color} stroke={DARK} strokeWidth="1.5" />
-    </svg>
-  );
-}
-
 function FlowerMascot({ size = 80 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" style={{ filter: `drop-shadow(4px 4px 0 ${DARK})`, flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{ filter: `drop-shadow(3px 3px 0 ${DARK})`, flexShrink: 0 }}>
       <defs>
         <radialGradient id="flower-chrome" cx="35%" cy="30%" r="80%">
           <stop offset="0" stopColor="#ffffff" />
@@ -52,14 +43,17 @@ function FlowerMascot({ size = 80 }: { size?: number }) {
   );
 }
 
+// Desktop-only side peekers
 const PEEKERS: { id: string; x: number; y: number; rot: number }[] = [
   { id: 'ghost',    x: 28,  y: 90,  rot: -8 },
   { id: 'frog',     x: 20,  y: 230, rot: 6  },
   { id: 'alien',    x: 32,  y: 375, rot: -4 },
-  { id: 'bunny',    x: -16, y: 520, rot: 7  },
   { id: 'tamago',   x: 900, y: 90,  rot: 7  },
   { id: 'mushroom', x: 916, y: 230, rot: -5 },
 ];
+
+// Mobile avatar row
+const MOBILE_AVATARS = ['ghost', 'frog', 'alien', 'bunny', 'tamago'];
 
 const MARQUEE_ITEMS = [
   '… exposing yr group chat',
@@ -89,10 +83,8 @@ export default function LandingPage() {
   const letters = code.padEnd(4, '').split('').slice(0, 4);
 
   return (
-    <div
-      className="min-h-screen relative overflow-hidden flex flex-col"
-      style={{ background: '#170A3B', fontFamily: BODY }}
-    >
+    <div className="landing-page" style={{ background: '#170A3B', fontFamily: BODY, minHeight: '100dvh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
       {/* Background glows */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -102,7 +94,7 @@ export default function LandingPage() {
           linear-gradient(180deg, #170A3B 0%, #0E0628 100%)
         `,
       }} />
-      {/* Subtle grid */}
+      {/* Grid */}
       <div style={{
         position: 'absolute', inset: 0, opacity: 0.07, pointerEvents: 'none',
         backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
@@ -110,33 +102,24 @@ export default function LandingPage() {
         maskImage: 'radial-gradient(ellipse at center, #000 30%, transparent 75%)',
       }} />
 
-      {/* Floating deco */}
-      <Sparkle size={28} color="#00D5FF" x={210} y={120} rotate={10} />
-      <Sparkle size={20} color="#FFE24A" x={750} y={70} rotate={-8} />
-      <Sparkle size={24} color="#FF4FB4" x={780} y={460} rotate={20} />
-      <Sparkle size={18} color="#fff" x={250} y={400} rotate={0} />
-      <Heart size={22} color="#FFE24A" x={730} y={140} rotate={15} />
-      <Heart size={18} color="#00D5FF" x={230} y={350} rotate={-15} />
+      {/* Decorative sparkles — desktop only */}
+      <Sparkle size={28} color="#00D5FF" x={210} y={120} rotate={10} className="desktop-deco" />
+      <Sparkle size={20} color="#FFE24A" x={750} y={70} rotate={-8} className="desktop-deco" />
+      <Sparkle size={18} color="#fff" x={250} y={400} rotate={0} className="desktop-deco" />
 
-      {/* Peeking avatars */}
+      {/* Desktop side peekers */}
       {PEEKERS.map((p) => (
-        <motion.div
-          key={p.id}
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, delay: 0.3 }}
-          style={{
-            position: 'absolute', left: p.x, top: p.y,
-            width: 72, height: 72,
-            background: '#fff', border: `3px solid ${DARK}`, borderRadius: '50%',
-            display: 'grid', placeItems: 'center',
-            boxShadow: `0 6px 0 ${DARK}`,
-            transform: `rotate(${p.rot}deg)`,
-            zIndex: 2,
-          }}
-        >
+        <div key={p.id} className="desktop-deco" style={{
+          position: 'absolute', left: p.x, top: p.y,
+          width: 72, height: 72,
+          background: '#fff', border: `3px solid ${DARK}`, borderRadius: '50%',
+          display: 'grid', placeItems: 'center',
+          boxShadow: `0 6px 0 ${DARK}`,
+          transform: `rotate(${p.rot}deg)`,
+          zIndex: 2,
+        }}>
           <Y2KAvatar avatar={p.id} size={58} />
-        </motion.div>
+        </div>
       ))}
 
       {/* Main content */}
@@ -144,50 +127,75 @@ export default function LandingPage() {
         position: 'relative', zIndex: 3,
         flex: 1,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: '52px 48px 0',
+        padding: 'clamp(32px, 6vh, 56px) clamp(16px, 5vw, 48px) 0',
       }}>
-        {/* Wordmark */}
+
+        {/* Wordmark + flower */}
         <motion.div
-          initial={{ y: -24, opacity: 0 }}
+          initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 140 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 18 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 18px)', position: 'relative' }}
         >
           <h1 style={{
-            fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(72px, 10vw, 132px)',
-            letterSpacing: '-0.04em', margin: 0, lineHeight: 0.85,
+            fontFamily: DISPLAY, fontWeight: 900,
+            fontSize: 'clamp(52px, 12vw, 132px)',
+            letterSpacing: '-0.04em', margin: 0, lineHeight: 0.9,
             background: CHROME, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            WebkitTextStroke: '3px rgba(11,4,41,0.6)',
-            filter: `drop-shadow(6px 6px 0 ${DARK})`,
+            WebkitTextStroke: 'clamp(1.5px, 0.3vw, 3px) rgba(11,4,41,0.6)',
+            filter: `drop-shadow(4px 4px 0 ${DARK})`,
             transform: 'rotate(-2deg)',
             textTransform: 'lowercase',
             whiteSpace: 'nowrap',
           }}>
-            ksero<span style={{ WebkitTextFillColor: DARK, background: 'none', margin: '0 14px', fontSize: '0.75em', position: 'relative', top: '-0.08em' }}>·</span>se
+            ksero<span style={{ WebkitTextFillColor: DARK, background: 'none', margin: '0 0.1em', fontSize: '0.72em', position: 'relative', top: '-0.06em' }}>·</span>se
           </h1>
-          <FlowerMascot size={92} />
+          <FlowerMascot size={Math.max(48, 92)} />
         </motion.div>
 
         {/* Tagline */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.15 }}
           style={{
-            marginTop: 20, fontFamily: DISPLAY, fontWeight: 800,
-            fontSize: 'clamp(15px, 2vw, 22px)', letterSpacing: 0.2,
-            color: '#00D5FF', textShadow: `2px 2px 0 ${DARK}`, textAlign: 'center',
+            marginTop: 'clamp(10px, 2vh, 20px)',
+            fontFamily: DISPLAY, fontWeight: 800,
+            fontSize: 'clamp(13px, 3.5vw, 22px)',
+            color: '#00D5FF', textShadow: `2px 2px 0 ${DARK}`,
+            textAlign: 'center', maxWidth: '80vw',
           }}
         >
           the party game where you <i style={{ color: '#FFE24A' }}>think</i> you know your friends …
         </motion.div>
 
+        {/* Mobile avatar row */}
+        <div className="mobile-only" style={{ display: 'flex', marginTop: 16 }}>
+          {MOBILE_AVATARS.map((id, i) => (
+            <div key={id} style={{
+              marginLeft: i === 0 ? 0 : -10,
+              width: 42, height: 42,
+              background: '#fff', border: `2.5px solid ${DARK}`, borderRadius: '50%',
+              display: 'grid', placeItems: 'center',
+              boxShadow: `0 3px 0 ${DARK}`,
+              transform: `rotate(${(i % 2 === 0 ? -1 : 1) * 5}deg)`,
+              zIndex: MOBILE_AVATARS.length - i,
+            }}>
+              <Y2KAvatar avatar={id} size={32} />
+            </div>
+          ))}
+        </div>
+
         {/* CTAs */}
         <motion.div
-          initial={{ y: 24, opacity: 0 }}
+          initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 140, delay: 0.15 }}
-          style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 16, width: 'min(460px, 88vw)' }}
+          style={{
+            marginTop: 'clamp(20px, 4vh, 40px)',
+            display: 'flex', flexDirection: 'column', gap: 'clamp(10px, 1.5vh, 16px)',
+            width: 'min(460px, 92vw)',
+          }}
         >
           {/* NEW GAME */}
           <motion.button
@@ -196,26 +204,24 @@ export default function LandingPage() {
             onClick={() => router.push('/tv')}
             style={{
               background: '#FF1E8E', borderRadius: 999,
-              border: `3.5px solid ${DARK}`,
-              padding: '20px 28px',
-              boxShadow: `0 8px 0 ${DARK}, 0 14px 30px rgba(255,30,142,0.35)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
-              cursor: 'pointer', position: 'relative',
+              border: `3px solid ${DARK}`,
+              padding: 'clamp(14px, 2.5vh, 20px) 28px',
+              boxShadow: `0 6px 0 ${DARK}, 0 10px 24px rgba(255,30,142,0.3)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+              cursor: 'pointer', position: 'relative', width: '100%',
             }}
           >
-            {/* gloss */}
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '999px 999px 50% 50%', pointerEvents: 'none' }} />
-            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(22px, 3vw, 34px)', color: '#fff', WebkitTextStroke: `1.5px ${DARK}`, letterSpacing: -0.5 }}>
+            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(20px, 5vw, 32px)', color: '#fff', WebkitTextStroke: `1px ${DARK}`, letterSpacing: -0.5 }}>
               new game
             </span>
-            <span style={{ color: '#fff', fontSize: 22, fontWeight: 900 }}>✦</span>
-            {/* HOST sticker */}
+            <span style={{ color: '#fff', fontSize: 20, fontWeight: 900 }}>✦</span>
             <div style={{
-              position: 'absolute', top: -11, right: 28,
+              position: 'absolute', top: -10, right: 24,
               background: '#FFE24A', color: DARK,
               fontFamily: DISPLAY, fontWeight: 900, fontSize: 11, letterSpacing: 1.5,
-              padding: '4px 10px', borderRadius: 999,
-              border: `2.5px solid ${DARK}`, boxShadow: `0 3px 0 ${DARK}`,
+              padding: '3px 10px', borderRadius: 999,
+              border: `2px solid ${DARK}`, boxShadow: `0 3px 0 ${DARK}`,
               transform: 'rotate(8deg)',
             }}>HOST ···</div>
           </motion.button>
@@ -224,48 +230,48 @@ export default function LandingPage() {
           <div
             style={{
               background: '#fff', borderRadius: 999,
-              border: `3.5px solid ${DARK}`,
-              padding: '14px 14px 14px 28px',
-              boxShadow: `0 8px 0 ${DARK}`,
-              display: 'flex', alignItems: 'center', gap: 10,
+              border: `3px solid ${DARK}`,
+              padding: 'clamp(10px, 1.5vh, 14px) 10px clamp(10px, 1.5vh, 14px) clamp(16px, 4vw, 28px)',
+              boxShadow: `0 6px 0 ${DARK}`,
+              display: 'flex', alignItems: 'center', gap: 8,
               cursor: 'text',
             }}
             onClick={() => inputRef.current?.focus()}
           >
-            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(18px, 2.5vw, 26px)', color: DARK, letterSpacing: -0.5, whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(16px, 4vw, 24px)', color: DARK, letterSpacing: -0.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
               join with code
             </span>
             {/* Letter boxes */}
             <div style={{
-              flex: 1, marginLeft: 'auto',
-              display: 'flex', alignItems: 'center', gap: 5,
+              flex: 1,
+              display: 'flex', alignItems: 'center', gap: 4,
               background: error ? 'rgba(255,30,142,0.08)' : 'rgba(11,4,41,0.06)',
-              borderRadius: 999, padding: '6px 8px',
+              borderRadius: 999, padding: '5px 6px',
               border: `2px dashed ${error ? '#FF1E8E' : DARK}`,
-              justifyContent: 'flex-end',
+              justifyContent: 'center', minWidth: 0,
             }}>
               {letters.map((ch, i) => (
                 <div key={i} style={{
-                  width: 32, height: 32, borderRadius: 8,
-                  background: ch ? '#fff' : 'rgba(255,255,255,0.7)',
-                  border: `2px solid ${DARK}`,
+                  width: 'clamp(24px, 6vw, 32px)', height: 'clamp(24px, 6vw, 32px)', borderRadius: 7,
+                  background: '#fff',
+                  border: `2px solid ${ch ? DARK : 'rgba(11,4,41,0.3)'}`,
                   display: 'grid', placeItems: 'center',
-                  fontFamily: DISPLAY, fontWeight: 900, fontSize: 18, color: DARK,
-                  boxShadow: `0 2px 0 ${DARK}`,
-                  transition: 'background 0.1s',
-                }}>{ch || ''}</div>
+                  fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(13px, 3.5vw, 18px)', color: DARK,
+                  boxShadow: ch ? `0 2px 0 ${DARK}` : 'none',
+                }}>{ch}</div>
               ))}
             </div>
-            {/* Arrow submit */}
+            {/* Arrow */}
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.93 }}
               onClick={(e) => { e.stopPropagation(); handleJoin(); }}
               style={{
                 background: '#00D5FF', border: `2.5px solid ${DARK}`, borderRadius: 999,
-                width: 44, height: 44, display: 'grid', placeItems: 'center',
+                width: 'clamp(36px, 8vw, 44px)', height: 'clamp(36px, 8vw, 44px)',
+                display: 'grid', placeItems: 'center',
                 boxShadow: `0 3px 0 ${DARK}`,
-                fontFamily: DISPLAY, fontWeight: 900, fontSize: 22, color: DARK,
+                fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(16px, 4vw, 22px)', color: DARK,
                 cursor: 'pointer', flexShrink: 0,
               }}
             >↵</motion.button>
@@ -281,9 +287,9 @@ export default function LandingPage() {
             }}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             maxLength={4}
-            style={{
-              position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1,
-            }}
+            inputMode="text"
+            autoCapitalize="characters"
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1 }}
             aria-label="Room code"
           />
         </motion.div>
@@ -292,25 +298,27 @@ export default function LandingPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.35 }}
+          transition={{ delay: 0.3 }}
           style={{
-            marginTop: 36, display: 'flex', alignItems: 'center', gap: 14,
-            padding: '10px 20px',
+            marginTop: 'clamp(16px, 3vh, 36px)',
+            display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 14px)',
+            padding: 'clamp(7px, 1.2vh, 10px) clamp(12px, 3vw, 20px)',
             background: 'rgba(255,255,255,0.06)',
             border: '1.5px solid rgba(255,255,255,0.18)',
             borderRadius: 999, backdropFilter: 'blur(8px)',
+            flexWrap: 'nowrap',
           }}
         >
           {[
             { k: '3', l: 'rounds' },
             { k: '4–12', l: 'players' },
-            { k: '~10', l: 'minutes' },
+            { k: '~10', l: 'min' },
             { k: '✦', l: 'shade' },
           ].map((s, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 18, color: '#FFE24A', WebkitTextStroke: `0.5px ${DARK}` }}>{s.k}</span>
-              <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: 11, color: 'rgba(255,255,255,0.75)', letterSpacing: 1.5, textTransform: 'uppercase' as const }}>{s.l}</span>
-              {i < 3 && <span style={{ color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>·</span>}
+            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 4, flexShrink: 0 }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(13px, 3.5vw, 18px)', color: '#FFE24A', WebkitTextStroke: `0.5px ${DARK}`, whiteSpace: 'nowrap' }}>{s.k}</span>
+              <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: 'clamp(9px, 2vw, 11px)', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, textTransform: 'uppercase' as const, whiteSpace: 'nowrap' }}>{s.l}</span>
+              {i < 3 && <span style={{ color: 'rgba(255,255,255,0.3)', marginLeft: 'clamp(2px, 1vw, 6px)' }}>·</span>}
             </div>
           ))}
         </motion.div>
@@ -318,11 +326,11 @@ export default function LandingPage() {
 
       {/* Marquee */}
       <div style={{
-        marginTop: 32,
-        width: '100%', height: 38, overflow: 'hidden',
+        marginTop: 'clamp(20px, 4vh, 32px)',
+        width: '100%', height: 36, overflow: 'hidden',
         background: DARK,
-        borderTop: '3px solid rgba(255,255,255,0.2)',
-        borderBottom: '3px solid rgba(255,255,255,0.2)',
+        borderTop: '2.5px solid rgba(255,255,255,0.2)',
+        borderBottom: '2.5px solid rgba(255,255,255,0.2)',
         display: 'flex', alignItems: 'center',
         flexShrink: 0,
       }}>
@@ -332,16 +340,27 @@ export default function LandingPage() {
           whiteSpace: 'nowrap',
         }}>
           {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((t, i) => (
-            <span key={i} style={{
-              fontFamily: DISPLAY, fontWeight: 800, fontSize: 14,
-              color: '#fff', letterSpacing: 1,
-            }}>{t}</span>
+            <span key={i} style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: 1 }}>{t}</span>
           ))}
         </div>
       </div>
-      <div style={{ height: 32, background: '#0E0628', flexShrink: 0 }} />
+      <div style={{ height: 'clamp(16px, 3vh, 32px)', background: '#0E0628', flexShrink: 0 }} />
 
-      <style>{`@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+      <style>{`
+        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        /* Hide desktop-only elements on mobile */
+        @media (max-width: 640px) {
+          .desktop-deco { display: none !important; }
+          .mobile-only { display: flex !important; }
+        }
+
+        /* Show desktop elements, hide mobile row on desktop */
+        @media (min-width: 641px) {
+          .desktop-deco { display: block !important; }
+          .mobile-only { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
