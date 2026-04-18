@@ -159,6 +159,38 @@ export function stopQuestionsMusic(): void {
   audio.currentTime = 0;
 }
 
+// Module-level singleton for the round intro track.
+let _roundStartTrack: HTMLAudioElement | null = null;
+let _roundStartPauseGuard: (() => void) | null = null;
+
+function getRoundStartTrack(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!_roundStartTrack) {
+    _roundStartTrack = new Audio('/RoundStartSounds.wav');
+    _roundStartTrack.loop = false;
+    _roundStartTrack.volume = 0.7;
+  }
+  return _roundStartTrack;
+}
+
+export function playRoundStartMusic(): void {
+  const audio = getRoundStartTrack();
+  if (!audio) return;
+  if (_roundStartPauseGuard) audio.removeEventListener('pause', _roundStartPauseGuard);
+  _roundStartPauseGuard = () => { audio.play().catch(() => {}); };
+  audio.addEventListener('pause', _roundStartPauseGuard);
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+export function stopRoundStartMusic(): void {
+  const audio = getRoundStartTrack();
+  if (!audio) return;
+  if (_roundStartPauseGuard) { audio.removeEventListener('pause', _roundStartPauseGuard); _roundStartPauseGuard = null; }
+  audio.pause();
+  audio.currentTime = 0;
+}
+
 export function playAnswerPhaseMusic(): void {
   const audio = getAnswerPhaseTrack();
   if (!audio) return;

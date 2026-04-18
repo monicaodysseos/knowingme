@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../../lib/socket';
-import { unlockTVAudio, playLobbyMusic } from '../../lib/hooks/useGameSounds';
+import { unlockTVAudio, playLobbyMusic, playRoundStartMusic, stopRoundStartMusic } from '../../lib/hooks/useGameSounds';
 import TVLobby from '../../components/tv/TVLobby';
 import TVQuestionSubmission from '../../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../../components/tv/TVAnswerPhase';
@@ -107,8 +107,15 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
     if ((INTRO_PHASES as readonly string[]).includes(phase) && !shownIntros.current.has(phase)) {
       shownIntros.current.add(phase);
       setIntroPhase(phase);
-      const t = setTimeout(() => setIntroPhase(null), 5000);
-      return () => clearTimeout(t);
+      playRoundStartMusic();
+      const t = setTimeout(() => {
+        setIntroPhase(null);
+        stopRoundStartMusic();
+      }, 5000);
+      return () => {
+        clearTimeout(t);
+        stopRoundStartMusic();
+      };
     }
   }, [state?.phase]);
 
