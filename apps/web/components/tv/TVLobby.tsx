@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import { Y2K } from '../../lib/y2k';
+import { playLobbyMusic, stopLobbyMusic } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;

@@ -35,12 +35,42 @@ function getTVTrack(): HTMLAudioElement | null {
   return _tvTrack;
 }
 
+// Module-level singleton for the lobby track.
+let _lobbyTrack: HTMLAudioElement | null = null;
+
+function getLobbyTrack(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!_lobbyTrack) {
+    _lobbyTrack = new Audio('/ksero-se.wav');
+    _lobbyTrack.loop = true;
+    _lobbyTrack.volume = 0.6;
+  }
+  return _lobbyTrack;
+}
+
 /** Call this once inside a user-gesture handler (e.g. the unlock button) so the
  *  browser allows HTMLAudio autoplay for the rest of the session. */
 export function unlockTVAudio(): void {
-  const audio = getTVTrack();
+  // Pre-warm both tracks inside the user gesture
+  for (const getTrack of [getTVTrack, getLobbyTrack]) {
+    const audio = getTrack();
+    if (!audio) continue;
+    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+  }
+}
+
+export function playLobbyMusic(): void {
+  const audio = getLobbyTrack();
   if (!audio) return;
-  audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+export function stopLobbyMusic(): void {
+  const audio = getLobbyTrack();
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
 }
 
 export function useGameSounds() {
