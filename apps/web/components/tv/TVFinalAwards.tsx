@@ -168,7 +168,12 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col items-center gap-6 z-10 w-full max-w-2xl"
         >
-          <ChromeTitle text="the awards ✿" size={64} tilt={-2} />
+          <div style={{ textAlign: 'center' }}>
+            <ChromeTitle text="ksero · se ✿" size={72} tilt={-2} />
+            <div style={{ marginTop: 8 }}>
+              <ChromeTitle text="the awards" size={48} tilt={0} />
+            </div>
+          </div>
 
           {/* Award cards grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%' }}>
