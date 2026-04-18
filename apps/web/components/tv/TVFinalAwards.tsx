@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState, AwardResult } from '@ksero-se/types';
 import ParticleBurst from './ParticleBurst';
+import { Y2K } from '../../lib/y2k';
 
 interface Props {
   state: TVState;
   onPlayAgain: () => void;
 }
 
-// Fixed presentation order: Emotionally Intelligent → Narcissist → Best Duo
 const AWARD_ORDER: AwardResult['type'][] = [
   'emotionally-intelligent',
   'narcissist',
@@ -19,29 +19,83 @@ const AWARD_ORDER: AwardResult['type'][] = [
 
 type AwardPhase = 'title' | 'drumroll' | 'winner' | 'done';
 
-const AWARD_ICONS: Record<AwardResult['type'], JSX.Element> = {
-  'emotionally-intelligent': (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="28" fill="#8B5CF6" opacity={0.2} />
-      <path d="M20 28 Q22 18 32 18 Q42 18 44 28 Q46 38 32 46 Q18 38 20 28Z" fill="#8B5CF6" />
-      <circle cx="27" cy="28" r="2.5" fill="white" />
-      <circle cx="37" cy="28" r="2.5" fill="white" />
-      <path d="M26 36 Q32 41 38 36" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-    </svg>
-  ),
-  'narcissist': (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="28" fill="#F59E0B" opacity={0.2} />
-      <path d="M32 10 L35 22 L48 22 L37 30 L41 42 L32 34 L23 42 L27 30 L16 22 L29 22Z" fill="#F59E0B" />
-    </svg>
-  ),
-  'best-duo': (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="28" fill="#EC4899" opacity={0.2} />
-      <path d="M22 20 Q18 14 12 18 Q6 22 12 32 Q18 42 22 44 L32 52 L42 44 Q46 42 52 32 Q58 22 52 18 Q46 14 42 20 Q38 14 32 22 Q26 14 22 20Z" fill="#EC4899" />
-    </svg>
-  ),
+const AWARD_COLORS: Record<AwardResult['type'], string> = {
+  'emotionally-intelligent': '#8B5CF6',
+  'narcissist': '#F59E0B',
+  'best-duo': '#EC4899',
 };
+
+const AWARD_GLYPHS: Record<AwardResult['type'], string> = {
+  'emotionally-intelligent': '✦',
+  'narcissist': '♛',
+  'best-duo': '♡',
+};
+
+function Sticker({ color, rotate = 0, r = 18, style = {}, children }: { color: string; rotate?: number; r?: number; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: color,
+      borderRadius: r,
+      transform: `rotate(${rotate}deg)`,
+      border: `3px solid ${Y2K.dark}`,
+      boxShadow: `0 6px 0 rgba(11,4,41,0.5), 0 2px 12px rgba(11,4,41,0.2)`,
+      position: 'relative',
+      overflow: 'hidden',
+      ...style,
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: `${r}px ${r}px 50% 50%`, pointerEvents: 'none' }} />
+      {children}
+    </div>
+  );
+}
+
+function ChromeTitle({ text, size = 72, tilt = -3 }: { text: string; size?: number; tilt?: number }) {
+  return (
+    <div style={{
+      fontFamily: Y2K.display,
+      fontWeight: 900,
+      fontSize: size,
+      letterSpacing: '-2px',
+      lineHeight: 1,
+      transform: `rotate(${tilt}deg)`,
+      WebkitTextStroke: '3px #0b0429',
+      textShadow: '4px 4px 0 #0b0429',
+      background: 'linear-gradient(180deg, #fff 0%, #e8e8e8 30%, #b0b0b0 60%, #f0f0f0 80%, #d0d0d0 100%)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+      display: 'inline-block',
+    }}>
+      {text}
+    </div>
+  );
+}
+
+function Chunky({ children, size = 16, color = '#fff', shadow = Y2K.dark }: { children: React.ReactNode; size?: number; color?: string; shadow?: string }) {
+  return (
+    <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: size, textTransform: 'uppercase' as const, color, textShadow: `2px 2px 0 ${shadow}`, WebkitTextStroke: `1px ${shadow}` }}>
+      {children}
+    </div>
+  );
+}
+
+function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
+      <path d="M12 2 L13.5 9.5 L21 11 L13.5 12.5 L12 20 L10.5 12.5 L3 11 L10.5 9.5 Z" fill={color} stroke={Y2K.dark} strokeWidth="1" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Heart({ size = 24, color = '#FF4FB4', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
+      <path d="M12 21 C12 21 3 14 3 8 C3 5.2 5.2 3 8 3 C9.7 3 11.2 3.9 12 5.1 C12.8 3.9 14.3 3 16 3 C18.8 3 21 5.2 21 8 C21 14 12 21 12 21Z" fill={color} stroke={Y2K.dark} strokeWidth="1.5" />
+    </svg>
+  );
+}
 
 export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   const { awards = [] } = state;
@@ -81,20 +135,95 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   }, [phase, advance]);
 
   const current = orderedAwards[awardIndex];
+  const accent = current ? AWARD_COLORS[current.type] : Y2K.hotPink;
 
-  const ACCENT_COLORS: Record<AwardResult['type'], string> = {
-    'emotionally-intelligent': '#8B5CF6',
-    'narcissist': '#F59E0B',
-    'best-duo': '#EC4899',
-  };
+  if (phase === 'done') {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-12 py-8 relative overflow-hidden"
+        style={{ background: Y2K.dark }}
+      >
+        <Sparkle size={32} color={Y2K.yellow} x={40} y={50} rotate={15} />
+        <Sparkle size={20} color={Y2K.cyan} x={140} y={120} />
+        <Sparkle size={26} color={Y2K.pink} x={880} y={60} rotate={-10} />
+        <Heart size={28} color={Y2K.pink} x={60} y={460} rotate={-15} />
+        <Heart size={24} color={Y2K.cyan} x={900} y={470} rotate={22} />
 
-  const accent = current ? ACCENT_COLORS[current.type] : '#F97316';
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center gap-6 z-10 w-full max-w-2xl"
+        >
+          <ChromeTitle text="the awards ✿" size={64} tilt={-2} />
+
+          {/* Award cards grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%' }}>
+            {orderedAwards.map((award, i) => (
+              <motion.div
+                key={award.type}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <Sticker
+                  color={AWARD_COLORS[award.type]}
+                  r={20}
+                  rotate={i === 0 ? -2 : i === 2 ? 2 : 0}
+                  style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}
+                >
+                  <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 48, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, lineHeight: 1, textShadow: `3px 3px 0 ${Y2K.dark}` }}>
+                    {AWARD_GLYPHS[award.type]}
+                  </div>
+                  <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 10, color: '#fff', letterSpacing: 2, opacity: 0.9 }}>
+                    {award.description.toUpperCase()}
+                  </div>
+                  <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: '#fff', WebkitTextStroke: `1px ${Y2K.dark}`, lineHeight: 1.1, letterSpacing: '-0.5px' }}>
+                    {award.title}
+                  </div>
+                  <div style={{ marginTop: 'auto', padding: '8px 10px', background: 'rgba(255,255,255,0.92)', borderRadius: 10, border: `2px solid ${Y2K.dark}` }}>
+                    <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark, letterSpacing: '-0.5px' }}>
+                      {award.winners.join(' + ')}
+                    </div>
+                    <div style={{ fontFamily: Y2K.body, fontSize: 11, color: '#3a1555', fontWeight: 600, marginTop: 2 }}>
+                      {award.stat}
+                    </div>
+                  </div>
+                </Sticker>
+              </motion.div>
+            ))}
+          </div>
+
+          {showPlayAgain && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <Sticker color={Y2K.hotPink} r={99} style={{ padding: '14px 48px' }}>
+                <button
+                  onClick={onPlayAgain}
+                  style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 22, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', WebkitTextStroke: `1px ${Y2K.dark}`, textShadow: `2px 2px 0 ${Y2K.dark}`, letterSpacing: '0.05em' }}
+                >
+                  play again ↻
+                </button>
+              </Sticker>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ background: '#0d0818' }}
+      style={{ background: Y2K.dark }}
     >
+      <Sparkle size={32} color={Y2K.yellow} x={50} y={50} rotate={15} />
+      <Sparkle size={24} color={Y2K.cyan} x={880} y={80} />
+      <Heart size={28} color={Y2K.pink} x={900} y={470} rotate={20} />
+
       {/* Ambient glow */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -105,56 +234,7 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
       />
 
       <AnimatePresence mode="wait">
-        {phase === 'done' ? (
-          /* ── All awards shown — Summary + Play Again ─────────────────── */
-          <motion.div
-            key="done"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-8 z-10 w-full max-w-xl px-8"
-          >
-            <h1 className="font-black text-white text-center" style={{ fontSize: 64, letterSpacing: '-2px' }}>
-              That&apos;s a wrap!
-            </h1>
-
-            {/* Awards summary */}
-            <div className="flex flex-col gap-3 w-full">
-              {orderedAwards.map((award) => (
-                <motion.div
-                  key={award.type}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="rounded-2xl px-6 py-4 flex items-center gap-4"
-                  style={{ background: '#ffffff12', border: '2px solid #ffffff20' }}
-                >
-                  <div style={{ flexShrink: 0 }}>{AWARD_ICONS[award.type]}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-white" style={{ fontSize: 18 }}>{award.title}</p>
-                    <p className="font-black truncate" style={{ color: ACCENT_COLORS[award.type], fontSize: 20 }}>
-                      {award.winners.join(' + ')}
-                    </p>
-                    <p className="text-gray-400 text-sm">{award.stat}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {showPlayAgain && (
-              <motion.button
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onPlayAgain}
-                className="px-14 py-5 rounded-full font-black text-2xl text-white shadow-2xl"
-                style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
-              >
-                Play Again
-              </motion.button>
-            )}
-          </motion.div>
-        ) : current ? (
+        {current && (
           <motion.div
             key={`award-${awardIndex}-${phase}`}
             initial={{ opacity: 0 }}
@@ -162,66 +242,51 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
             exit={{ opacity: 0 }}
             className="flex flex-col items-center gap-8 z-10 text-center px-12 max-w-3xl"
           >
-            {/* Phase: TITLE */}
             {phase === 'title' && (
               <motion.div
                 initial={{ scale: 0.4, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 180, damping: 16 }}
-                className="flex flex-col items-center gap-4"
+                className="flex flex-col items-center gap-6"
               >
-                <div style={{ transform: 'scale(1.5)' }}>{AWARD_ICONS[current.type]}</div>
-                <h2
-                  className="font-black text-white"
-                  style={{ fontSize: 68, letterSpacing: '-2px', lineHeight: 1 }}
-                >
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 120, color: accent, WebkitTextStroke: `4px ${Y2K.dark}`, textShadow: `6px 6px 0 ${Y2K.dark}`, lineHeight: 1 }}>
+                  {AWARD_GLYPHS[current.type]}
+                </div>
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 64, color: '#fff', WebkitTextStroke: `3px ${Y2K.dark}`, textShadow: `4px 4px 0 ${Y2K.dark}`, letterSpacing: '-2px', lineHeight: 1 }}>
                   {current.title}
-                </h2>
-                <p className="font-bold uppercase tracking-widest" style={{ color: accent, fontSize: 18 }}>
-                  {current.description}
-                </p>
+                </div>
+                <Chunky size={16} color={accent} shadow={Y2K.dark}>{current.description}</Chunky>
               </motion.div>
             )}
 
-            {/* Phase: DRUMROLL */}
             {phase === 'drumroll' && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="flex flex-col items-center gap-8"
               >
-                <h2
-                  className="font-black text-white"
-                  style={{ fontSize: 56, letterSpacing: '-2px', lineHeight: 1 }}
-                >
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 52, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, textShadow: `3px 3px 0 ${Y2K.dark}`, letterSpacing: '-1px', lineHeight: 1 }}>
                   {current.title}
-                </h2>
+                </div>
                 <div className="flex gap-4">
                   {[0, 1, 2, 3].map((i) => (
                     <motion.div
                       key={i}
                       animate={{ scale: [1, 1.8, 1], opacity: [0.4, 1, 0.4] }}
                       transition={{ duration: 0.55, repeat: Infinity, delay: i * 0.12 }}
-                      className="w-5 h-5 rounded-full"
-                      style={{ background: accent }}
+                      style={{ width: 20, height: 20, borderRadius: '50%', background: accent, border: `2.5px solid ${Y2K.dark}` }}
                     />
                   ))}
                 </div>
               </motion.div>
             )}
 
-            {/* Phase: WINNER */}
             {phase === 'winner' && (
-              <motion.div
-                className="flex flex-col items-center gap-6 relative"
-              >
+              <motion.div className="flex flex-col items-center gap-6 relative">
                 <ParticleBurst trigger />
-                <h2
-                  className="font-black text-white"
-                  style={{ fontSize: 48, letterSpacing: '-2px', lineHeight: 1 }}
-                >
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 44, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, textShadow: `3px 3px 0 ${Y2K.dark}`, letterSpacing: '-1px', lineHeight: 1 }}>
                   {current.title}
-                </h2>
+                </div>
                 <motion.div
                   initial={{ y: 40, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -231,26 +296,24 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
                   {current.winners.map((w) => (
                     <span
                       key={w}
-                      className="font-black"
-                      style={{ fontSize: 72, color: accent, letterSpacing: '-3px', lineHeight: 1 }}
+                      style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 72, color: accent, WebkitTextStroke: `3px ${Y2K.dark}`, textShadow: `5px 5px 0 ${Y2K.dark}`, letterSpacing: '-2px', lineHeight: 1 }}
                     >
                       {w}
                     </span>
                   ))}
                 </motion.div>
-                <motion.p
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
-                  className="font-bold"
-                  style={{ color: '#6b7280', fontSize: 20 }}
+                  style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 18, color: 'rgba(255,255,255,0.55)' }}
                 >
                   {current.stat}
-                </motion.p>
+                </motion.div>
               </motion.div>
             )}
           </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
     </div>
   );

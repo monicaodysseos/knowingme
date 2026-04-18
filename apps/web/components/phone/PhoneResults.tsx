@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import type { ScoreEntry, AwardResult } from '@ksero-se/types';
+import { Y2K } from '../../lib/y2k';
 
 interface Props {
   scores: ScoreEntry[];
@@ -11,7 +12,36 @@ interface Props {
 }
 
 const RANK_COLORS: Record<number, string> = {
-  0: '#F59E0B', 1: '#9CA3AF', 2: '#CD7F32',
+  0: '#FFD23F', 1: '#9CA3AF', 2: '#CD7F32',
+};
+
+function Sticker({ color, r = 14, rotate = 0, style = {}, children }: { color: string; r?: number; rotate?: number; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: color,
+      borderRadius: r,
+      transform: `rotate(${rotate}deg)`,
+      border: `2.5px solid ${Y2K.dark}`,
+      boxShadow: `0 4px 0 rgba(11,4,41,0.45)`,
+      position: 'relative',
+      overflow: 'hidden',
+      ...style,
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', background: 'rgba(255,255,255,0.15)', borderRadius: `${r}px ${r}px 50% 50%`, pointerEvents: 'none' }} />
+      {children}
+    </div>
+  );
+}
+
+const AWARD_GLYPHS: Record<string, string> = {
+  'emotionally-intelligent': '✦',
+  'narcissist': '♛',
+  'best-duo': '♡',
+};
+const AWARD_COLORS: Record<string, string> = {
+  'emotionally-intelligent': '#8B5CF6',
+  'narcissist': '#F59E0B',
+  'best-duo': '#EC4899',
 };
 
 export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: Props) {
@@ -19,26 +49,26 @@ export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: 
   const myRank = scores.findIndex((s) => s.playerId === playerId) + 1;
 
   return (
-    <div className="flex flex-col gap-5 pb-4">
+    <div className="flex flex-col gap-4 pb-4">
 
       {/* Hero banner */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="rounded-2xl text-center py-6 px-4 shadow-lg"
-        style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
       >
-        <h2 className="font-black text-white" style={{ fontSize: 30, letterSpacing: '-0.5px' }}>
-          Game Over!
-        </h2>
-        {myScore && (
-          <p className="text-white/80 font-bold text-lg mt-1">
-            You finished{' '}
-            <span className="text-white font-black">#{myRank}</span>
-            {' '}with{' '}
-            <span className="font-black" style={{ color: '#FFD23F' }}>{myScore.score.toLocaleString()} pts</span>
-          </p>
-        )}
+        <Sticker color={Y2K.hotPink} r={18} style={{ padding: '20px 16px', textAlign: 'center' }}>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff', WebkitTextStroke: `1.5px ${Y2K.dark}`, textShadow: `3px 3px 0 ${Y2K.dark}`, letterSpacing: '-0.5px' }}>
+            gg ♡
+          </div>
+          {myScore && (
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.9)', marginTop: 4 }}>
+              u finished{' '}
+              <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 17, WebkitTextStroke: `0.5px ${Y2K.dark}` }}>#{myRank}</span>
+              {' '}with{' '}
+              <span style={{ fontFamily: Y2K.display, fontWeight: 900, color: Y2K.yellow, WebkitTextStroke: `0.5px ${Y2K.dark}` }}>{myScore.score.toLocaleString()} pts</span>
+            </div>
+          )}
+        </Sticker>
       </motion.div>
 
       {/* Scores */}
@@ -49,33 +79,42 @@ export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: 
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: rank * 0.05 }}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-sm"
             style={{
-              border: entry.playerId === playerId
-                ? '2px solid #F97316'
-                : `2px solid ${entry.color.hex}33`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 14px',
+              borderRadius: 14,
+              background: '#fff',
+              border: `2.5px solid ${entry.playerId === playerId ? Y2K.hotPink : Y2K.dark}`,
+              boxShadow: `0 3px 0 ${entry.playerId === playerId ? Y2K.hotPink : 'rgba(11,4,41,0.2)'}`,
             }}
           >
             {/* Rank badge */}
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0"
-              style={{
-                background: RANK_COLORS[rank] ?? '#E5E7EB',
-                color: '#ffffff',
-              }}
-            >
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              background: RANK_COLORS[rank] ?? '#E5E7EB',
+              border: `2px solid ${Y2K.dark}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: Y2K.display,
+              fontWeight: 900,
+              fontSize: 13,
+              color: rank < 3 ? Y2K.dark : '#fff',
+              flexShrink: 0,
+            }}>
               {rank + 1}
             </div>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm text-white flex-shrink-0"
-              style={{ background: entry.color.hex }}
-            >
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: entry.color.hex, border: `2px solid ${Y2K.dark}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: Y2K.display, fontWeight: 900, fontSize: 13, color: '#fff', flexShrink: 0 }}>
               {entry.playerName.charAt(0).toUpperCase()}
             </div>
-            <span className="flex-1 font-bold text-base text-gray-900 truncate">
+            <span style={{ flex: 1, fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: entry.color.hex, WebkitTextStroke: `0.3px ${Y2K.dark}`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {entry.playerName}
             </span>
-            <span className="font-black text-lg text-gray-900 tabular-nums">
+            <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 17, color: Y2K.dark }}>
               {entry.score.toLocaleString()}
             </span>
           </motion.div>
@@ -84,19 +123,20 @@ export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: 
 
       {/* Awards */}
       {awards && awards.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h3 className="font-black text-gray-500 text-sm uppercase tracking-widest">Special Awards</h3>
+        <div className="flex flex-col gap-2">
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 12, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase' }}>ur awards ✿</div>
           {awards.map((award) => (
-            <div
-              key={award.type}
-              className="rounded-2xl px-4 py-3 bg-white shadow-sm"
-              style={{ border: '2px solid #FDE68A' }}
-            >
-              <p className="font-black text-gray-900 text-base">{award.title}</p>
-              <p className="text-gray-600 font-bold text-sm mt-0.5">
-                {award.winners.join(' + ')} — {award.stat}
-              </p>
-            </div>
+            <Sticker key={award.type} color={AWARD_COLORS[award.type] ?? '#8B5CF6'} r={14} style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: '#fff', WebkitTextStroke: `1px ${Y2K.dark}` }}>
+                {AWARD_GLYPHS[award.type] ?? '✦'}
+              </div>
+              <div>
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 14, color: '#fff', WebkitTextStroke: `0.5px ${Y2K.dark}` }}>{award.title}</div>
+                <div style={{ fontFamily: Y2K.body, fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 1 }}>
+                  {award.winners.join(' + ')} — {award.stat}
+                </div>
+              </div>
+            </Sticker>
           ))}
         </div>
       )}
@@ -105,14 +145,24 @@ export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: 
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={onPlayAgain}
-          className="w-full py-5 rounded-full font-black text-xl text-white shadow-lg"
           style={{
-            background: 'linear-gradient(135deg, #F97316, #FF6B6B)',
-            minHeight: 60,
+            width: '100%',
+            padding: '18px',
+            borderRadius: 99,
+            fontFamily: Y2K.display,
+            fontWeight: 900,
             fontSize: 20,
+            color: '#fff',
+            background: Y2K.hotPink,
+            border: `3px solid ${Y2K.dark}`,
+            boxShadow: `0 5px 0 ${Y2K.dark}`,
+            cursor: 'pointer',
+            WebkitTextStroke: `1px ${Y2K.dark}`,
+            textShadow: `2px 2px 0 ${Y2K.dark}`,
+            letterSpacing: '0.05em',
           }}
         >
-          Play Again
+          play again ↻
         </motion.button>
       )}
     </div>

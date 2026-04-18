@@ -1,7 +1,8 @@
 'use client';
 
 import type { PlayerColor, PlayerCharacter } from '@ksero-se/types';
-import CharacterShape from './CharacterShape';
+import Y2KAvatar from './Y2KAvatar';
+import { Y2K } from '../../lib/y2k';
 
 interface Props {
   name: string;
@@ -41,17 +42,15 @@ export default function PlayerAvatar({
         }}
       >
         {avatar ? (
-          <CharacterShape shape={avatar} color={color.hex} size={px} />
+          <Y2KAvatar avatar={avatar} size={px} />
         ) : (
-          /* Fallback initials circle */
           <div
             className="w-full h-full rounded-full flex items-center justify-center font-black text-white select-none"
             style={{
               background: `radial-gradient(circle at 35% 35%, ${color.hex}ee, ${color.hex}88)`,
               fontSize: px * 0.38,
-              boxShadow: isConnected
-                ? `0 0 0 3px ${color.hex}55, 0 0 24px ${color.hex}44`
-                : `0 0 0 2px #333`,
+              border: `3px solid ${Y2K.dark}`,
+              boxShadow: `0 4px 0 ${Y2K.dark}`,
             }}
           >
             {name.charAt(0).toUpperCase()}
@@ -75,8 +74,14 @@ export default function PlayerAvatar({
 
       {showName && (
         <span
-          className="font-bold text-center leading-tight"
-          style={{ fontSize: nameFont, color: color.hex, maxWidth: px * 1.6 }}
+          className="font-black text-center leading-tight uppercase"
+          style={{
+            fontSize: nameFont,
+            color: color.hex,
+            maxWidth: px * 1.6,
+            fontFamily: Y2K.display,
+            WebkitTextStroke: `0.5px ${Y2K.dark}`,
+          }}
         >
           {name}
         </span>

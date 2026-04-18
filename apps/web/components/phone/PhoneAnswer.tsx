@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import PhoneCountdown from './PhoneCountdown';
+import { Y2K } from '../../lib/y2k';
 
 interface Props {
   assignmentId: string;
@@ -11,6 +12,23 @@ interface Props {
   canSkip: boolean;
   timerEnd: number;
   onSubmit: (assignmentId: string, answer: string, skipped?: boolean) => void;
+}
+
+function Sticker({ color, r = 14, style = {}, children }: { color: string; r?: number; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: color,
+      borderRadius: r,
+      border: `2.5px solid ${Y2K.dark}`,
+      boxShadow: `0 4px 0 rgba(11,4,41,0.45)`,
+      position: 'relative',
+      overflow: 'hidden',
+      ...style,
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', background: 'rgba(255,255,255,0.15)', borderRadius: `${r}px ${r}px 50% 50%`, pointerEvents: 'none' }} />
+      {children}
+    </div>
+  );
 }
 
 export default function PhoneAnswer({
@@ -45,87 +63,134 @@ export default function PhoneAnswer({
   if (submitted) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center font-black text-white text-2xl"
-          style={{ background: '#16a34a' }}
-        >
+        <div style={{
+          width: 64,
+          height: 64,
+          borderRadius: '50%',
+          background: '#19B06B',
+          border: `3px solid ${Y2K.dark}`,
+          boxShadow: `0 4px 0 ${Y2K.dark}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: Y2K.display,
+          fontWeight: 900,
+          fontSize: 24,
+          color: '#fff',
+          WebkitTextStroke: `1px ${Y2K.dark}`,
+        }}>
           ✓
         </div>
-        <p className="font-black text-gray-800 text-xl">Answer locked in!</p>
-        <p className="text-gray-500 font-bold">Waiting for others…</p>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, color: Y2K.dark }}>answer locked in!</p>
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555' }}>waiting for others…</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Progress + timer row */}
+      {/* Progress row */}
       <div className="flex items-center justify-between">
-        <span className="font-bold text-gray-500 text-base">
-          Question {slotIndex + 1} of {totalSlots}
+        <span style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555' }}>
+          question {slotIndex + 1} of {totalSlots}
         </span>
         <div className="flex gap-2">
           {Array.from({ length: totalSlots }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-full transition-all"
-              style={{
-                width: 10,
-                height: 10,
-                background:
-                  i < slotIndex ? '#F97316'
-                  : i === slotIndex ? '#FFD23F'
-                  : '#e5e7eb',
-              }}
-            />
+            <div key={i} style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              border: `2px solid ${Y2K.dark}`,
+              background:
+                i < slotIndex ? Y2K.hotPink
+                : i === slotIndex ? Y2K.yellow
+                : '#e5e7eb',
+              transition: 'all 0.3s',
+            }} />
           ))}
         </div>
       </div>
 
       <PhoneCountdown timerEnd={timerEnd} totalSeconds={45} />
 
-      {/* Question card */}
-      <div
-        className="bg-white rounded-2xl shadow-lg p-5"
-        style={{ borderLeft: '5px solid #F97316' }}
-      >
-        <p className="text-2xl font-bold text-gray-900 leading-snug">{questionText}</p>
+      {/* Question sticker */}
+      <Sticker color="#fff" r={16} style={{ padding: '16px 18px' }}>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 20, color: Y2K.dark, lineHeight: 1.3, letterSpacing: '-0.3px' }}>
+          {questionText}
+        </p>
+      </Sticker>
+
+      {/* Answer textarea */}
+      <div className="flex flex-col gap-1">
+        <textarea
+          key={assignmentId}
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value.slice(0, 120))}
+          placeholder="ur answer…"
+          rows={3}
+          autoFocus
+          style={{
+            width: '100%',
+            borderRadius: 16,
+            padding: '14px 16px',
+            fontFamily: Y2K.display,
+            fontWeight: 700,
+            fontSize: 16,
+            color: Y2K.dark,
+            background: '#fff',
+            border: `3px solid ${answer ? Y2K.hotPink : '#E5E7EB'}`,
+            boxShadow: `0 3px 0 ${Y2K.dark}`,
+            outline: 'none',
+            resize: 'none',
+          }}
+        />
+        <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>{answer.length}/120</span>
       </div>
 
-      {/* Answer input */}
-      <textarea
-        key={assignmentId}
-        value={answer}
-        onChange={(e) => setAnswer(e.target.value.slice(0, 120))}
-        placeholder="Your answer…"
-        rows={3}
-        autoFocus
-        className="w-full rounded-2xl px-4 py-4 font-semibold text-gray-900 placeholder-gray-300 outline-none border-2 resize-none bg-white shadow-sm"
-        style={{ borderColor: answer ? '#F97316' : '#FFD23F', fontSize: 16 }}
-      />
-
+      {/* Submit */}
       <button
         type="button"
         disabled={!answer.trim()}
         onClick={handleSubmit}
-        className="w-full py-5 rounded-2xl font-bold text-xl text-white shadow-lg disabled:opacity-30"
         style={{
-          background: answer.trim()
-            ? 'linear-gradient(135deg, #F97316, #FFD23F)'
-            : '#d1d5db',
+          width: '100%',
+          padding: '18px',
+          borderRadius: 99,
+          fontFamily: Y2K.display,
+          fontWeight: 900,
           fontSize: 20,
+          color: '#fff',
+          background: answer.trim() ? Y2K.hotPink : '#d1d5db',
+          border: `3px solid ${Y2K.dark}`,
+          boxShadow: answer.trim() ? `0 5px 0 ${Y2K.dark}` : 'none',
+          cursor: answer.trim() ? 'pointer' : 'not-allowed',
+          opacity: answer.trim() ? 1 : 0.4,
+          WebkitTextStroke: answer.trim() ? `1px ${Y2K.dark}` : 'none',
+          textShadow: answer.trim() ? `2px 2px 0 ${Y2K.dark}` : 'none',
+          letterSpacing: '0.05em',
         }}
       >
-        Submit Answer
+        submit answer ✦
       </button>
 
       {canSkip && (
         <button
           type="button"
           onClick={handleSkip}
-          className="w-full py-3 rounded-2xl font-bold text-base text-gray-500 bg-white border border-gray-200 shadow-sm"
+          style={{
+            width: '100%',
+            padding: '12px',
+            borderRadius: 99,
+            fontFamily: Y2K.body,
+            fontWeight: 700,
+            fontSize: 14,
+            color: '#9CA3AF',
+            background: '#fff',
+            border: `2px solid #e5e7eb`,
+            cursor: 'pointer',
+          }}
         >
-          Skip this one (1 skip allowed)
+          skip this one (1 skip allowed)
         </button>
       )}
     </div>

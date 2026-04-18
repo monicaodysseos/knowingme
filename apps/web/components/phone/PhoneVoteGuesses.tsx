@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import type { PlayerColor, PlayerCharacter } from '@ksero-se/types';
+import Y2KAvatar from '../tv/Y2KAvatar';
+import { Y2K } from '../../lib/y2k';
 
 interface Guess {
   id: string;
@@ -18,6 +20,24 @@ interface Props {
   answer: string;
   guesses: Guess[];
   onVote: (votes: Array<{ guessId: string; isCorrect: boolean }>) => void;
+}
+
+function Sticker({ color, r = 14, rotate = 0, style = {}, children }: { color: string; r?: number; rotate?: number; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: color,
+      borderRadius: r,
+      transform: `rotate(${rotate}deg)`,
+      border: `2.5px solid ${Y2K.dark}`,
+      boxShadow: `0 4px 0 rgba(11,4,41,0.45)`,
+      position: 'relative',
+      overflow: 'hidden',
+      ...style,
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', background: 'rgba(255,255,255,0.15)', borderRadius: `${r}px ${r}px 50% 50%`, pointerEvents: 'none' }} />
+      {children}
+    </div>
+  );
 }
 
 export default function PhoneVoteGuesses({
@@ -51,45 +71,48 @@ export default function PhoneVoteGuesses({
   if (submitted) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
-        <div
-          className="w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-xl"
-          style={{ background: '#8B5CF6' }}
-        >
+        <div style={{
+          width: 64,
+          height: 64,
+          borderRadius: '50%',
+          background: Y2K.hotPink,
+          border: `3px solid ${Y2K.dark}`,
+          boxShadow: `0 4px 0 ${Y2K.dark}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: Y2K.display,
+          fontWeight: 900,
+          fontSize: 24,
+          color: '#fff',
+          WebkitTextStroke: `1px ${Y2K.dark}`,
+        }}>
           ✓
         </div>
-        <p className="font-black text-gray-800 text-xl">Votes submitted!</p>
-        <p className="text-gray-500 font-bold">Watch the TV for the results…</p>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, color: Y2K.dark }}>votes submitted!</p>
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555' }}>watch the tv for the results…</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4 pb-4">
-      {/* Answer reveal banner */}
-      <div
-        className="rounded-2xl px-5 py-4 text-center"
-        style={{
-          background: subjectColor.hex + '18',
-          border: `3px solid ${subjectColor.hex}`,
-        }}
-      >
-        <p className="font-bold text-gray-500 text-sm uppercase tracking-widest mb-1">
+      {/* Answer reveal sticker */}
+      <Sticker color={subjectColor.hex} r={16} style={{ padding: '14px 16px', textAlign: 'center' }}>
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
           {subjectName} actually said…
         </p>
-        <p
-          className="font-black"
-          style={{ fontSize: 22, color: subjectColor.hex, letterSpacing: '-0.5px', lineHeight: 1.2 }}
-        >
+        <p style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, color: '#fff', WebkitTextStroke: `0.5px ${Y2K.dark}`, textShadow: `1px 1px 0 ${Y2K.dark}`, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
           &ldquo;{answer}&rdquo;
         </p>
-      </div>
+      </Sticker>
 
       {/* Question context */}
-      <p className="text-gray-500 font-semibold text-sm text-center px-2">{questionText}</p>
+      <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 12, color: '#3a1555', textAlign: 'center' }}>{questionText}</p>
 
       {/* Instructions */}
-      <p className="font-bold text-gray-700 text-sm text-center">
-        Did each person guess correctly?
+      <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 14, color: Y2K.dark, textAlign: 'center', letterSpacing: '-0.2px' }}>
+        did each person guess correctly?
       </p>
 
       {/* Guess cards */}
@@ -99,51 +122,73 @@ export default function PhoneVoteGuesses({
           return (
             <div
               key={g.id}
-              className="rounded-2xl px-4 py-3 bg-white shadow-sm"
               style={{
-                border: `2px solid ${
-                  decision === true ? '#16a34a'
-                  : decision === false ? '#dc2626'
-                  : g.guesserColor.hex + '44'
+                borderRadius: 16,
+                padding: '12px 14px',
+                background: '#fff',
+                border: `2.5px solid ${
+                  decision === true ? '#19B06B'
+                  : decision === false ? Y2K.hotPink
+                  : Y2K.dark
+                }`,
+                boxShadow: `0 3px 0 ${
+                  decision === true ? '#19B06B'
+                  : decision === false ? Y2K.hotPink
+                  : 'rgba(11,4,41,0.2)'
                 }`,
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-xs flex-shrink-0"
-                  style={{ background: g.guesserColor.hex }}
-                >
-                  {g.guesserName.charAt(0).toUpperCase()}
-                </div>
-                <span className="font-bold text-sm" style={{ color: g.guesserColor.hex }}>
+                <Y2KAvatar avatar={g.guesserAvatar} size={28} />
+                <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 14, color: g.guesserColor.hex, WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
                   {g.guesserName}
                 </span>
               </div>
-              <p className="font-bold text-gray-900 text-base mb-3">&ldquo;{g.text}&rdquo;</p>
+              <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: Y2K.dark, marginBottom: 10, lineHeight: 1.3 }}>
+                &ldquo;{g.text}&rdquo;
+              </p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => decide(g.id, true)}
-                  className="flex-1 py-2 rounded-xl font-black text-sm transition-all"
                   style={{
-                    background: decision === true ? '#16a34a' : '#f0fdf4',
-                    color: decision === true ? '#ffffff' : '#16a34a',
-                    border: `2px solid ${decision === true ? '#16a34a' : '#bbf7d0'}`,
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: 99,
+                    fontFamily: Y2K.display,
+                    fontWeight: 900,
+                    fontSize: 13,
+                    color: decision === true ? '#fff' : '#19B06B',
+                    background: decision === true ? '#19B06B' : '#f0fdf4',
+                    border: `2px solid ${decision === true ? '#19B06B' : '#bbf7d0'}`,
+                    boxShadow: decision === true ? `0 3px 0 ${Y2K.dark}` : 'none',
+                    cursor: 'pointer',
+                    WebkitTextStroke: decision === true ? `0.5px ${Y2K.dark}` : 'none',
+                    letterSpacing: '0.05em',
                   }}
                 >
-                  Correct
+                  correct ✔
                 </button>
                 <button
                   type="button"
                   onClick={() => decide(g.id, false)}
-                  className="flex-1 py-2 rounded-xl font-black text-sm transition-all"
                   style={{
-                    background: decision === false ? '#dc2626' : '#fef2f2',
-                    color: decision === false ? '#ffffff' : '#dc2626',
-                    border: `2px solid ${decision === false ? '#dc2626' : '#fecaca'}`,
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: 99,
+                    fontFamily: Y2K.display,
+                    fontWeight: 900,
+                    fontSize: 13,
+                    color: decision === false ? '#fff' : Y2K.hotPink,
+                    background: decision === false ? Y2K.hotPink : '#fff0f6',
+                    border: `2px solid ${decision === false ? Y2K.hotPink : '#fecdd3'}`,
+                    boxShadow: decision === false ? `0 3px 0 ${Y2K.dark}` : 'none',
+                    cursor: 'pointer',
+                    WebkitTextStroke: decision === false ? `0.5px ${Y2K.dark}` : 'none',
+                    letterSpacing: '0.05em',
                   }}
                 >
-                  Wrong
+                  wrong ✘
                 </button>
               </div>
             </div>
@@ -156,15 +201,25 @@ export default function PhoneVoteGuesses({
         type="button"
         disabled={!allDecided}
         onClick={handleSubmit}
-        className="w-full py-5 rounded-full font-black text-xl text-white shadow-lg disabled:opacity-30"
         style={{
-          background: allDecided
-            ? 'linear-gradient(135deg, #8B5CF6, #6D28D9)'
-            : '#d1d5db',
+          width: '100%',
+          padding: '18px',
+          borderRadius: 99,
+          fontFamily: Y2K.display,
+          fontWeight: 900,
           fontSize: 20,
+          color: '#fff',
+          background: allDecided ? Y2K.hotPink : '#d1d5db',
+          border: `3px solid ${Y2K.dark}`,
+          boxShadow: allDecided ? `0 5px 0 ${Y2K.dark}` : 'none',
+          cursor: allDecided ? 'pointer' : 'not-allowed',
+          opacity: allDecided ? 1 : 0.4,
+          WebkitTextStroke: allDecided ? `1px ${Y2K.dark}` : 'none',
+          textShadow: allDecided ? `2px 2px 0 ${Y2K.dark}` : 'none',
+          letterSpacing: '0.05em',
         }}
       >
-        Submit Votes
+        submit votes ✦
       </button>
     </div>
   );

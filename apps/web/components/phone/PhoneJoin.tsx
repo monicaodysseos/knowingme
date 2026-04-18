@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYER_CHARACTERS, type PlayerCharacter } from '@ksero-se/types';
-import CharacterShape from '../tv/CharacterShape';
+import Y2KAvatar from '../tv/Y2KAvatar';
+import { Y2K } from '../../lib/y2k';
 
 interface Props {
   roomCode: string;
@@ -12,8 +13,8 @@ interface Props {
 }
 
 const CHAR_LABELS: Record<PlayerCharacter, string> = {
-  blob: 'Blob', star: 'Star', diamond: 'Diamond', cloud: 'Cloud',
-  hex: 'Hex', drop: 'Drop', shield: 'Shield', crown: 'Crown',
+  star: 'ghost', blob: 'alien', diamond: 'frog', cloud: 'bunny',
+  hex: 'shroom', drop: 'robot', shield: 'melt', crown: 'tamago',
 };
 
 export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
@@ -25,42 +26,44 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
   const canJoin = name.trim().length > 0 && selectedAvatar !== null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#FFF8F0' }}>
-      {/* Top accent bar */}
-      <div
-        className="w-full flex-shrink-0"
-        style={{ height: 8, background: 'linear-gradient(90deg, #F97316, #FF6B6B, #F59E0B, #8B5CF6)' }}
-      />
+    <div className="min-h-screen flex flex-col" style={{ background: Y2K.cream }}>
+      {/* Y2K top bar */}
+      <div style={{ height: 10, background: `linear-gradient(90deg, ${Y2K.hotPink}, ${Y2K.pink}, ${Y2K.cyan}, ${Y2K.yellow})`, flexShrink: 0 }} />
 
       <div className="flex-1 flex flex-col px-5 pt-6 pb-8 gap-5">
-        {/* Room badge + heading */}
+        {/* Room badge */}
         <div className="text-center">
           <div
-            className="inline-block px-4 py-1.5 rounded-full font-black text-white text-sm tracking-widest mb-3"
-            style={{ background: '#F97316' }}
+            className="inline-block px-4 py-1.5 rounded-full font-black text-white text-sm mb-3"
+            style={{
+              background: Y2K.hotPink,
+              fontFamily: Y2K.display,
+              border: `2px solid ${Y2K.dark}`,
+              boxShadow: `0 3px 0 ${Y2K.dark}`,
+              letterSpacing: '0.1em',
+            }}
           >
             ROOM {roomCode}
           </div>
-          <h1 className="font-black text-gray-900" style={{ fontSize: 26, letterSpacing: '-0.5px' }}>
-            {step === 'avatar' ? 'Pick your character' : 'What\'s your name?'}
+          <h1 style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 22, color: Y2K.dark, letterSpacing: '-0.5px' }}>
+            {step === 'avatar' ? 'pick ur character' : "what's ur name?"}
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            {step === 'avatar' ? 'Choose who you\'ll be this round' : 'Up to 16 characters'}
+          <p style={{ fontFamily: Y2K.body, fontSize: 13, color: '#3a1555', marginTop: 4 }}>
+            {step === 'avatar' ? 'choose who u\'ll be this round' : 'up to 16 chars'}
           </p>
         </div>
 
-        {/* Step progress dots */}
+        {/* Step dots */}
         <div className="flex justify-center gap-2">
           {(['avatar', 'name'] as const).map((s) => (
-            <div
-              key={s}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: s === step ? 24 : 10,
-                height: 10,
-                background: s === step || (step === 'name' && s === 'avatar') ? '#F97316' : '#E5E7EB',
-              }}
-            />
+            <div key={s} style={{
+              width: s === step ? 24 : 10,
+              height: 10,
+              borderRadius: 99,
+              background: s === step || (step === 'name' && s === 'avatar') ? Y2K.hotPink : '#E5E7EB',
+              border: `2px solid ${Y2K.dark}`,
+              transition: 'all 0.3s',
+            }} />
           ))}
         </div>
 
@@ -83,19 +86,30 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                       key={char}
                       type="button"
                       onClick={() => setSelectedAvatar(char)}
-                      className="flex flex-col items-center gap-1.5 rounded-2xl py-3 px-1 transition-all duration-150"
                       style={{
-                        background: isSelected ? '#FFF0E0' : '#ffffff',
-                        border: `3px solid ${isSelected ? '#F97316' : '#E5E7EB'}`,
-                        boxShadow: isSelected ? '0 4px 14px #F9731633' : '0 1px 4px #0001',
-                        transform: isSelected ? 'scale(1.06)' : 'scale(1)',
+                        background: isSelected ? Y2K.yellow : '#fff',
+                        border: `3px solid ${isSelected ? Y2K.dark : '#E5E7EB'}`,
+                        borderRadius: 16,
+                        padding: '10px 4px 8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 6,
+                        boxShadow: isSelected ? `0 4px 0 ${Y2K.dark}` : '0 2px 0 rgba(0,0,0,0.15)',
+                        transform: isSelected ? 'scale(1.06) translateY(-2px)' : 'scale(1)',
+                        transition: 'all 0.15s',
+                        cursor: 'pointer',
                       }}
                     >
-                      <CharacterShape shape={char} color={isSelected ? '#F97316' : '#9CA3AF'} size={48} />
-                      <span
-                        className="font-bold text-xs"
-                        style={{ color: isSelected ? '#F97316' : '#9CA3AF' }}
-                      >
+                      <Y2KAvatar avatar={char} size={44} />
+                      <span style={{
+                        fontFamily: Y2K.display,
+                        fontWeight: 800,
+                        fontSize: 9,
+                        color: isSelected ? Y2K.dark : '#9CA3AF',
+                        letterSpacing: '0.05em',
+                        textTransform: 'uppercase',
+                      }}>
                         {CHAR_LABELS[char]}
                       </span>
                     </button>
@@ -107,10 +121,25 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                 type="button"
                 disabled={!canAdvance}
                 onClick={() => setStep('name')}
-                className="w-full py-4 rounded-full font-black text-white text-lg disabled:opacity-30 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: 99,
+                  fontFamily: Y2K.display,
+                  fontWeight: 900,
+                  fontSize: 18,
+                  color: '#fff',
+                  background: canAdvance ? Y2K.hotPink : '#d1d5db',
+                  border: `3px solid ${Y2K.dark}`,
+                  boxShadow: canAdvance ? `0 5px 0 ${Y2K.dark}` : 'none',
+                  cursor: canAdvance ? 'pointer' : 'not-allowed',
+                  opacity: canAdvance ? 1 : 0.4,
+                  WebkitTextStroke: canAdvance ? `1px ${Y2K.dark}` : 'none',
+                  textShadow: canAdvance ? `2px 2px 0 ${Y2K.dark}` : 'none',
+                  letterSpacing: '0.05em',
+                }}
               >
-                Continue
+                next →
               </button>
             </motion.div>
           ) : (
@@ -124,20 +153,22 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
             >
               {/* Selected character preview */}
               {selectedAvatar && (
-                <div className="flex flex-col items-center gap-2">
-                  <div
-                    className="rounded-2xl p-5"
-                    style={{ background: '#FFF0E0', border: '3px solid #F97316' }}
-                  >
-                    <CharacterShape shape={selectedAvatar} color="#F97316" size={72} />
+                <div className="flex flex-col items-center gap-3">
+                  <div style={{
+                    background: Y2K.yellow,
+                    border: `3px solid ${Y2K.dark}`,
+                    borderRadius: 20,
+                    padding: 16,
+                    boxShadow: `0 5px 0 ${Y2K.dark}`,
+                  }}>
+                    <Y2KAvatar avatar={selectedAvatar} size={72} />
                   </div>
                   <button
                     type="button"
                     onClick={() => setStep('avatar')}
-                    className="text-sm font-bold underline"
-                    style={{ color: '#9CA3AF' }}
+                    style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#9CA3AF', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    Change character
+                    change character
                   </button>
                 </div>
               )}
@@ -147,26 +178,40 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value.slice(0, 16))}
-                  placeholder="Your name"
+                  placeholder="ur name"
                   autoFocus
                   autoComplete="off"
                   maxLength={16}
-                  className="w-full rounded-2xl px-5 py-4 font-bold text-gray-900 placeholder-gray-300 outline-none bg-white"
                   style={{
+                    width: '100%',
+                    borderRadius: 16,
+                    padding: '16px 20px',
+                    fontFamily: Y2K.display,
+                    fontWeight: 800,
                     fontSize: 20,
-                    border: '3px solid #F97316',
-                    boxShadow: '0 2px 12px #F9731622',
+                    color: Y2K.dark,
+                    background: '#fff',
+                    border: `3px solid ${Y2K.hotPink}`,
+                    boxShadow: `0 4px 0 ${Y2K.dark}`,
+                    outline: 'none',
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && canJoin) onJoin(name.trim(), selectedAvatar!); }}
                 />
-                <span className="text-right text-gray-400 text-xs">{name.length}/16</span>
+                <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>{name.length}/16</span>
               </div>
 
               {error && (
-                <div
-                  className="rounded-2xl px-4 py-3 font-bold text-sm text-center"
-                  style={{ background: '#FEF2F2', color: '#DC2626', border: '2px solid #FCA5A5' }}
-                >
+                <div style={{
+                  borderRadius: 14,
+                  padding: '12px 16px',
+                  fontFamily: Y2K.body,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  textAlign: 'center',
+                  background: '#FEF2F2',
+                  color: '#DC2626',
+                  border: `2px solid #FCA5A5`,
+                }}>
                   {error}
                 </div>
               )}
@@ -175,10 +220,25 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                 type="button"
                 disabled={!canJoin}
                 onClick={() => canJoin && onJoin(name.trim(), selectedAvatar!)}
-                className="w-full py-5 rounded-full font-black text-white text-xl disabled:opacity-30 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
+                style={{
+                  width: '100%',
+                  padding: '18px',
+                  borderRadius: 99,
+                  fontFamily: Y2K.display,
+                  fontWeight: 900,
+                  fontSize: 20,
+                  color: '#fff',
+                  background: canJoin ? Y2K.hotPink : '#d1d5db',
+                  border: `3px solid ${Y2K.dark}`,
+                  boxShadow: canJoin ? `0 5px 0 ${Y2K.dark}` : 'none',
+                  cursor: canJoin ? 'pointer' : 'not-allowed',
+                  opacity: canJoin ? 1 : 0.4,
+                  WebkitTextStroke: canJoin ? `1px ${Y2K.dark}` : 'none',
+                  textShadow: canJoin ? `2px 2px 0 ${Y2K.dark}` : 'none',
+                  letterSpacing: '0.05em',
+                }}
               >
-                Join Game
+                let me in ✦
               </button>
             </motion.div>
           )}

@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
-import PlayerAvatar from './PlayerAvatar';
+import Y2KAvatar from './Y2KAvatar';
 import ParticleBurst from './ParticleBurst';
+import { Y2K } from '../../lib/y2k';
 
 interface Props {
   state: TVState;
@@ -12,13 +13,38 @@ interface Props {
 
 type RevealStage = 'guesses' | 'drumroll' | 'answer' | 'marking';
 
+function Sticker({ color, rotate = 0, r = 18, style = {}, children }: { color: string; rotate?: number; r?: number; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: color,
+      borderRadius: r,
+      transform: `rotate(${rotate}deg)`,
+      border: `3px solid ${Y2K.dark}`,
+      boxShadow: `0 6px 0 rgba(11,4,41,0.5), 0 2px 12px rgba(11,4,41,0.2)`,
+      position: 'relative',
+      overflow: 'hidden',
+      ...style,
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: `${r}px ${r}px 50% 50%`, pointerEvents: 'none' }} />
+      {children}
+    </div>
+  );
+}
+
+function Chunky({ children, size = 16, color = '#fff', shadow = Y2K.dark }: { children: React.ReactNode; size?: number; color?: string; shadow?: string }) {
+  return (
+    <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: size, textTransform: 'uppercase' as const, color, textShadow: `2px 2px 0 ${shadow}`, WebkitTextStroke: `1px ${shadow}` }}>
+      {children}
+    </div>
+  );
+}
+
 export default function TVRevealPhase({ state }: Props) {
   const { currentTurn } = state;
   const [stage, setStage] = useState<RevealStage>('guesses');
   const answerRef = useRef<string | undefined>(undefined);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // When the answer arrives for the first time, trigger the cinematic sequence
   useEffect(() => {
     const newAnswer = currentTurn?.answer;
     if (newAnswer && !answerRef.current) {
@@ -36,7 +62,6 @@ export default function TVRevealPhase({ state }: Props) {
     };
   }, [currentTurn?.answer]);
 
-  // Reset when turn changes (key off questionText which is unique per turn)
   useEffect(() => {
     answerRef.current = undefined;
     setStage('guesses');
@@ -50,84 +75,71 @@ export default function TVRevealPhase({ state }: Props) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center gap-5 px-10 py-8 relative overflow-hidden"
-      style={{ background: '#0d0818' }}
+      style={{ background: Y2K.dark }}
     >
       {/* Subject header */}
       <div className="flex items-center gap-4">
-        <PlayerAvatar name={subjectPlayer.name} color={subjectPlayer.color} avatar={subjectPlayer.avatar} size="md" />
+        <Y2KAvatar avatar={subjectPlayer.avatar} size={52} />
         <div>
-          <h2 className="font-black" style={{ fontSize: 38, color: subjectPlayer.color.hex, letterSpacing: '-1px' }}>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 34, color: subjectPlayer.color.hex, WebkitTextStroke: `1.5px ${Y2K.dark}`, textShadow: `2px 2px 0 ${Y2K.dark}`, letterSpacing: '-0.5px', lineHeight: 1 }}>
             {subjectPlayer.name}&apos;s Round
-          </h2>
+          </div>
           {totalForSubject > 1 && (
-            <p className="font-bold text-gray-400 text-base">
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>
               Question {questionIndex + 1} of {totalForSubject}
-            </p>
+            </div>
           )}
         </div>
       </div>
 
       {/* Question */}
-      <div
-        className="w-full max-w-2xl rounded-2xl px-8 py-5 text-center"
-        style={{
-          background: '#ffffff10',
-          border: `3px solid ${subjectPlayer.color.hex}55`,
-        }}
-      >
-        <p className="font-black text-white" style={{ fontSize: 28, letterSpacing: '-0.5px' }}>
+      <Sticker color="#fff" r={20} style={{ width: '100%', maxWidth: 600, padding: '16px 24px', textAlign: 'center' }}>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
           {questionText}
         </p>
-      </div>
+      </Sticker>
 
       {/* Guesses list */}
-      <div className="flex flex-col gap-3 w-full max-w-2xl">
-        <p className="font-bold text-sm uppercase tracking-widest" style={{ color: '#8B5CF6' }}>
-          What everyone guessed
-        </p>
+      <div style={{ width: '100%', maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Chunky size={12} color={Y2K.cyan} shadow={Y2K.dark}>what everyone guessed</Chunky>
         <AnimatePresence>
           {guessesRevealed.map((g, i) => (
             <motion.div
               key={g.id}
               initial={{ x: 60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 22, delay: i * 0.05 }}
-              className="flex items-center gap-4 rounded-2xl px-5 py-4"
+              transition={{ type: 'spring', stiffness: 280, damping: 22, delay: i * 0.04 }}
               style={{
-                background:
-                  g.isCorrect === true ? '#052e1688'
-                  : g.isCorrect === false ? '#2a040488'
-                  : '#ffffff12',
-                border: `2px solid ${
-                  g.isCorrect === true ? '#16a34a'
-                  : g.isCorrect === false ? '#dc2626'
-                  : '#ffffff18'
-                }`,
+                background: g.isCorrect === true ? '#fff' : 'rgba(255,255,255,0.6)',
+                border: `2.5px solid ${g.isCorrect === true ? '#19B06B' : g.isCorrect === false ? '#FF1E8E' : Y2K.dark}`,
+                borderRadius: 14,
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                boxShadow: g.isCorrect === true ? '0 3px 0 #19B06B' : `0 3px 0 rgba(11,4,41,0.25)`,
+                opacity: g.isCorrect === false ? 0.75 : 1,
               }}
             >
-              <PlayerAvatar name={g.guesserName} color={g.guesserColor} avatar={g.guesserAvatar} size="sm" />
-              <span className="font-bold text-base" style={{ color: g.guesserColor.hex }}>
+              <Y2KAvatar avatar={g.guesserAvatar} size={28} />
+              <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: g.guesserColor.hex, minWidth: 60, WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
                 {g.guesserName}
               </span>
-              <span className="flex-1 font-bold text-lg text-white text-right">
+              <span style={{ flex: 1, fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: Y2K.dark, textAlign: 'right', textDecoration: g.isCorrect === false ? 'line-through' : 'none', textDecorationColor: 'rgba(11,4,41,0.4)' }}>
                 &ldquo;{g.text}&rdquo;
               </span>
               {g.isCorrect === true && (
-                <div className="w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0" style={{ background: '#16a34a' }}>
-                  ✓
-                </div>
+                <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: '#19B06B' }}>✔</span>
               )}
               {g.isCorrect === false && (
-                <div className="w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0" style={{ background: '#dc2626' }}>
-                  ✕
-                </div>
+                <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: '#FF1E8E' }}>✘</span>
               )}
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
 
-      {/* ── Cinematic overlay ──────────────────────────────────────────── */}
+      {/* Cinematic overlay */}
       <AnimatePresence>
         {stage === 'drumroll' && (
           <motion.div
@@ -136,24 +148,23 @@ export default function TVRevealPhase({ state }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 flex flex-col items-center justify-center z-20"
-            style={{ background: '#0d0818ee', backdropFilter: 'blur(4px)' }}
+            style={{ background: 'rgba(11,4,41,0.92)', backdropFilter: 'blur(4px)' }}
           >
             <motion.div
               animate={{ scale: [1, 1.06, 1, 1.06, 1] }}
               transition={{ duration: 0.4, repeat: Infinity }}
               className="text-center"
             >
-              <p className="font-black text-white uppercase tracking-[0.3em]" style={{ fontSize: 22 }}>
+              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 22, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.3em', WebkitTextStroke: `1px ${Y2K.dark}` }}>
                 {subjectPlayer.name} actually said…
-              </p>
+              </div>
               <div className="flex gap-3 justify-center mt-5">
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
                     animate={{ scale: [1, 1.6, 1] }}
                     transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.15 }}
-                    className="w-4 h-4 rounded-full"
-                    style={{ background: subjectPlayer.color.hex }}
+                    style={{ width: 16, height: 16, borderRadius: '50%', background: subjectPlayer.color.hex, border: `2px solid ${Y2K.dark}` }}
                   />
                 ))}
               </div>
@@ -168,32 +179,24 @@ export default function TVRevealPhase({ state }: Props) {
             animate={{ scale: 1, opacity: 1 }}
             exit={stage === 'answer' ? { scale: 0.9, opacity: 0 } : undefined}
             transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-            className={`${stage === 'answer' ? 'absolute inset-0 z-30 flex items-center justify-center' : 'w-full max-w-2xl'}`}
-            style={stage === 'answer' ? { background: '#0d0818ee', backdropFilter: 'blur(4px)' } : undefined}
+            className={stage === 'answer' ? 'absolute inset-0 z-30 flex items-center justify-center' : 'w-full'}
+            style={stage === 'answer' ? { background: 'rgba(11,4,41,0.92)', backdropFilter: 'blur(4px)' } : { maxWidth: 600 }}
           >
-            <div
-              className="relative rounded-[2rem] px-10 py-8 text-center w-full max-w-2xl"
-              style={{
-                background: '#ffffff',
-                border: `5px solid ${subjectPlayer.color.hex}`,
-                boxShadow: `0 20px 60px ${subjectPlayer.color.hex}44`,
-              }}
-            >
-              {stage === 'answer' && <ParticleBurst trigger />}
-              <p className="font-bold text-gray-500 text-xl mb-2">
-                {subjectPlayer.name} actually said…
-              </p>
-              <p
-                className="font-black"
-                style={{ fontSize: 52, color: subjectPlayer.color.hex, letterSpacing: '-1px', lineHeight: 1.1 }}
-              >
-                &ldquo;{answer}&rdquo;
-              </p>
-              {stage === 'marking' && (
-                <p className="text-gray-400 mt-4 font-bold text-base">
-                  Everyone is voting on their phones…
-                </p>
-              )}
+            <div style={{ width: '100%', maxWidth: 600 }}>
+              <Sticker color={subjectPlayer.color.hex} r={24} style={{ padding: '24px 28px', textAlign: 'center', position: 'relative' }}>
+                {stage === 'answer' && <ParticleBurst trigger />}
+                <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.8)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  {subjectPlayer.name} actually said…
+                </div>
+                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 48, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, textShadow: `4px 4px 0 ${Y2K.dark}`, letterSpacing: '-1px', lineHeight: 1.05 }}>
+                  &ldquo;{answer}&rdquo;
+                </div>
+                {stage === 'marking' && (
+                  <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 12 }}>
+                    Everyone is voting on their phones…
+                  </div>
+                )}
+              </Sticker>
             </div>
           </motion.div>
         )}
