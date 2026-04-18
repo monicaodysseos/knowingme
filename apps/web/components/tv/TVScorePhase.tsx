@@ -61,8 +61,8 @@ export default function TVScorePhase({ state }: Props) {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center gap-6 px-12"
-      style={{ background: Y2K.dark }}
+      className="min-h-screen flex flex-col items-center justify-center"
+      style={{ background: Y2K.dark, gap: 'clamp(24px, 4vh, 56px)', padding: 'clamp(32px, 5vh, 72px) clamp(40px, 6vw, 120px)' }}
     >
       {/* Turn summary */}
       {currentTurn && (
@@ -70,13 +70,13 @@ export default function TVScorePhase({ state }: Props) {
           initial={{ y: -24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
         >
-          <Sticker color="#fff" r={18} style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Y2KAvatar avatar={currentTurn.subjectPlayer.avatar} size={40} />
+          <Sticker color="#fff" r={18} style={{ padding: 'clamp(14px, 2vh, 24px) clamp(20px, 2.5vw, 36px)', display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.5vw, 20px)' }}>
+            <Y2KAvatar avatar={currentTurn.subjectPlayer.avatar} size={52} />
             <div>
-              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, color: currentTurn.subjectPlayer.color.hex, WebkitTextStroke: `0.5px ${Y2K.dark}` }}>
+              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(20px, 2.2vw, 32px)', color: currentTurn.subjectPlayer.color.hex, WebkitTextStroke: `0.5px ${Y2K.dark}` }}>
                 {currentTurn.subjectPlayer.name}&apos;s turn — done!
               </div>
-              <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555' }}>
+              <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(13px, 1.3vw, 20px)', color: '#3a1555', marginTop: 4 }}>
                 {correctCount} correct guess{correctCount !== 1 ? 'es' : ''} this round
               </div>
             </div>
@@ -90,7 +90,7 @@ export default function TVScorePhase({ state }: Props) {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="flex flex-col items-center gap-5 w-full"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'clamp(16px, 2.5vh, 36px)', width: '100%' }}
         >
           <ChromeTitle text="leaderboard ✦" size={52} tilt={-1.5} />
           <Leaderboard scores={scores} players={players} highlight />
@@ -102,7 +102,7 @@ export default function TVScorePhase({ state }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 16, color: 'rgba(255,255,255,0.5)' }}
+          style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(16px, 1.6vw, 24px)', color: 'rgba(255,255,255,0.5)' }}
         >
           next question coming up…
         </motion.div>

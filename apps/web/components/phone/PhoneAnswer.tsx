@@ -1,21 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import PhoneCountdown from './PhoneCountdown';
 import { Y2K } from '../../lib/y2k';
-
-// Module-level singleton — only one audio element ever exists for this track,
-// so double-mounts during AnimatePresence transitions don't create two overlapping instances.
-let _bgAudio: HTMLAudioElement | null = null;
-function getBgAudio(): HTMLAudioElement {
-  if (typeof window === 'undefined') return null as unknown as HTMLAudioElement;
-  if (!_bgAudio) {
-    _bgAudio = new Audio('/gentle-thumbs-theme.wav');
-    _bgAudio.loop = true;
-    _bgAudio.volume = 0.5;
-  }
-  return _bgAudio;
-}
 
 interface Props {
   assignmentId: string;
@@ -55,36 +42,20 @@ export default function PhoneAnswer({
 }: Props) {
   const [answer, setAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Play background music — singleton prevents double-play on AnimatePresence overlap
-  useEffect(() => {
-    const audio = getBgAudio();
-    audioRef.current = audio;
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-    return () => { audio.pause(); };
-  }, []);
 
   useEffect(() => {
     setAnswer('');
     setSubmitted(false);
   }, [assignmentId]);
 
-  const stopMusic = () => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-  };
-
   const handleSubmit = () => {
     if (!answer.trim() || submitted) return;
-    stopMusic();
     setSubmitted(true);
     onSubmit(assignmentId, answer.trim());
   };
 
   const handleSkip = () => {
     if (submitted) return;
-    stopMusic();
     setSubmitted(true);
     onSubmit(assignmentId, '', true);
   };

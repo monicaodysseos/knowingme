@@ -19,7 +19,7 @@ export default function Leaderboard({ scores, players = [], highlight = false }:
   const avatarMap = Object.fromEntries(players.map((p) => [p.id, p.avatar]));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 1vh, 14px)', width: '100%', maxWidth: 'min(700px, 72vw)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(10px, 1.4vh, 20px)', width: '100%', maxWidth: 'min(1100px, 82vw)' }}>
       <AnimatePresence mode="popLayout">
         {scores.map((entry, rank) => {
           const rankBg = RANK_BG[rank] ?? '#E5E7EB';
