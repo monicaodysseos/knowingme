@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { GoogleAnalytics } from '@next/third-parties/google';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -23,16 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="cookiehub-init" strategy="afterInteractive">
           {`var cpm = {}; window.cookiehub.load(cpm);`}
         </Script>
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-275M4Q5MZL" strategy="afterInteractive" />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-275M4Q5MZL');
-          `}
-        </Script>
       </body>
+      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID!} />
     </html>
   );
 }
