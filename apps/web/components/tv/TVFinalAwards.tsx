@@ -102,13 +102,6 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   const { awards = [] } = state;
   const { playDrumroll, playAwardFanfare, playGameOver } = useGameSounds();
 
-  useEffect(() => {
-    if (phase === 'done') {
-      playFinalMusic();
-      return stopFinalMusic;
-    }
-  }, [phase]);
-
   const orderedAwards = AWARD_ORDER
     .map((type) => awards.find((a) => a.type === type))
     .filter((a): a is AwardResult => Boolean(a));
@@ -116,6 +109,13 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   const [awardIndex, setAwardIndex] = useState(0);
   const [phase, setPhase] = useState<AwardPhase>('title');
   const [showPlayAgain, setShowPlayAgain] = useState(false);
+
+  useEffect(() => {
+    if (phase === 'done') {
+      playFinalMusic();
+      return stopFinalMusic;
+    }
+  }, [phase]);
 
   const advance = useCallback(() => {
     const next = awardIndex + 1;
