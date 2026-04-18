@@ -6,6 +6,7 @@ import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import ParticleBurst from './ParticleBurst';
 import { Y2K } from '../../lib/y2k';
+import { useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -44,23 +45,30 @@ export default function TVRevealPhase({ state }: Props) {
   const [stage, setStage] = useState<RevealStage>('guesses');
   const answerRef = useRef<string | undefined>(undefined);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { playDrumroll, playReveal } = useGameSounds();
 
   useEffect(() => {
     const newAnswer = currentTurn?.answer;
     if (newAnswer && !answerRef.current) {
       answerRef.current = newAnswer;
-      setStage('drumroll');
+      // Show all guesses for 5 s, then drumroll, then reveal answer
       stageTimerRef.current = setTimeout(() => {
-        setStage('answer');
+        setStage('drumroll');
+        const stopDrum = playDrumroll(1800);
         stageTimerRef.current = setTimeout(() => {
-          setStage('marking');
-        }, 2500);
-      }, 1800);
+          stopDrum();
+          setStage('answer');
+          playReveal();
+          stageTimerRef.current = setTimeout(() => {
+            setStage('marking');
+          }, 2500);
+        }, 1800);
+      }, 5000);
     }
     return () => {
       if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
     };
-  }, [currentTurn?.answer]);
+  }, [currentTurn?.answer, playDrumroll, playReveal]);
 
   useEffect(() => {
     answerRef.current = undefined;

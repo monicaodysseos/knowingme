@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import CountdownRing from './CountdownRing';
 import { Y2K } from '../../lib/y2k';
+import { useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -56,6 +58,14 @@ function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { s
 
 export default function TVGuessPhase({ state }: Props) {
   const { currentTurn, players, timerEnd } = state;
+  const { playTick, stopTick } = useGameSounds();
+
+  useEffect(() => {
+    playTick();
+    return stopTick;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTurn?.questionText]);
+
   if (!currentTurn) return null;
 
   const { subjectPlayer, questionText, questionIndex, totalForSubject, guessCount } = currentTurn;

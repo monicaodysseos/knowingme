@@ -14,10 +14,6 @@ import type { JoinPayload, JoinAck } from '@ksero-se/types';
 
 // ── Room creation endpoint (HTTP) ─ see index.ts ──────────────────────────
 
-// ── Module-level vote tracking (per room, per reveal turn) ────────────────
-// roomCode → guessId → playerId → isCorrect
-const roomVotes = new Map<string, Record<string, Record<string, boolean>>>();
-
 // ── Socket handlers ────────────────────────────────────────────────────────
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
@@ -278,49 +274,34 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  // ── Submit vote (democratic guess scoring) ────────────────────────────────
+  // ── Submit vote (subject-only marking) ───────────────────────────────────
   socket.on('submit:vote', (votes: Array<{ guessId: string; isCorrect: boolean }>) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
     if (entry.actor.getSnapshot().value !== 'REVEAL_PHASE') return;
 
-    // Record votes for this player
-    const turnVotes = roomVotes.get(roomCode) ?? {};
-    for (const vote of votes) {
-      if (!turnVotes[vote.guessId]) turnVotes[vote.guessId] = {};
-      turnVotes[vote.guessId][playerId] = vote.isCorrect;
-    }
-    roomVotes.set(roomCode, turnVotes);
-
-    // Check if all connected players have voted on all guesses for this turn
     const ctx = entry.actor.getSnapshot().context;
     const turn = ctx.playerTurns[ctx.currentTurnIndex];
     if (!turn) return;
 
-    const connectedPlayers = ctx.players.filter((p) => p.isConnected);
-    const allVotesIn = turn.guesses.every((g) =>
-      connectedPlayers.every((p) => turnVotes[g.id]?.[p.id] !== undefined),
-    );
+    // Only the subject player can mark guesses
+    if (playerId !== turn.subjectPlayerId) return;
 
-    if (allVotesIn) {
-      // Tally majority vote per guess and apply to machine
-      for (const g of turn.guesses) {
-        const vals = Object.values(turnVotes[g.id] ?? {});
-        const yesCount = vals.filter(Boolean).length;
-        entry.actor.send({ type: 'MARK_GUESS', guessId: g.id, isCorrect: yesCount > vals.length / 2 });
-      }
-      entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
-
-      const scoreCtx = entry.actor.getSnapshot().context;
-      const nextTurn = scoreCtx.playerTurns[scoreCtx.currentTurnIndex + 1];
-      const isLastRound = !nextTurn;
-      const isRoundEnd = isLastRound || nextTurn?.subjectPlayerId !== scoreCtx.playerTurns[scoreCtx.currentTurnIndex]?.subjectPlayerId;
-      const delay = isLastRound ? 1000 : isRoundEnd ? 5000 : 1500;
-      setRoomTimer(io, roomCode, 'score-display', delay, () => {
-        advanceToNextTurn(io, roomCode);
-      });
+    // Apply marks directly
+    for (const vote of votes) {
+      entry.actor.send({ type: 'MARK_GUESS', guessId: vote.guessId, isCorrect: vote.isCorrect });
     }
+    entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
+
+    const scoreCtx = entry.actor.getSnapshot().context;
+    const nextTurn = scoreCtx.playerTurns[scoreCtx.currentTurnIndex + 1];
+    const isLastRound = !nextTurn;
+    const isRoundEnd = isLastRound || nextTurn?.subjectPlayerId !== scoreCtx.playerTurns[scoreCtx.currentTurnIndex]?.subjectPlayerId;
+    const delay = isLastRound ? 1000 : isRoundEnd ? 5000 : 1500;
+    setRoomTimer(io, roomCode, 'score-display', delay, () => {
+      advanceToNextTurn(io, roomCode);
+    });
   });
 
   // ── Play again ───────────────────────────────────────────────────────────
@@ -427,9 +408,6 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
 }
 
 function startReveal(io: Server, roomCode: string): void {
-  // Clear votes from the previous turn so fresh voting can begin
-  roomVotes.set(roomCode, {});
-
   const entry = getRoom(roomCode);
   if (!entry) return;
 
@@ -446,7 +424,7 @@ function startReveal(io: Server, roomCode: string): void {
 
   const total = turn.guesses.length;
 
-  // Edge case: no guesses at all — skip straight to scoring
+  // Edge case: no guesses — skip straight to scoring
   if (total === 0) {
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
     setRoomTimer(io, roomCode, 'score-display', 4000, () => {
@@ -455,21 +433,11 @@ function startReveal(io: Server, roomCode: string): void {
     return;
   }
 
-  // Reveal guesses one by one every 1.5 seconds
-  let idx = 0;
-
-  function revealNext(): void {
-    const e = getRoom(roomCode);
-    if (!e) return;
-    if (idx < total) {
-      e.actor.send({ type: 'ADVANCE_REVEAL' });
-      idx++;
-      setTimeout(revealNext, 1500);
-    }
-    // After all revealed, subject marks on phone — wait for ALL_GUESSES_MARKED
+  // Reveal all guesses immediately (TV handles the 5 s pre-drumroll delay client-side)
+  for (let i = 0; i < total; i++) {
+    entry.actor.send({ type: 'ADVANCE_REVEAL' });
   }
-
-  setTimeout(revealNext, 800);
+  // State is now broadcast via actor.subscribe — subject's phone will show VOTE_GUESSES
 }
 
 function advanceToNextTurn(io: Server, roomCode: string): void {

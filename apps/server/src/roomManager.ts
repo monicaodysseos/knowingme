@@ -115,7 +115,7 @@ function buildScores(ctx: GameContext): ScoreEntry[] {
       playerName: p.name,
       color: p.color,
       score: ctx.scores[p.id] ?? 0,
-      delta: 0,
+      delta: ctx.roundDeltas?.[p.id] ?? 0,
     }))
     .sort((a, b) => b.score - a.score);
 }
@@ -289,20 +289,26 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         const allRevealed = totalGuesses > 0 && ctx.revealIndex >= totalGuesses - 1;
         if (allRevealed && currentTurn?.answer) {
           const subjectPlayerObj = ctx.players.find((p) => p.id === currentTurn.subjectPlayerId);
-          action = {
-            type: 'VOTE_GUESSES',
-            questionText: currentTurn.questionText,
-            subjectName: subjectPlayerObj?.name ?? '?',
-            subjectColor: subjectPlayerObj?.color ?? ctx.players[0].color,
-            answer: currentTurn.answer,
-            guesses: currentTurn.guesses.map((g) => ({
-              id: g.id,
-              guesserName: g.guesserName,
-              guesserColor: g.guesserColor,
-              guesserAvatar: ctx.players.find((p) => p.id === g.guesserPlayerId)?.avatar ?? 'blob',
-              text: g.text,
-            })),
-          };
+          const subjectName = subjectPlayerObj?.name ?? '?';
+          if (player.id === currentTurn.subjectPlayerId) {
+            // Only the subject marks correct / wrong
+            action = {
+              type: 'VOTE_GUESSES',
+              questionText: currentTurn.questionText,
+              subjectName,
+              subjectColor: subjectPlayerObj?.color ?? ctx.players[0].color,
+              answer: currentTurn.answer,
+              guesses: currentTurn.guesses.map((g) => ({
+                id: g.id,
+                guesserName: g.guesserName,
+                guesserColor: g.guesserColor,
+                guesserAvatar: ctx.players.find((p) => p.id === g.guesserPlayerId)?.avatar ?? 'blob',
+                text: g.text,
+              })),
+            };
+          } else {
+            action = { type: 'WAIT', message: `${subjectName} is marking the answers…` };
+          }
         } else {
           action = { type: 'WAIT', message: 'Watch the TV for the reveal…' };
         }

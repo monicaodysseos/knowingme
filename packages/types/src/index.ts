@@ -123,6 +123,7 @@ export interface GameContext {
   currentQuestionSlot: number; // 0–4 during ANSWER_PHASE
   timerEnd: number;            // unix ms
   scores: Record<string, number>;
+  roundDeltas: Record<string, number>; // points earned in the most recent scored turn
   duoMatrix: DuoMatrix;
   revealIndex: number;         // index of guess being revealed
   awards: AwardResult[];

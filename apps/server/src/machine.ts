@@ -57,25 +57,17 @@ function shuffle<T>(arr: T[]): T[] {
 function assignQuestions(
   players: Player[],
   pool: Question[],
-  mode: GameMode,
+  _mode: GameMode,
 ): QuestionAssignment[] {
-  const tieredPool = pool.filter((q) =>
-    mode === 'corporate' ? q.tier === 'T1' : true,
-  );
+  // Only use player-submitted questions, shuffled once globally.
+  // Players may receive their own questions.
+  const submittedPool = shuffle(pool.filter((q) => q.submittedByPlayerId !== undefined));
+  if (submittedPool.length === 0) return [];
 
   const assignments: QuestionAssignment[] = [];
-
-  for (const player of players) {
-    const ownIds = new Set(player.submittedQuestionIds);
-    const eligible = tieredPool.filter((q) => !ownIds.has(q.id));
-
-    // Player-submitted questions always take priority over seeded ones.
-    // This ensures the questions players wrote for others actually appear.
-    const playerSubmitted = shuffle(eligible.filter((q) => q.submittedByPlayerId !== undefined));
-    const seeded = shuffle(eligible.filter((q) => q.submittedByPlayerId === undefined));
-    const picked = [...playerSubmitted, ...seeded].slice(0, QUESTIONS_PER_PLAYER);
-
-    for (const q of picked) {
+  players.forEach((player, pi) => {
+    for (let j = 0; j < QUESTIONS_PER_PLAYER; j++) {
+      const q = submittedPool[(pi * QUESTIONS_PER_PLAYER + j) % submittedPool.length];
       assignments.push({
         id: uuidv4(),
         questionId: q.id,
@@ -83,7 +75,7 @@ function assignQuestions(
         assignedToPlayerId: player.id,
       });
     }
-  }
+  });
 
   return assignments;
 }
@@ -251,6 +243,7 @@ export function initialContext(roomCode: string, mode: GameMode): GameContext {
     currentQuestionSlot: 0,
     timerEnd: 0,
     scores: {},
+    roundDeltas: {},
     duoMatrix: {},
     revealIndex: -1,
     awards: [],
@@ -523,10 +516,17 @@ export const gameMachine = setup({
       revealIndex: ({ context }) => context.revealIndex + 1,
     }),
 
-    applyRoundScores: assign({
-      scores: ({ context }) =>
-        applyScores(context, context.currentTurnIndex === context.playerTurns.length - 1),
-      duoMatrix: ({ context }) => updateDuoMatrix(context),
+    applyRoundScores: assign(({ context }) => {
+      const newScores = applyScores(context, context.currentTurnIndex === context.playerTurns.length - 1);
+      const deltas: Record<string, number> = {};
+      for (const [id, score] of Object.entries(newScores)) {
+        deltas[id] = score - (context.scores[id] ?? 0);
+      }
+      return {
+        scores: newScores,
+        roundDeltas: deltas,
+        duoMatrix: updateDuoMatrix(context),
+      };
     }),
 
     nextTurn: assign({

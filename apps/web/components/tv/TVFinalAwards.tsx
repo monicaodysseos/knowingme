@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState, AwardResult } from '@ksero-se/types';
 import ParticleBurst from './ParticleBurst';
 import { Y2K } from '../../lib/y2k';
+import { useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -99,6 +100,7 @@ function Heart({ size = 24, color = '#FF4FB4', x = 0, y = 0, rotate = 0 }: { siz
 
 export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   const { awards = [] } = state;
+  const { playDrumroll, playAwardFanfare, playGameOver } = useGameSounds();
 
   const orderedAwards = AWARD_ORDER
     .map((type) => awards.find((a) => a.type === type))
@@ -125,14 +127,19 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
       return () => clearTimeout(t);
     }
     if (phase === 'drumroll') {
-      const t = setTimeout(() => setPhase('winner'), 1800);
-      return () => clearTimeout(t);
+      const stop = playDrumroll(1800);
+      const t = setTimeout(() => { stop(); setPhase('winner'); }, 1800);
+      return () => { clearTimeout(t); stop(); };
     }
     if (phase === 'winner') {
+      playAwardFanfare();
       const t = setTimeout(advance, 3500);
       return () => clearTimeout(t);
     }
-  }, [phase, advance]);
+    if (phase === 'done') {
+      playGameOver();
+    }
+  }, [phase, advance, playDrumroll, playAwardFanfare, playGameOver]);
 
   const current = orderedAwards[awardIndex];
   const accent = current ? AWARD_COLORS[current.type] : Y2K.hotPink;
