@@ -1,6 +1,8 @@
 // Y2K Design System tokens
 
 export const Y2K = {
+  // Light pastel TV background — radial pink/blue gradients on a soft purple-blue base
+  bg: 'radial-gradient(ellipse at 20% 10%, #ffd6f0 0%, transparent 45%), radial-gradient(ellipse at 80% 90%, #c7eaff 0%, transparent 50%), linear-gradient(160deg, #f7c4e7 0%, #c0d9ff 45%, #d4f1ff 100%)',
   pink:     '#FF4FB4',
   hotPink:  '#FF1E8E',
   deepPink: '#A8167A',

@@ -155,7 +155,7 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
     return (
       <div
         className="min-h-screen flex flex-col items-center justify-center px-12 py-8 relative overflow-hidden"
-        style={{ background: Y2K.dark }}
+        style={{ background: Y2K.bg }}
       >
         <Sparkle size={32} color={Y2K.yellow} x={40} y={50} rotate={15} />
         <Sparkle size={20} color={Y2K.cyan} x={140} y={120} />
@@ -237,7 +237,7 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ background: Y2K.dark }}
+      style={{ background: Y2K.bg }}
     >
       <Sparkle size={32} color={Y2K.yellow} x={50} y={50} rotate={15} />
       <Sparkle size={24} color={Y2K.cyan} x={880} y={80} />
@@ -325,7 +325,7 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
-                  style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 18, color: 'rgba(255,255,255,0.55)' }}
+                  style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 18, color: 'rgba(11,4,41,0.55)' }}
                 >
                   {current.stat}
                 </motion.div>

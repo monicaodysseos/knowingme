@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../../lib/socket';
@@ -12,6 +12,9 @@ import TVGuessPhase from '../../components/tv/TVGuessPhase';
 import TVRevealPhase from '../../components/tv/TVRevealPhase';
 import TVScorePhase from '../../components/tv/TVScorePhase';
 import TVFinalAwards from '../../components/tv/TVFinalAwards';
+import TVIntroWrite from '../../components/tv/TVIntroWrite';
+import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
+import TVIntroGuess from '../../components/tv/TVIntroGuess';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
@@ -89,8 +92,25 @@ export default function TVPage() {
   return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} />;
 }
 
+const INTRO_PHASES = ['QUESTION_SUBMISSION', 'ANSWER_PHASE', 'GUESS_PHASE'] as const;
+
 function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
   const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
+
+  // Show round intro for 5 seconds when each phase first starts (once per phase per session)
+  const [introPhase, setIntroPhase] = useState<string | null>(null);
+  const shownIntros = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!state) return;
+    const phase = state.phase;
+    if ((INTRO_PHASES as readonly string[]).includes(phase) && !shownIntros.current.has(phase)) {
+      shownIntros.current.add(phase);
+      setIntroPhase(phase);
+      const t = setTimeout(() => setIntroPhase(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [state?.phase]);
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
@@ -144,34 +164,42 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
     );
   }
 
+  const displayKey = introPhase ? `intro-${introPhase}` : state.phase;
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={state.phase}
+        key={displayKey}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 1.02 }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        transition={{ duration: 0.35, ease: 'easeInOut' }}
       >
-        {state.phase === 'LOBBY' && (
+        {/* Round intro screens — shown for 5 seconds before each phase */}
+        {introPhase === 'QUESTION_SUBMISSION' && <TVIntroWrite state={state} />}
+        {introPhase === 'ANSWER_PHASE' && <TVIntroAnswer state={state} />}
+        {introPhase === 'GUESS_PHASE' && <TVIntroGuess state={state} />}
+
+        {/* Normal game phases */}
+        {!introPhase && state.phase === 'LOBBY' && (
           <TVLobby state={state} onStart={hostStart} />
         )}
-        {state.phase === 'QUESTION_SUBMISSION' && (
+        {!introPhase && state.phase === 'QUESTION_SUBMISSION' && (
           <TVQuestionSubmission state={state} />
         )}
-        {state.phase === 'ANSWER_PHASE' && (
+        {!introPhase && state.phase === 'ANSWER_PHASE' && (
           <TVAnswerPhase state={state} />
         )}
-        {state.phase === 'GUESS_PHASE' && (
+        {!introPhase && state.phase === 'GUESS_PHASE' && (
           <TVGuessPhase state={state} />
         )}
-        {state.phase === 'REVEAL_PHASE' && (
+        {!introPhase && state.phase === 'REVEAL_PHASE' && (
           <TVRevealPhase state={state} />
         )}
-        {state.phase === 'SCORE_PHASE' && (
+        {!introPhase && state.phase === 'SCORE_PHASE' && (
           <TVScorePhase state={state} />
         )}
-        {(state.phase === 'FINAL_AWARDS' || state.phase === 'GAME_OVER') && (
+        {!introPhase && (state.phase === 'FINAL_AWARDS' || state.phase === 'GAME_OVER') && (
           <TVFinalAwards state={state} onPlayAgain={playAgain} />
         )}
       </motion.div>

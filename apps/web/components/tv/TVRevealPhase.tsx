@@ -86,7 +86,7 @@ export default function TVRevealPhase({ state }: Props) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ background: Y2K.dark, padding: '4vh 6vw' }}
+      style={{ background: Y2K.bg, padding: '4vh 6vw' }}
     >
       {/* Subject header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '2vw', marginBottom: '3vh', width: '100%', maxWidth: '88vw' }}>
@@ -96,7 +96,7 @@ export default function TVRevealPhase({ state }: Props) {
             {subjectPlayer.name}&apos;s Round
           </div>
           {totalForSubject > 1 && (
-            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(13px, 1.3vw, 20px)', color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(13px, 1.3vw, 20px)', color: '#3a1555', marginTop: 4 }}>
               Question {questionIndex + 1} of {totalForSubject}
             </div>
           )}
@@ -112,7 +112,7 @@ export default function TVRevealPhase({ state }: Props) {
 
       {/* Guesses list */}
       <div style={{ width: '100%', maxWidth: '88vw', display: 'flex', flexDirection: 'column', gap: 'clamp(6px, 0.8vh, 12px)' }}>
-        <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(11px, 1.1vw, 16px)', textTransform: 'uppercase' as const, color: Y2K.cyan, textShadow: `1px 1px 0 ${Y2K.dark}`, WebkitTextStroke: `0.5px ${Y2K.dark}`, marginBottom: 4 }}>
+        <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(11px, 1.1vw, 16px)', textTransform: 'uppercase' as const, color: Y2K.deepPink, textShadow: `1px 1px 0 ${Y2K.dark}`, WebkitTextStroke: `0.5px ${Y2K.dark}`, marginBottom: 4 }}>
           what everyone guessed
         </div>
         <AnimatePresence>

@@ -54,7 +54,7 @@ export default function TVScorePhase({ state }: Props) {
   const { scores, players, currentTurn, isRoundEnd, isLastRound } = state;
 
   if (isLastRound) {
-    return <div className="min-h-screen" style={{ background: Y2K.dark }} />;
+    return <div className="min-h-screen" style={{ background: Y2K.bg }} />;
   }
 
   const correctCount = currentTurn?.guessesRevealed.filter((g) => g.isCorrect).length ?? 0;
@@ -62,7 +62,7 @@ export default function TVScorePhase({ state }: Props) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center"
-      style={{ background: Y2K.dark, gap: 'clamp(24px, 4vh, 56px)', padding: 'clamp(32px, 5vh, 72px) clamp(40px, 6vw, 120px)' }}
+      style={{ background: Y2K.bg, gap: 'clamp(24px, 4vh, 56px)', padding: 'clamp(32px, 5vh, 72px) clamp(40px, 6vw, 120px)' }}
     >
       {/* Turn summary */}
       {currentTurn && (
@@ -102,7 +102,7 @@ export default function TVScorePhase({ state }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(16px, 1.6vw, 24px)', color: 'rgba(255,255,255,0.5)' }}
+          style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(16px, 1.6vw, 24px)', color: '#3a1555' }}
         >
           next question coming up…
         </motion.div>

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(mkdir -p /tmp/ksero-design)",
-      "Bash(tar xzf:*)"
+      "Bash(tar xzf:*)",
+      "Bash(cp \"/Users/monicaodysseos/.claude/projects/-Users-monicaodysseos-Desktop-GoogleAntigravity-knowingme/848009b5-f3d0-4d39-a878-611685db1d3b/tool-results/webfetch-1776549186507-i2tokp.bin\" /tmp/design.gz)",
+      "Bash(gunzip -f /tmp/design.gz)"
     ]
   }
 }
