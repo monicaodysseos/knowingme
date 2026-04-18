@@ -28,7 +28,7 @@ let _tvTrack: HTMLAudioElement | null = null;
 function getTVTrack(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
   if (!_tvTrack) {
-    _tvTrack = new Audio('/thumb-tap-tango.wav');
+    _tvTrack = new Audio('/guessingsong.wav');
     _tvTrack.loop = true;
     _tvTrack.volume = 0.55;
   }
