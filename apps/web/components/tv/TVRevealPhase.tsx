@@ -63,7 +63,7 @@ export default function TVRevealPhase({ state }: Props) {
             setStage('marking');
           }, 2500);
         }, 1800);
-      }, 5000);
+      }, 10000);
     }
     return () => {
       if (stageTimerRef.current) clearTimeout(stageTimerRef.current);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PhoneCountdown from './PhoneCountdown';
 import { Y2K } from '../../lib/y2k';
 
@@ -42,20 +42,37 @@ export default function PhoneAnswer({
 }: Props) {
   const [answer, setAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Play background music for the whole answer phase
+  useEffect(() => {
+    const audio = new Audio('/gentle-thumbs-theme.wav');
+    audio.loop = true;
+    audio.volume = 0.5;
+    audioRef.current = audio;
+    audio.play().catch(() => {});
+    return () => { audio.pause(); audio.currentTime = 0; };
+  }, []);
 
   useEffect(() => {
     setAnswer('');
     setSubmitted(false);
   }, [assignmentId]);
 
+  const stopMusic = () => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+  };
+
   const handleSubmit = () => {
     if (!answer.trim() || submitted) return;
+    stopMusic();
     setSubmitted(true);
     onSubmit(assignmentId, answer.trim());
   };
 
   const handleSkip = () => {
     if (submitted) return;
+    stopMusic();
     setSubmitted(true);
     onSubmit(assignmentId, '', true);
   };

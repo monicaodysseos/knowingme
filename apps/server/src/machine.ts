@@ -66,14 +66,24 @@ function assignQuestions(
 
   const assignments: QuestionAssignment[] = [];
   players.forEach((player, pi) => {
-    for (let j = 0; j < QUESTIONS_PER_PLAYER; j++) {
-      const q = submittedPool[(pi * QUESTIONS_PER_PLAYER + j) % submittedPool.length];
-      assignments.push({
-        id: uuidv4(),
-        questionId: q.id,
-        questionText: q.text,
-        assignedToPlayerId: player.id,
-      });
+    const count = Math.min(QUESTIONS_PER_PLAYER, submittedPool.length);
+    const start = (pi * QUESTIONS_PER_PLAYER) % submittedPool.length;
+    const seen = new Set<string>();
+    let idx = start;
+    let scanned = 0;
+    while (seen.size < count && scanned < submittedPool.length) {
+      const q = submittedPool[idx % submittedPool.length];
+      idx++;
+      scanned++;
+      if (!seen.has(q.id)) {
+        seen.add(q.id);
+        assignments.push({
+          id: uuidv4(),
+          questionId: q.id,
+          questionText: q.text,
+          assignedToPlayerId: player.id,
+        });
+      }
     }
   });
 
@@ -636,16 +646,8 @@ export const gameMachine = setup({
         SUBMIT_GUESS: {
           actions: 'recordGuess',
         },
-        ALL_GUESSES_IN: [
-          // More turns to guess: self-transition (re-runs entry → restarts timer, advances turn)
-          { guard: 'hasMoreTurns', target: 'GUESS_PHASE', reenter: true, actions: 'nextTurn' },
-          // All turns guessed: enter REVEAL_PHASE from the beginning (turn 0)
-          { target: 'REVEAL_PHASE', actions: 'resetTurnIndex' },
-        ],
-        GUESS_TIMER_EXPIRED: [
-          { guard: 'hasMoreTurns', target: 'GUESS_PHASE', reenter: true, actions: 'nextTurn' },
-          { target: 'REVEAL_PHASE', actions: 'resetTurnIndex' },
-        ],
+        ALL_GUESSES_IN: { target: 'REVEAL_PHASE' },
+        GUESS_TIMER_EXPIRED: { target: 'REVEAL_PHASE' },
       },
     },
 
@@ -681,7 +683,7 @@ export const gameMachine = setup({
           {
             guard: 'hasMoreTurns',
             actions: 'nextTurn',
-            target: 'REVEAL_PHASE',  // batch reveal: stay in reveal sequence
+            target: 'GUESS_PHASE',  // next question's guess phase
           },
           {
             actions: ['nextTurn', 'computeAwards'],

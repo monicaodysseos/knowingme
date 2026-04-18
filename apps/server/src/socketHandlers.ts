@@ -263,14 +263,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (allIn) {
       clearRoomTimer(roomCode, 'guess');
       entry.actor.send({ type: 'ALL_GUESSES_IN' });
-      const newState = entry.actor.getSnapshot().value;
-      if (newState === 'GUESS_PHASE') {
-        // More turns to guess — restart the timer for the next turn
-        startGuessPhaseTurn(io, roomCode);
-      } else if (newState === 'REVEAL_PHASE') {
-        // All turns guessed — begin the batch reveal from turn 0
-        startReveal(io, roomCode);
-      }
+      // Always goes to REVEAL_PHASE for this question immediately
+      startReveal(io, roomCode);
     }
   });
 
@@ -387,13 +381,11 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
   if (!entry) return;
 
   const ctx = entry.actor.getSnapshot().context;
-  // No turns built (everyone skipped / nobody answered) — skip straight ahead
+  // No turn at this index — skip to reveal (which handles the empty case)
   if (!ctx.playerTurns[ctx.currentTurnIndex]) {
     console.log('[startGuessPhaseTurn] no turn at index %d — skipping', ctx.currentTurnIndex);
     entry.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
-    const newState = entry.actor.getSnapshot().value;
-    if (newState === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
-    else if (newState === 'REVEAL_PHASE') startReveal(io, roomCode);
+    startReveal(io, roomCode);
     return;
   }
 
@@ -401,9 +393,7 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
     const e = getRoom(roomCode);
     if (!e) return;
     e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
-    const newState = e.actor.getSnapshot().value;
-    if (newState === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
-    else if (newState === 'REVEAL_PHASE') startReveal(io, roomCode);
+    startReveal(io, roomCode);
   });
 }
 
@@ -447,9 +437,9 @@ function advanceToNextTurn(io: Server, roomCode: string): void {
   entry.actor.send({ type: 'NEXT_TURN' });
 
   const newVal = entry.actor.getSnapshot().value;
-  if (newVal === 'REVEAL_PHASE') {
-    // More turns to reveal — start the next turn's reveal sequence
-    startReveal(io, roomCode);
+  if (newVal === 'GUESS_PHASE') {
+    // Next question — start the guess timer for it
+    startGuessPhaseTurn(io, roomCode);
   }
   // FINAL_AWARDS: no action needed — machine broadcasts the phase change
 }
