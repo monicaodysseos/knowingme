@@ -6,7 +6,7 @@ import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import CountdownRing from './CountdownRing';
 import { Y2K } from '../../lib/y2k';
-import { playQuestionsMusic, stopQuestionsMusic } from '../../lib/hooks/useGameSounds';
+import { playQuestionsMusic, stopQuestionsMusic, useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -63,6 +63,7 @@ function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { s
 
 export default function TVQuestionSubmission({ state }: Props) {
   const { players, submissionProgress, timerEnd } = state;
+  const { playBeep } = useGameSounds();
 
   useEffect(() => {
     playQuestionsMusic();
@@ -145,7 +146,7 @@ export default function TVQuestionSubmission({ state }: Props) {
 
       {/* Timer */}
       {timerEnd > 0 && (
-        <CountdownRing timerEnd={timerEnd} totalSeconds={120} size={100} />
+        <CountdownRing timerEnd={timerEnd} totalSeconds={180} size={100} beep={playBeep} />
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import CountdownRing from './CountdownRing';
 import { Y2K } from '../../lib/y2k';
-import { playAnswerPhaseMusic, stopAnswerPhaseMusic } from '../../lib/hooks/useGameSounds';
+import { playAnswerPhaseMusic, stopAnswerPhaseMusic, useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -63,6 +63,7 @@ function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { s
 
 export default function TVAnswerPhase({ state }: Props) {
   const { players, timerEnd } = state;
+  const { playBeep } = useGameSounds();
 
   useEffect(() => {
     playAnswerPhaseMusic();
@@ -89,7 +90,7 @@ export default function TVAnswerPhase({ state }: Props) {
       </motion.div>
 
       {timerEnd > 0 && (
-        <CountdownRing timerEnd={timerEnd} totalSeconds={45} size={130} strokeWidth={10} />
+        <CountdownRing timerEnd={timerEnd} totalSeconds={300} size={130} strokeWidth={10} beep={playBeep} />
       )}
 
       {/* Players */}

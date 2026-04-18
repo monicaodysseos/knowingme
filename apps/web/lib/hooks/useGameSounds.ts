@@ -178,6 +178,24 @@ export function stopAnswerPhaseMusic(): void {
 }
 
 export function useGameSounds() {
+  // ── Countdown beep (last 5 seconds) ─────────────────────────────────────
+  const playBeep = useCallback(() => {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    ensureRunning(ctx);
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0.0, now);
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }, []);
   // ── Background music (looping audio file during GUESS_PHASE) ────────────
   const playTick = useCallback(() => {
     const audio = getTVTrack();
@@ -338,5 +356,5 @@ export function useGameSounds() {
     });
   }, []);
 
-  return { playTick, stopTick, playBlink, playDrumroll, playReveal, playAwardFanfare, playGameOver };
+  return { playTick, stopTick, playBlink, playBeep, playDrumroll, playReveal, playAwardFanfare, playGameOver };
 }

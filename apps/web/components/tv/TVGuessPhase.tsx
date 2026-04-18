@@ -58,7 +58,7 @@ function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { s
 
 export default function TVGuessPhase({ state }: Props) {
   const { currentTurn, players, timerEnd } = state;
-  const { playTick, stopTick } = useGameSounds();
+  const { playTick, stopTick, playBeep } = useGameSounds();
 
   useEffect(() => {
     playTick();
@@ -129,7 +129,7 @@ export default function TVGuessPhase({ state }: Props) {
         </motion.div>
 
         {timerEnd > 0 && (
-          <CountdownRing timerEnd={timerEnd} totalSeconds={60} size={110} />
+          <CountdownRing timerEnd={timerEnd} totalSeconds={60} size={110} beep={playBeep} />
         )}
       </div>
 

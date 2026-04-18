@@ -19,8 +19,8 @@ import { buildSeededPool } from './questions';
 // ── Constants ──────────────────────────────────────────────────────────────
 
 export const TIMER = {
-  QUESTION_SUBMISSION: 120_000, // 2 min
-  ANSWER_PHASE: 180_000,        // 3 min for the entire answer phase
+  QUESTION_SUBMISSION: 180_000, // 3 min
+  ANSWER_PHASE: 300_000,        // 5 min for the entire answer phase
   GUESS: 60_000,                // 60 s per guess turn
 };
 
