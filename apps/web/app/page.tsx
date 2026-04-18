@@ -1,263 +1,347 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Y2K } from '../lib/y2k';
+import { motion } from 'framer-motion';
+import Y2KAvatar from '../components/tv/Y2KAvatar';
 
-function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number | string; y?: number | string; rotate?: number }) {
+const DARK = '#0b0429';
+const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)';
+const DISPLAY = "'Rubik', 'Nunito', sans-serif";
+const BODY = "'Space Grotesk', 'Nunito', sans-serif";
+
+function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
       style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
-      <path d="M12 2 L13.5 9.5 L21 11 L13.5 12.5 L12 20 L10.5 12.5 L3 11 L10.5 9.5 Z" fill={color} stroke={Y2K.dark} strokeWidth="1" strokeLinejoin="round" />
+      <path d="M12 2 L13.5 9.5 L21 11 L13.5 12.5 L12 20 L10.5 12.5 L3 11 L10.5 9.5 Z" fill={color} stroke={DARK} strokeWidth="1" strokeLinejoin="round" />
     </svg>
   );
 }
 
+function Heart({ size = 22, color = '#FFE24A', x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
+      <path d="M12 21 C12 21 3 14 3 8 C3 5.2 5.2 3 8 3 C9.7 3 11.2 3.9 12 5.1 C12.8 3.9 14.3 3 16 3 C18.8 3 21 5.2 21 8 C21 14 12 21 12 21Z" fill={color} stroke={DARK} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function FlowerMascot({ size = 80 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{ filter: `drop-shadow(4px 4px 0 ${DARK})`, flexShrink: 0 }}>
+      <defs>
+        <radialGradient id="flower-chrome" cx="35%" cy="30%" r="80%">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.4" stopColor="#d8e4f5" />
+          <stop offset="0.7" stopColor="#8aa2bf" />
+          <stop offset="1" stopColor="#eaf1fb" />
+        </radialGradient>
+      </defs>
+      <g stroke={DARK} strokeWidth="3" strokeLinejoin="round">
+        <circle cx="50" cy="22" r="18" fill="url(#flower-chrome)" />
+        <circle cx="78" cy="42" r="18" fill="url(#flower-chrome)" />
+        <circle cx="68" cy="76" r="18" fill="url(#flower-chrome)" />
+        <circle cx="32" cy="76" r="18" fill="url(#flower-chrome)" />
+        <circle cx="22" cy="42" r="18" fill="url(#flower-chrome)" />
+      </g>
+      <circle cx="50" cy="50" r="16" fill={DARK} stroke={DARK} strokeWidth="3" />
+      <circle cx="50" cy="50" r="10" fill="#FF1E8E" />
+    </svg>
+  );
+}
+
+const PEEKERS: { id: string; x: number; y: number; rot: number }[] = [
+  { id: 'ghost',    x: 28,  y: 90,  rot: -8 },
+  { id: 'frog',     x: 20,  y: 230, rot: 6  },
+  { id: 'alien',    x: 32,  y: 375, rot: -4 },
+  { id: 'bunny',    x: -16, y: 520, rot: 7  },
+  { id: 'tamago',   x: 900, y: 90,  rot: 7  },
+  { id: 'mushroom', x: 916, y: 230, rot: -5 },
+];
+
+const MARQUEE_ITEMS = [
+  '… exposing yr group chat',
+  '★ no awkward icebreakers',
+  '✿ best 4 dinner parties',
+  '✦ the truth comes out',
+  '★ host on tv · play on phone',
+  '✿ no app · just kserose.com',
+];
+
 export default function LandingPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'idle' | 'join'>('idle');
   const [code, setCode] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleJoin = () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 4) {
-      setError('enter the 4-letter room code ✦');
+      setError(true);
       inputRef.current?.focus();
       return;
     }
     router.push(`/play?room=${trimmed.slice(0, 4)}`);
   };
 
-  const openJoin = () => {
-    setMode('join');
-    setCode('');
-    setError('');
-    setTimeout(() => inputRef.current?.focus(), 80);
-  };
+  const letters = code.padEnd(4, '').split('').slice(0, 4);
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ background: Y2K.dark }}
+      className="min-h-screen relative overflow-hidden flex flex-col"
+      style={{ background: '#170A3B', fontFamily: BODY }}
     >
-      {/* Decorative sparkles */}
-      <Sparkle size={32} color={Y2K.yellow} x={60} y={60} rotate={15} />
-      <Sparkle size={22} color={Y2K.cyan} x="calc(100vw - 100px)" y={80} rotate={-10} />
-      <Sparkle size={18} color={Y2K.pink} x={40} y="calc(100vh - 100px)" rotate={30} />
-      <Sparkle size={26} color={Y2K.yellow} x="calc(100vw - 80px)" y="calc(100vh - 120px)" rotate={-20} />
+      {/* Background glows */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: `
+          radial-gradient(ellipse at 50% 100%, rgba(255,30,142,0.20) 0%, transparent 55%),
+          radial-gradient(ellipse at 15% 0%, rgba(0,213,255,0.15) 0%, transparent 50%),
+          linear-gradient(180deg, #170A3B 0%, #0E0628 100%)
+        `,
+      }} />
+      {/* Subtle grid */}
+      <div style={{
+        position: 'absolute', inset: 0, opacity: 0.07, pointerEvents: 'none',
+        backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+        backgroundSize: '40px 40px',
+        maskImage: 'radial-gradient(ellipse at center, #000 30%, transparent 75%)',
+      }} />
 
-      {/* Logo / Title */}
-      <motion.div
-        initial={{ y: -30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 120 }}
-        className="text-center mb-14"
-      >
-        <div style={{
-          fontFamily: Y2K.display,
-          fontWeight: 900,
-          fontSize: 'clamp(52px, 10vw, 110px)',
-          letterSpacing: '-3px',
-          lineHeight: 1,
-          transform: 'rotate(-2deg)',
-          WebkitTextStroke: '2px rgba(11,4,41,0.5)',
-          textShadow: '4px 4px 0 rgba(11,4,41,0.4)',
-          background: 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          display: 'inline-block',
-        }}>
-          ksero · se ✿
-        </div>
-        <p style={{
-          fontFamily: Y2K.body,
-          fontWeight: 700,
-          fontSize: 'clamp(14px, 2vw, 20px)',
-          color: Y2K.cyan,
-          marginTop: 12,
-          letterSpacing: '0.04em',
-        }}>
-          the party game where you think you know your friends
-        </p>
-      </motion.div>
+      {/* Floating deco */}
+      <Sparkle size={28} color="#00D5FF" x={210} y={120} rotate={10} />
+      <Sparkle size={20} color="#FFE24A" x={750} y={70} rotate={-8} />
+      <Sparkle size={24} color="#FF4FB4" x={780} y={460} rotate={20} />
+      <Sparkle size={18} color="#fff" x={250} y={400} rotate={0} />
+      <Heart size={22} color="#FFE24A" x={730} y={140} rotate={15} />
+      <Heart size={18} color="#00D5FF" x={230} y={350} rotate={-15} />
 
-      {/* Buttons */}
-      <AnimatePresence mode="wait">
-        {mode === 'idle' && (
-          <motion.div
-            key="idle"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ type: 'spring', stiffness: 120 }}
-            className="flex flex-col items-center gap-5"
-            style={{ width: 'min(360px, 90vw)' }}
+      {/* Peeking avatars */}
+      {PEEKERS.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 200, delay: 0.3 }}
+          style={{
+            position: 'absolute', left: p.x, top: p.y,
+            width: 72, height: 72,
+            background: '#fff', border: `3px solid ${DARK}`, borderRadius: '50%',
+            display: 'grid', placeItems: 'center',
+            boxShadow: `0 6px 0 ${DARK}`,
+            transform: `rotate(${p.rot}deg)`,
+            zIndex: 2,
+          }}
+        >
+          <Y2KAvatar avatar={p.id} size={58} />
+        </motion.div>
+      ))}
+
+      {/* Main content */}
+      <div style={{
+        position: 'relative', zIndex: 3,
+        flex: 1,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '52px 48px 0',
+      }}>
+        {/* Wordmark */}
+        <motion.div
+          initial={{ y: -24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 140 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 18 }}
+        >
+          <h1 style={{
+            fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(72px, 10vw, 132px)',
+            letterSpacing: '-0.04em', margin: 0, lineHeight: 0.85,
+            background: CHROME, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            WebkitTextStroke: '3px rgba(11,4,41,0.6)',
+            filter: `drop-shadow(6px 6px 0 ${DARK})`,
+            transform: 'rotate(-2deg)',
+            textTransform: 'lowercase',
+            whiteSpace: 'nowrap',
+          }}>
+            ksero<span style={{ WebkitTextFillColor: DARK, background: 'none', margin: '0 14px', fontSize: '0.75em', position: 'relative', top: '-0.08em' }}>·</span>se
+          </h1>
+          <FlowerMascot size={92} />
+        </motion.div>
+
+        {/* Tagline */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          style={{
+            marginTop: 20, fontFamily: DISPLAY, fontWeight: 800,
+            fontSize: 'clamp(15px, 2vw, 22px)', letterSpacing: 0.2,
+            color: '#00D5FF', textShadow: `2px 2px 0 ${DARK}`, textAlign: 'center',
+          }}
+        >
+          the party game where you <i style={{ color: '#FFE24A' }}>think</i> you know your friends …
+        </motion.div>
+
+        {/* CTAs */}
+        <motion.div
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 140, delay: 0.15 }}
+          style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 16, width: 'min(460px, 88vw)' }}
+        >
+          {/* NEW GAME */}
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => router.push('/tv')}
+            style={{
+              background: '#FF1E8E', borderRadius: 999,
+              border: `3.5px solid ${DARK}`,
+              padding: '20px 28px',
+              boxShadow: `0 8px 0 ${DARK}, 0 14px 30px rgba(255,30,142,0.35)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+              cursor: 'pointer', position: 'relative',
+            }}
           >
-            {/* New Game */}
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => router.push('/tv')}
-              style={{
-                width: '100%',
-                padding: '20px 0',
-                borderRadius: 20,
-                background: Y2K.hotPink,
-                border: `3px solid ${Y2K.dark}`,
-                boxShadow: `0 6px 0 rgba(11,4,41,0.55)`,
-                fontFamily: Y2K.display,
-                fontWeight: 900,
-                fontSize: 'clamp(20px, 3vw, 28px)',
-                color: '#fff',
-                cursor: 'pointer',
-                letterSpacing: '0.04em',
-                WebkitTextStroke: `0.5px ${Y2K.dark}`,
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
-              new game ✦
-            </motion.button>
-
-            {/* Join Game */}
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={openJoin}
-              style={{
-                width: '100%',
-                padding: '20px 0',
-                borderRadius: 20,
-                background: '#fff',
-                border: `3px solid ${Y2K.dark}`,
-                boxShadow: `0 6px 0 rgba(11,4,41,0.55)`,
-                fontFamily: Y2K.display,
-                fontWeight: 900,
-                fontSize: 'clamp(20px, 3vw, 28px)',
-                color: Y2K.dark,
-                cursor: 'pointer',
-                letterSpacing: '0.04em',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.25)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
-              join game ✦
-            </motion.button>
-          </motion.div>
-        )}
-
-        {mode === 'join' && (
-          <motion.div
-            key="join"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ type: 'spring', stiffness: 120 }}
-            className="flex flex-col items-center gap-4"
-            style={{ width: 'min(360px, 90vw)' }}
-          >
+            {/* gloss */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '999px 999px 50% 50%', pointerEvents: 'none' }} />
+            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(22px, 3vw, 34px)', color: '#fff', WebkitTextStroke: `1.5px ${DARK}`, letterSpacing: -0.5 }}>
+              new game
+            </span>
+            <span style={{ color: '#fff', fontSize: 22, fontWeight: 900 }}>✦</span>
+            {/* HOST sticker */}
             <div style={{
-              fontFamily: Y2K.display,
-              fontWeight: 900,
-              fontSize: 20,
-              color: Y2K.cyan,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
+              position: 'absolute', top: -11, right: 28,
+              background: '#FFE24A', color: DARK,
+              fontFamily: DISPLAY, fontWeight: 900, fontSize: 11, letterSpacing: 1.5,
+              padding: '4px 10px', borderRadius: 999,
+              border: `2.5px solid ${DARK}`, boxShadow: `0 3px 0 ${DARK}`,
+              transform: 'rotate(8deg)',
+            }}>HOST ···</div>
+          </motion.button>
+
+          {/* JOIN WITH CODE */}
+          <div
+            style={{
+              background: '#fff', borderRadius: 999,
+              border: `3.5px solid ${DARK}`,
+              padding: '14px 14px 14px 28px',
+              boxShadow: `0 8px 0 ${DARK}`,
+              display: 'flex', alignItems: 'center', gap: 10,
+              cursor: 'text',
+            }}
+            onClick={() => inputRef.current?.focus()}
+          >
+            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(18px, 2.5vw, 26px)', color: DARK, letterSpacing: -0.5, whiteSpace: 'nowrap' }}>
+              join with code
+            </span>
+            {/* Letter boxes */}
+            <div style={{
+              flex: 1, marginLeft: 'auto',
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: error ? 'rgba(255,30,142,0.08)' : 'rgba(11,4,41,0.06)',
+              borderRadius: 999, padding: '6px 8px',
+              border: `2px dashed ${error ? '#FF1E8E' : DARK}`,
+              justifyContent: 'flex-end',
             }}>
-              enter room code
+              {letters.map((ch, i) => (
+                <div key={i} style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: ch ? '#fff' : 'rgba(255,255,255,0.7)',
+                  border: `2px solid ${DARK}`,
+                  display: 'grid', placeItems: 'center',
+                  fontFamily: DISPLAY, fontWeight: 900, fontSize: 18, color: DARK,
+                  boxShadow: `0 2px 0 ${DARK}`,
+                  transition: 'background 0.1s',
+                }}>{ch || ''}</div>
+              ))}
             </div>
-
-            {/* Code input */}
-            <input
-              ref={inputRef}
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
-                setError('');
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-              placeholder="A1B2"
-              maxLength={4}
-              style={{
-                width: '100%',
-                padding: '18px 20px',
-                borderRadius: 16,
-                background: '#fff',
-                border: `3px solid ${error ? '#ef4444' : Y2K.dark}`,
-                boxShadow: `0 5px 0 rgba(11,4,41,0.45)`,
-                fontFamily: Y2K.display,
-                fontWeight: 900,
-                fontSize: 36,
-                color: Y2K.dark,
-                textAlign: 'center',
-                letterSpacing: '0.25em',
-                outline: 'none',
-                textTransform: 'uppercase',
-              }}
-            />
-
-            {error && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#ef4444', textAlign: 'center' }}
-              >
-                {error}
-              </motion.p>
-            )}
-
-            {/* Join button */}
+            {/* Arrow submit */}
             <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleJoin}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.93 }}
+              onClick={(e) => { e.stopPropagation(); handleJoin(); }}
               style={{
-                width: '100%',
-                padding: '18px 0',
-                borderRadius: 20,
-                background: Y2K.hotPink,
-                border: `3px solid ${Y2K.dark}`,
-                boxShadow: `0 6px 0 rgba(11,4,41,0.55)`,
-                fontFamily: Y2K.display,
-                fontWeight: 900,
-                fontSize: 24,
-                color: '#fff',
-                cursor: 'pointer',
-                letterSpacing: '0.04em',
-                WebkitTextStroke: `0.5px ${Y2K.dark}`,
-                position: 'relative',
-                overflow: 'hidden',
+                background: '#00D5FF', border: `2.5px solid ${DARK}`, borderRadius: 999,
+                width: 44, height: 44, display: 'grid', placeItems: 'center',
+                boxShadow: `0 3px 0 ${DARK}`,
+                fontFamily: DISPLAY, fontWeight: 900, fontSize: 22, color: DARK,
+                cursor: 'pointer', flexShrink: 0,
               }}
-            >
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '18px 18px 50% 50%', pointerEvents: 'none' }} />
-              let me in ✦
-            </motion.button>
+            >↵</motion.button>
+          </div>
 
-            {/* Back */}
-            <button
-              onClick={() => setMode('idle')}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontFamily: Y2K.body,
-                fontWeight: 700,
-                fontSize: 14,
-                color: 'rgba(255,255,255,0.45)',
-                cursor: 'pointer',
-                letterSpacing: '0.04em',
-              }}
-            >
-              ← back
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {/* Hidden input */}
+          <input
+            ref={inputRef}
+            value={code}
+            onChange={(e) => {
+              setError(false);
+              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+            maxLength={4}
+            style={{
+              position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1,
+            }}
+            aria-label="Room code"
+          />
+        </motion.div>
+
+        {/* Stats strip */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          style={{
+            marginTop: 36, display: 'flex', alignItems: 'center', gap: 14,
+            padding: '10px 20px',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1.5px solid rgba(255,255,255,0.18)',
+            borderRadius: 999, backdropFilter: 'blur(8px)',
+          }}
+        >
+          {[
+            { k: '3', l: 'rounds' },
+            { k: '4–12', l: 'players' },
+            { k: '~10', l: 'minutes' },
+            { k: '✦', l: 'shade' },
+          ].map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 18, color: '#FFE24A', WebkitTextStroke: `0.5px ${DARK}` }}>{s.k}</span>
+              <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: 11, color: 'rgba(255,255,255,0.75)', letterSpacing: 1.5, textTransform: 'uppercase' as const }}>{s.l}</span>
+              {i < 3 && <span style={{ color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>·</span>}
+            </div>
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Marquee */}
+      <div style={{
+        marginTop: 32,
+        width: '100%', height: 38, overflow: 'hidden',
+        background: DARK,
+        borderTop: '3px solid rgba(255,255,255,0.2)',
+        borderBottom: '3px solid rgba(255,255,255,0.2)',
+        display: 'flex', alignItems: 'center',
+        flexShrink: 0,
+      }}>
+        <div style={{
+          display: 'flex', gap: 48, paddingLeft: 32,
+          animation: 'marquee 28s linear infinite',
+          whiteSpace: 'nowrap',
+        }}>
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((t, i) => (
+            <span key={i} style={{
+              fontFamily: DISPLAY, fontWeight: 800, fontSize: 14,
+              color: '#fff', letterSpacing: 1,
+            }}>{t}</span>
+          ))}
+        </div>
+      </div>
+      <div style={{ height: 32, background: '#0E0628', flexShrink: 0 }} />
+
+      <style>{`@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
     </div>
   );
 }
