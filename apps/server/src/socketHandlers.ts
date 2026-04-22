@@ -291,9 +291,22 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
 
     const scoreCtx = entry.actor.getSnapshot().context;
-    const nextTurn = scoreCtx.playerTurns[scoreCtx.currentTurnIndex + 1];
+    const idx = scoreCtx.currentTurnIndex;
+    const currentTurnObj = scoreCtx.playerTurns[idx];
+    const nextTurn = scoreCtx.playerTurns[idx + 1];
     const isLastRound = !nextTurn;
-    const isRoundEnd = isLastRound || nextTurn?.subjectPlayerId !== scoreCtx.playerTurns[scoreCtx.currentTurnIndex]?.subjectPlayerId;
+    let isRoundEnd: boolean;
+    if (!nextTurn) {
+      isRoundEnd = true;
+    } else {
+      const currentSlot = scoreCtx.playerTurns.slice(0, idx).filter(
+        (t) => t.subjectPlayerId === currentTurnObj?.subjectPlayerId,
+      ).length;
+      const nextSlot = scoreCtx.playerTurns.slice(0, idx + 1).filter(
+        (t) => t.subjectPlayerId === nextTurn.subjectPlayerId,
+      ).length;
+      isRoundEnd = nextSlot !== currentSlot;
+    }
     const delay = isLastRound ? 1000 : isRoundEnd ? 5000 : 1500;
     setRoomTimer(io, roomCode, 'score-display', delay, () => {
       advanceToNextTurn(io, roomCode);

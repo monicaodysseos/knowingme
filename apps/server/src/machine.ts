@@ -67,14 +67,19 @@ function assignQuestions(
 
   const assignments: QuestionAssignment[] = [];
   players.forEach((player) => {
-    // Fresh shuffle for every player — guarantees different order and no duplicates within their set
-    const playerPool = shuffle(submitted);
-    const count = Math.min(questionsToAnswer, playerPool.length);
+    // Shuffle the full pool, then stable-partition so the player's own questions
+    // are pushed to the end — they'll only be used if there aren't enough others.
+    const shuffled = shuffle(submitted);
+    const othersFirst = [
+      ...shuffled.filter((q) => q.submittedByPlayerId !== player.id),
+      ...shuffled.filter((q) => q.submittedByPlayerId === player.id),
+    ];
+    const count = Math.min(questionsToAnswer, othersFirst.length);
     for (let j = 0; j < count; j++) {
       assignments.push({
         id: uuidv4(),
-        questionId: playerPool[j].id,
-        questionText: playerPool[j].text,
+        questionId: othersFirst[j].id,
+        questionText: othersFirst[j].text,
         assignedToPlayerId: player.id,
       });
     }

@@ -175,13 +175,27 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       }
     : undefined;
 
-  // Compute round-end flags for SCORE_PHASE
+  // Compute round-end flags for SCORE_PHASE.
+  // A "round" = one question-slot across all players (slot 0 = all players' Q1, etc.).
+  // isRoundEnd is true only when the slot index is about to increase (or there are no more turns).
   let isRoundEnd: boolean | undefined;
   let isLastRound: boolean | undefined;
   if (phase === 'SCORE_PHASE' && currentTurn) {
-    const nextTurn = ctx.playerTurns[ctx.currentTurnIndex + 1];
+    const idx = ctx.currentTurnIndex;
+    const nextTurn = ctx.playerTurns[idx + 1];
     isLastRound = !nextTurn;
-    isRoundEnd = !nextTurn || nextTurn.subjectPlayerId !== currentTurn.subjectPlayerId;
+    if (!nextTurn) {
+      isRoundEnd = true;
+    } else {
+      // Slot = how many times the same subject appeared before this index
+      const currentSlot = ctx.playerTurns.slice(0, idx).filter(
+        (t) => t.subjectPlayerId === currentTurn.subjectPlayerId,
+      ).length;
+      const nextSlot = ctx.playerTurns.slice(0, idx + 1).filter(
+        (t) => t.subjectPlayerId === nextTurn.subjectPlayerId,
+      ).length;
+      isRoundEnd = nextSlot !== currentSlot;
+    }
   }
 
   const tvState: TVState = {
