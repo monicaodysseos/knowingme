@@ -201,7 +201,7 @@ export default function LandingPage() {
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => router.push('/tv')}
+            onClick={() => { try { sessionStorage.removeItem('ksero-tv-room'); } catch {} router.push('/tv'); }}
             style={{
               background: '#FF1E8E', borderRadius: 999,
               border: `3px solid ${DARK}`,

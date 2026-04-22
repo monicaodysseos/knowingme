@@ -53,6 +53,7 @@ export default function TVPage() {
     unlockTVAudio();
     playLobbyMusic();
     setLoading(true);
+    setError(null);
     createRoom(settings)
       .then((code) => { setRoomCode(code); setSetupDone(true); setLoading(false); })
       .catch(() => { setError('Could not connect to server.'); setLoading(false); });
@@ -68,8 +69,30 @@ export default function TVPage() {
     }
   }, []);
 
-  // Show setup screen first (unless restoring session)
-  if (!setupDone && !roomCode) {
+  // Unlock audio on first interaction anywhere on the page (including setup screen)
+  useEffect(() => {
+    let unlocked = false;
+    const unlock = () => {
+      if (unlocked) return;
+      unlocked = true;
+      unlockTVAudio();
+      playLobbyMusic();
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('keydown', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
+    document.addEventListener('click', unlock);
+    document.addEventListener('keydown', unlock);
+    document.addEventListener('touchstart', unlock);
+    return () => {
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('keydown', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
+  // Show setup screen first (unless restoring session or loading/error)
+  if (!setupDone && !roomCode && !loading && !error) {
     return <TVGameSetup onConfirm={handleConfirmSetup} />;
   }
 
@@ -143,32 +166,6 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
     acquire();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') acquire(); });
     return () => { lock?.release().catch(() => {}); };
-  }, []);
-
-  useEffect(() => {
-    let unlocked = false;
-    const unlock = () => {
-      if (unlocked) return;
-      unlocked = true;
-      const w = window as typeof window & { __audioCtx?: AudioContext };
-      if (!w.__audioCtx) {
-        w.__audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      }
-      w.__audioCtx.resume().catch(() => {});
-      unlockTVAudio();
-      playLobbyMusic();
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('keydown', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
-    document.addEventListener('click', unlock);
-    document.addEventListener('keydown', unlock);
-    document.addEventListener('touchstart', unlock);
-    return () => {
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('keydown', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
   }, []);
 
   if (!state) {
