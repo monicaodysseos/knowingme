@@ -555,82 +555,165 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   if (awardPhase === 'done') {
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center px-12 py-8 relative overflow-hidden"
-        style={{ background: Y2K.bg }}
+        className="min-h-screen relative overflow-hidden"
+        style={{ background: Y2K.bg, fontFamily: Y2K.body }}
       >
-        <Sparkle size={32} color={Y2K.yellow} x={40} y={50} rotate={15} />
-        <Sparkle size={20} color={Y2K.cyan} x={140} y={120} />
-        <Sparkle size={26} color={Y2K.pink} x={880} y={60} rotate={-10} />
-        <Heart size={28} color={Y2K.pink} x={60} y={460} rotate={-15} />
-        <Heart size={24} color={Y2K.cyan} x={900} y={470} rotate={22} />
+        <Sparkle size={28} color={Y2K.yellow} x={40} y={40} rotate={15} />
+        <Sparkle size={20} color={Y2K.cyan} x={900} y={60} rotate={-10} />
+        <Heart size={26} color={Y2K.pink} x={60} y={470} rotate={-15} />
+        <Heart size={22} color={Y2K.cyan} x={910} y={460} rotate={22} />
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center gap-6 z-10 w-full max-w-2xl"
-        >
-          <div style={{ textAlign: 'center' }}>
-            <ChromeTitle text="ksero · se ✿" size={72} tilt={-2} />
-            <div style={{ marginTop: 8 }}>
-              <ChromeTitle text="the awards" size={48} tilt={0} />
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 1,
+          display: 'flex', gap: 24, padding: '28px 36px',
+        }}>
+
+          {/* ── LEFT: Leaderboard ── */}
+          <motion.div
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 160 }}
+            style={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', gap: 10 }}
+          >
+            {/* Section title */}
+            <div style={{ marginBottom: 4 }}>
+              <ChromeTitle text="Final Standings" size={32} tilt={-1} />
             </div>
-          </div>
 
-          {/* Award cards grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%' }}>
-            {orderedAwards.map((award, i) => (
-              <motion.div
-                key={award.type}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <Sticker
-                  color={AWARD_COLORS[award.type]}
-                  r={20}
-                  rotate={i === 0 ? -2 : i === 2 ? 2 : 0}
-                  style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}
+            {/* Rank list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, justifyContent: 'center' }}>
+              {scores.map((entry, i) => {
+                const rank = i + 1;
+                const meta = playerMeta[entry.playerId];
+                const isTop = rank === 1;
+                const medal = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' }[rank];
+                return (
+                  <motion.div
+                    key={entry.playerId}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06, type: 'spring', stiffness: 220 }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: isTop ? '8px 12px' : '6px 10px',
+                      background: isTop
+                        ? `linear-gradient(90deg, ${entry.color.hex} 0%, color-mix(in srgb, ${entry.color.hex} 60%, #fff 40%) 100%)`
+                        : '#fff',
+                      border: `2.5px solid ${Y2K.dark}`,
+                      borderRadius: 14,
+                      boxShadow: isTop ? `0 5px 0 ${Y2K.dark}, 0 0 0 3px ${entry.color.hex}55` : `0 3px 0 ${Y2K.dark}`,
+                      transform: isTop ? 'scale(1.02)' : 'none',
+                      position: 'relative', overflow: 'hidden',
+                    }}
+                  >
+                    {isTop && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.18)', borderRadius: '14px 14px 50% 50%', pointerEvents: 'none' }} />}
+                    {/* Rank badge */}
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                      background: medal ?? Y2K.dark,
+                      border: `2px solid ${Y2K.dark}`, boxShadow: `0 2px 0 rgba(11,4,41,0.4)`,
+                      display: 'grid', placeItems: 'center',
+                      fontFamily: Y2K.display, fontWeight: 900, fontSize: 14,
+                      color: rank <= 2 ? Y2K.dark : '#fff',
+                    }}>{rank}</div>
+                    {/* Avatar */}
+                    <div style={{ width: 32, height: 32, background: '#fff', border: `2px solid ${Y2K.dark}`, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: `0 2px 0 ${Y2K.dark}` }}>
+                      <Y2KAvatar avatar={(meta?.avatar ?? 'blob') as never} size={26} />
+                    </div>
+                    {/* Name */}
+                    <div style={{
+                      flex: 1, minWidth: 0,
+                      fontFamily: Y2K.display, fontWeight: 900, fontSize: 15,
+                      color: isTop ? '#fff' : entry.color.hex,
+                      WebkitTextStroke: isTop ? `0.5px ${Y2K.dark}` : '0',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+                      textTransform: 'uppercase' as const,
+                    }}>{entry.playerName}</div>
+                    {/* Score */}
+                    <div style={{
+                      fontFamily: Y2K.display, fontWeight: 900, fontSize: 18,
+                      color: isTop ? '#fff' : Y2K.dark,
+                      WebkitTextStroke: isTop ? `0.5px ${Y2K.dark}` : '0',
+                      letterSpacing: '-0.5px', flexShrink: 0,
+                    }}>{entry.score.toLocaleString()}</div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* ── RIGHT: Awards + play again ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 140, delay: 0.1 }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }}
+          >
+            {/* Title */}
+            <div style={{ textAlign: 'center' }}>
+              <ChromeTitle text="ksero · se ✿" size={54} tilt={-2} />
+              <div style={{ marginTop: 4 }}>
+                <ChromeTitle text="the awards" size={36} tilt={0} />
+              </div>
+            </div>
+
+            {/* Award cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, width: '100%' }}>
+              {orderedAwards.map((award, i) => (
+                <motion.div
+                  key={award.type}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
                 >
-                  <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 48, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, lineHeight: 1, textShadow: `3px 3px 0 ${Y2K.dark}` }}>
-                    {AWARD_GLYPHS[award.type]}
-                  </div>
-                  <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 10, color: '#fff', letterSpacing: 2, opacity: 0.9 }}>
-                    {award.description.toUpperCase()}
-                  </div>
-                  <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: '#fff', WebkitTextStroke: `1px ${Y2K.dark}`, lineHeight: 1.1, letterSpacing: '-0.5px' }}>
-                    {award.title}
-                  </div>
-                  <div style={{ marginTop: 'auto', padding: '8px 10px', background: 'rgba(255,255,255,0.92)', borderRadius: 10, border: `2px solid ${Y2K.dark}` }}>
-                    <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark, letterSpacing: '-0.5px' }}>
-                      {award.winners.join(' + ')}
+                  <Sticker
+                    color={AWARD_COLORS[award.type]}
+                    r={18}
+                    rotate={i === 0 ? -2 : i === 2 ? 2 : 0}
+                    style={{ padding: '14px 13px', display: 'flex', flexDirection: 'column', gap: 7 }}
+                  >
+                    <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 38, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, lineHeight: 1, textShadow: `3px 3px 0 ${Y2K.dark}` }}>
+                      {AWARD_GLYPHS[award.type]}
                     </div>
-                    <div style={{ fontFamily: Y2K.body, fontSize: 11, color: '#3a1555', fontWeight: 600, marginTop: 2 }}>
-                      {award.stat}
+                    <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 9, color: '#fff', letterSpacing: 2, opacity: 0.9 }}>
+                      {award.description.toUpperCase()}
                     </div>
-                  </div>
+                    <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 16, color: '#fff', WebkitTextStroke: `1px ${Y2K.dark}`, lineHeight: 1.1, letterSpacing: '-0.5px' }}>
+                      {award.title}
+                    </div>
+                    <div style={{ marginTop: 'auto', padding: '7px 9px', background: 'rgba(255,255,255,0.92)', borderRadius: 9, border: `2px solid ${Y2K.dark}` }}>
+                      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 15, color: Y2K.dark, letterSpacing: '-0.5px' }}>
+                        {award.winners.join(' + ')}
+                      </div>
+                      <div style={{ fontFamily: Y2K.body, fontSize: 10, color: '#3a1555', fontWeight: 600, marginTop: 2 }}>
+                        {award.stat}
+                      </div>
+                    </div>
+                  </Sticker>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Play again */}
+            {showPlayAgain && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <Sticker color={Y2K.hotPink} r={99} style={{ padding: '13px 44px' }}>
+                  <button
+                    onClick={onPlayAgain}
+                    style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', WebkitTextStroke: `1px ${Y2K.dark}`, textShadow: `2px 2px 0 ${Y2K.dark}`, letterSpacing: '0.05em' }}
+                  >
+                    play again ↻
+                  </button>
                 </Sticker>
               </motion.div>
-            ))}
-          </div>
-
-          {showPlayAgain && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <Sticker color={Y2K.hotPink} r={99} style={{ padding: '14px 48px' }}>
-                <button
-                  onClick={onPlayAgain}
-                  style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 22, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', WebkitTextStroke: `1px ${Y2K.dark}`, textShadow: `2px 2px 0 ${Y2K.dark}`, letterSpacing: '0.05em' }}
-                >
-                  play again ↻
-                </button>
-              </Sticker>
-            </motion.div>
-          )}
-        </motion.div>
+            )}
+          </motion.div>
+        </div>
       </div>
     );
   }
