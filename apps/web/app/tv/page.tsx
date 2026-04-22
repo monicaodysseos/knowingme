@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../../lib/socket';
+import type { GameSettings } from '@ksero-se/types';
 import { unlockTVAudio, playLobbyMusic, playRoundStartMusic, stopRoundStartMusic } from '../../lib/hooks/useGameSounds';
+import TVGameSetup from '../../components/tv/TVGameSetup';
 import TVLobby from '../../components/tv/TVLobby';
 import TVQuestionSubmission from '../../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../../components/tv/TVAnswerPhase';
@@ -18,11 +20,11 @@ import TVIntroGuess from '../../components/tv/TVIntroGuess';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
-function createRoom(): Promise<string> {
+function createRoom(settings: GameSettings): Promise<string> {
   return fetch(`${SERVER_URL}/api/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'social' }),
+    body: JSON.stringify({ mode: 'social', settings }),
   })
     .then((r) => r.json())
     .then((data) => {
@@ -34,30 +36,39 @@ function createRoom(): Promise<string> {
 
 export default function TVPage() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Show setup screen unless we're restoring an existing session
+  const [setupDone, setSetupDone] = useState(false);
 
   const handleRoomExpired = useCallback(() => {
     disconnectSocket();
     try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
     setRoomCode(null);
+    setSetupDone(false);
+  }, []);
+
+  const handleConfirmSetup = useCallback((settings: GameSettings) => {
     setLoading(true);
-    createRoom()
-      .then((code) => { setRoomCode(code); setLoading(false); })
-      .catch(() => { setError('Server unreachable. Retrying…'); setLoading(false); });
+    createRoom(settings)
+      .then((code) => { setRoomCode(code); setSetupDone(true); setLoading(false); })
+      .catch(() => { setError('Could not connect to server.'); setLoading(false); });
   }, []);
 
   useEffect(() => {
+    // If there's an existing session, skip setup and reconnect directly
     const stored = sessionStorage.getItem('ksero-tv-room');
     if (stored) {
       setRoomCode(stored);
-      setLoading(false);
+      setSetupDone(true);
       return;
     }
-    createRoom()
-      .then((code) => { setRoomCode(code); setLoading(false); })
-      .catch(() => { setError('Could not connect to server.'); setLoading(false); });
   }, []);
+
+  // Show setup screen first (unless restoring session)
+  if (!setupDone && !roomCode) {
+    return <TVGameSetup onConfirm={handleConfirmSetup} />;
+  }
 
   if (loading) {
     return (
@@ -78,11 +89,11 @@ export default function TVPage() {
         <div className="text-center">
           <p className="text-red-400 font-bold text-2xl mb-4">{error ?? 'Unknown error'}</p>
           <button
-            onClick={() => { setError(null); setLoading(true); createRoom().then(c => { setRoomCode(c); setLoading(false); }).catch(() => setError('Still unreachable.')); }}
+            onClick={() => { setError(null); setSetupDone(false); }}
             className="px-6 py-3 rounded-xl font-bold text-white"
             style={{ background: '#FF4FB4' }}
           >
-            Retry
+            Back to Setup
           </button>
         </div>
       </div>

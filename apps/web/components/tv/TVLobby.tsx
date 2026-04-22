@@ -57,9 +57,9 @@ function Sticker({ color, rotate = 0, r = 20, style = {}, children }: { color: s
 }
 
 export default function TVLobby({ state, onStart }: Props) {
-  const { roomCode, players } = state;
+  const { roomCode, players, settings } = state;
   const canStart = players.length >= 3;
-  const MAX_PLAYERS = 8;
+  const MAX_PLAYERS = settings.maxPlayers;
 
   const [siteUrl, setSiteUrl] = useState(
     process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',

@@ -82,7 +82,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
 
     // Check max players
-    if (ctx.players.length >= 8) {
+    if (ctx.players.length >= ctx.settings.maxPlayers) {
       return ack({ ok: false, error: 'Room is full' });
     }
 
@@ -161,9 +161,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     // Guard: require at least 3 players to have joined (regardless of current
     // connection state — a player may be mid-reconnect when host clicks Start).
-    if (ctx.players.length < 3) {
+    const minToStart = Math.min(3, ctx.settings.maxPlayers);
+    if (ctx.players.length < minToStart) {
       console.log('[host:start] not enough players: %d joined', ctx.players.length);
-      ack?.({ ok: false, error: `Need 3 players (have ${ctx.players.length})` });
+      ack?.({ ok: false, error: `Need ${minToStart} players (have ${ctx.players.length})` });
       return;
     }
 
@@ -199,14 +200,15 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    const required = entry.actor.getSnapshot().context.settings.questionsToWrite;
     const qs = questions
       .map((q: string) => q.trim().slice(0, 80))
       .filter((q: string) => q.length > 0)
-      .slice(0, 2);
+      .slice(0, required);
 
-    if (qs.length < 2) {
-      console.log('[submit:questions] REJECTED: only %d valid questions', qs.length);
-      ack?.({ ok: false, error: 'Need 2 non-empty questions' });
+    if (qs.length < required) {
+      console.log('[submit:questions] REJECTED: only %d valid questions (need %d)', qs.length, required);
+      ack?.({ ok: false, error: `Need ${required} non-empty questions` });
       return;
     }
 
@@ -214,7 +216,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     ack?.({ ok: true });
 
     const ctx = entry.actor.getSnapshot().context;
-    const submitted = ctx.players.filter((p) => p.submittedQuestionIds.length >= 2).length;
+    const submitted = ctx.players.filter((p) => p.submittedQuestionIds.length >= ctx.settings.questionsToWrite).length;
     console.log('[submit:questions] recorded for %s — %d/%d done', playerId, submitted, ctx.players.length);
 
     const allDone = submitted === ctx.players.length;

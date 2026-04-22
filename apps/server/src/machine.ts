@@ -4,6 +4,7 @@ import type {
   GameContext,
   GameEvent,
   GameMode,
+  GameSettings,
   Player,
   PlayerColor,
   PlayerCharacter,
@@ -13,7 +14,7 @@ import type {
   AwardResult,
   DuoMatrix,
 } from '@ksero-se/types';
-import { PLAYER_COLORS, PLAYER_CHARACTERS } from '@ksero-se/types';
+import { PLAYER_COLORS, PLAYER_CHARACTERS, DEFAULT_SETTINGS } from '@ksero-se/types';
 import { buildSeededPool } from './questions';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -24,7 +25,6 @@ export const TIMER = {
   GUESS: 60_000,                // 60 s per guess turn
 };
 
-const QUESTIONS_PER_PLAYER = 5;
 const POINTS_CORRECT_GUESS = 200;
 const POINTS_KNOWABLE = 100;
 
@@ -58,6 +58,7 @@ function assignQuestions(
   players: Player[],
   pool: Question[],
   _mode: GameMode,
+  questionsToAnswer: number,
 ): QuestionAssignment[] {
   // Only use player-submitted questions.
   // Each player gets their own independent shuffle so question order differs per player.
@@ -68,7 +69,7 @@ function assignQuestions(
   players.forEach((player) => {
     // Fresh shuffle for every player — guarantees different order and no duplicates within their set
     const playerPool = shuffle(submitted);
-    const count = Math.min(QUESTIONS_PER_PLAYER, playerPool.length);
+    const count = Math.min(questionsToAnswer, playerPool.length);
     for (let j = 0; j < count; j++) {
       assignments.push({
         id: uuidv4(),
@@ -242,10 +243,11 @@ function updateDuoMatrix(ctx: GameContext): DuoMatrix {
 
 // ── Initial context factory ────────────────────────────────────────────────
 
-export function initialContext(roomCode: string, mode: GameMode): GameContext {
+export function initialContext(roomCode: string, mode: GameMode, settings?: GameSettings): GameContext {
   return {
     roomCode,
     mode,
+    settings: settings ?? { ...DEFAULT_SETTINGS },
     players: [],
     hostId: '',
     questionPool: buildSeededPool(),
@@ -268,14 +270,14 @@ export const gameMachine = setup({
   types: {
     context: {} as GameContext,
     events: {} as GameEvent,
-    input: {} as { roomCode: string; mode: GameMode },
+    input: {} as { roomCode: string; mode: GameMode; settings?: GameSettings },
   },
 
   guards: {
     hasMinPlayers: ({ context }) => context.players.length >= 3,
 
     allQuestionsSubmitted: ({ context }) =>
-      context.players.every((p) => p.submittedQuestionIds.length >= 2),
+      context.players.every((p) => p.submittedQuestionIds.length >= context.settings.questionsToWrite),
 
     allSlotAnswersIn: ({ context }) => {
       const slot = context.currentQuestionSlot;
@@ -437,7 +439,7 @@ export const gameMachine = setup({
 
     assignQuestionsToPlayers: assign({
       questionAssignments: ({ context }) =>
-        assignQuestions(context.players, context.questionPool, context.mode),
+        assignQuestions(context.players, context.questionPool, context.mode, context.settings.questionsToAnswer),
     }),
 
     recordAnswer: assign({
@@ -556,7 +558,7 @@ export const gameMachine = setup({
     }),
 
     resetForNewGame: assign(({ context }) => ({
-      ...initialContext(context.roomCode, context.mode),
+      ...initialContext(context.roomCode, context.mode, context.settings),
       players: context.players.map((p) => ({
         ...p,
         submittedQuestionIds: [],
@@ -572,7 +574,7 @@ export const gameMachine = setup({
   id: 'kseroSe',
   initial: 'LOBBY',
 
-  context: ({ input }) => initialContext(input.roomCode, input.mode),
+  context: ({ input }) => initialContext(input.roomCode, input.mode, input.settings),
 
   states: {
     LOBBY: {

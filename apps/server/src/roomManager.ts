@@ -1,7 +1,7 @@
 import { createActor, type Actor } from 'xstate';
 import type { Server, Socket } from 'socket.io';
 import { gameMachine, TIMER, initialContext } from './machine';
-import type { GameContext, GameMode, TVState, PhoneState, ScoreEntry } from '@ksero-se/types';
+import type { GameContext, GameMode, GameSettings, TVState, PhoneState, ScoreEntry } from '@ksero-se/types';
 import { EXAMPLE_PROMPTS } from '@ksero-se/types';
 
 type MachineActor = Actor<typeof gameMachine>;
@@ -33,11 +33,11 @@ function freshCode(): string {
 
 // ── Room lifecycle ─────────────────────────────────────────────────────────
 
-export function createRoom(io: Server, mode: GameMode = 'social'): string {
+export function createRoom(io: Server, mode: GameMode = 'social', settings?: GameSettings): string {
   const roomCode = freshCode();
 
   const actor = createActor(gameMachine, {
-    input: { roomCode, mode },
+    input: { roomCode, mode, settings },
   });
 
   const entry: RoomEntry = { actor, timers: new Map() };
@@ -171,7 +171,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
   const submissionProgress = phase === 'QUESTION_SUBMISSION'
     ? {
         total: ctx.players.length,
-        submitted: ctx.players.filter((p) => p.submittedQuestionIds.length >= 2).length,
+        submitted: ctx.players.filter((p) => p.submittedQuestionIds.length >= ctx.settings.questionsToWrite).length,
       }
     : undefined;
 
@@ -187,6 +187,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
   const tvState: TVState = {
     phase: phase as TVState['phase'],
     roomCode,
+    settings: ctx.settings,
     players: ctx.players.map((p) => ({
       id: p.id,
       name: p.name,
@@ -194,7 +195,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       avatar: p.avatar,
       isConnected: p.isConnected,
       isHost: p.isHost,
-      hasSubmittedQuestions: p.submittedQuestionIds.length >= 2,
+      hasSubmittedQuestions: p.submittedQuestionIds.length >= ctx.settings.questionsToWrite,
     })),
     scores,
     timerEnd: ctx.timerEnd,
@@ -221,10 +222,10 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         break;
 
       case 'QUESTION_SUBMISSION':
-        if (player.submittedQuestionIds.length >= 2) {
+        if (player.submittedQuestionIds.length >= ctx.settings.questionsToWrite) {
           action = { type: 'WAIT', message: 'Questions submitted! Waiting for everyone…' };
         } else {
-          action = { type: 'SUBMIT_QUESTIONS', examples: EXAMPLE_PROMPTS };
+          action = { type: 'SUBMIT_QUESTIONS', examples: EXAMPLE_PROMPTS, count: ctx.settings.questionsToWrite };
         }
         break;
 

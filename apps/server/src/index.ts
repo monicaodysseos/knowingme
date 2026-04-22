@@ -43,7 +43,8 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/api/rooms', (req, res) => {
   const mode = req.body?.mode ?? 'social';
-  const roomCode = createRoom(io, mode);
+  const settings = req.body?.settings ?? undefined;
+  const roomCode = createRoom(io, mode, settings);
   res.json({ roomCode });
 });
 

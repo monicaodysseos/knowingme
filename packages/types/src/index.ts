@@ -5,6 +5,20 @@
 export type GameMode = 'corporate' | 'social';
 export type QuestionTier = 'T1' | 'T2';
 
+// ── Game settings (chosen by host before room creation) ───────────────────
+
+export interface GameSettings {
+  maxPlayers: number;         // 3–12, default 8
+  questionsToWrite: number;   // 1–5,  default 2
+  questionsToAnswer: number;  // 2–10, default 5
+}
+
+export const DEFAULT_SETTINGS: GameSettings = {
+  maxPlayers: 8,
+  questionsToWrite: 2,
+  questionsToAnswer: 5,
+};
+
 // ── Player characters (selectable avatars) ────────────────────────────────
 
 export const PLAYER_CHARACTERS = [
@@ -114,6 +128,7 @@ export interface AwardResult {
 export interface GameContext {
   roomCode: string;
   mode: GameMode;
+  settings: GameSettings;
   players: Player[];
   hostId: string;
   questionPool: Question[];
@@ -156,6 +171,7 @@ export type GameEvent =
 export interface TVState {
   phase: GamePhase;
   roomCode: string;
+  settings: GameSettings;
   players: Array<{
     id: string;
     name: string;
@@ -205,7 +221,7 @@ export interface PhoneState {
 
 export type PhoneAction =
   | { type: 'WAIT'; message: string }
-  | { type: 'SUBMIT_QUESTIONS'; examples: string[] }
+  | { type: 'SUBMIT_QUESTIONS'; examples: string[]; count: number }
   | { type: 'ANSWER_QUESTION'; assignmentId: string; questionText: string; slotIndex: number; totalSlots: number; canSkip: boolean }
   | { type: 'SUBMIT_GUESS'; subjectName: string; subjectColor: PlayerColor; questionText: string }
   | {
