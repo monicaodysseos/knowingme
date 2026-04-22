@@ -49,9 +49,6 @@ export default function TVPage() {
   }, []);
 
   const handleConfirmSetup = useCallback((settings: GameSettings) => {
-    // User just clicked — valid gesture, unlock audio and start lobby music now
-    unlockTVAudio();
-    playLobbyMusic();
     setLoading(true);
     setError(null);
     createRoom(settings)
