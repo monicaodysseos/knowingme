@@ -388,5 +388,53 @@ export function useGameSounds() {
     });
   }, []);
 
-  return { playTick, stopTick, playBlink, playBeep, playDrumroll, playReveal, playAwardFanfare, playGameOver };
+  // ── Crowd applause (rhythmic gated bandpass noise, ~3 s) ─────────────────
+  const playApplause = useCallback((durationMs = 3000): (() => void) => {
+    const ctx = getAudioCtx();
+    if (!ctx) return () => {};
+    ensureRunning(ctx);
+
+    const now = ctx.currentTime;
+    const dur = durationMs / 1000;
+    const sampleRate = ctx.sampleRate;
+
+    const bufLen = Math.ceil(sampleRate * (dur + 1));
+    const buffer = ctx.createBuffer(1, bufLen, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    // Bandpass shapes the noise into crowd-clap texture
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1800, now);
+    filter.Q.setValueAtTime(0.8, now);
+
+    const masterGain = ctx.createGain();
+    source.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    // Rhythmic clap bursts with overall swell-then-fade envelope
+    const clapInterval = 0.13;
+    let t = 0;
+    while (t < dur) {
+      const progress = t / dur;
+      const vol = progress < 0.25
+        ? 0.28 * (progress / 0.25)           // ramp up
+        : 0.28 * Math.max(0, 1 - (progress - 0.25) / 0.75); // decay
+      masterGain.gain.setValueAtTime(0, now + t);
+      masterGain.gain.linearRampToValueAtTime(vol, now + t + 0.03);
+      masterGain.gain.setValueAtTime(0, now + t + clapInterval * 0.55);
+      t += clapInterval;
+    }
+
+    source.start(now);
+    source.stop(now + dur);
+    return () => { try { source.stop(); } catch {} };
+  }, []);
+
+  return { playTick, stopTick, playBlink, playBeep, playDrumroll, playReveal, playAwardFanfare, playGameOver, playApplause };
 }
