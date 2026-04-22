@@ -35,6 +35,10 @@ function BlobDeco({ size = 60, color = Y2K.pink, x = 0, y = 0, rotate = 0 }: { s
 }
 
 export default function TVIntroAnswer({ state }: Props) {
+  const qa = state.settings.questionsToAnswer;
+  // Compact envelope sizing for large counts
+  const envW = qa > 6 ? 58 : 82;
+  const envH = qa > 6 ? 40 : 56;
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -98,7 +102,7 @@ export default function TVIntroAnswer({ state }: Props) {
             margin: 0, lineHeight: 0.85, textTransform: 'uppercase',
           }}
         >
-          Answer<br />5 questions.
+          Answer<br />{qa} question{qa !== 1 ? 's' : ''}.
         </motion.h1>
 
         {/* Envelope cards */}
@@ -108,12 +112,12 @@ export default function TVIntroAnswer({ state }: Props) {
           transition={{ delay: 0.3 }}
           style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}
         >
-          {[0, 1, 2, 3, 4].map((i) => (
+          {Array.from({ length: qa }, (_, i) => (
             <div key={i} style={{
-              width: 82, height: 56, position: 'relative',
+              width: envW, height: envH, position: 'relative',
               background: '#fff', border: '3px solid #0b0429', borderRadius: 8,
               boxShadow: '0 5px 0 #0b0429',
-              transform: `rotate(${(i % 2 === 0 ? -3 : 3)}deg) translateY(${i === 2 ? -4 : 0}px)`,
+              transform: `rotate(${(i % 2 === 0 ? -3 : 3)}deg) translateY(${i === Math.floor(qa / 2) ? -4 : 0}px)`,
             }}>
               <div style={{
                 position: 'absolute', inset: 3, border: '2px solid #0b0429', borderRadius: 4,
@@ -134,7 +138,7 @@ export default function TVIntroAnswer({ state }: Props) {
           transition={{ delay: 0.35 }}
           style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 18, color: '#fff', maxWidth: 680, lineHeight: 1.3, textShadow: '2px 2px 0 rgba(11,4,41,0.5)' }}
         >
-          you&apos;re about to get <b style={{ color: Y2K.yellow }}>5 random questions</b> from the group. answer honestly — everyone else will try to guess what you said ✦
+          you&apos;re about to get <b style={{ color: Y2K.yellow }}>{qa} random question{qa !== 1 ? 's' : ''}</b> from the group. answer honestly — everyone else will try to guess what you said ✦
         </motion.div>
 
         {/* Bottom */}
@@ -145,7 +149,7 @@ export default function TVIntroAnswer({ state }: Props) {
             fontFamily: Y2K.display, fontWeight: 800, fontSize: 16, letterSpacing: 1,
             boxShadow: '0 5px 0 rgba(11,4,41,0.3)',
           }}>
-            ✧ 5 minutes total ✧ be honest
+            ✧ {qa} question{qa !== 1 ? 's' : ''} ✧ be honest
           </div>
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}

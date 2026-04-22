@@ -107,8 +107,20 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
 export default function TVGameSetup({ onConfirm }: Props) {
   const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_SETTINGS });
 
+  // Total questions available = maxPlayers × questionsToWrite.
+  // questionsToAnswer can never exceed this — there simply aren't more questions.
+  const maxAnswerable = settings.maxPlayers * settings.questionsToWrite;
+
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
-    setSettings((s) => ({ ...s, [key]: value }));
+    setSettings((s) => {
+      const next = { ...s, [key]: value } as GameSettings;
+      // Recompute cap after any change and clamp questionsToAnswer
+      const cap = next.maxPlayers * next.questionsToWrite;
+      if (next.questionsToAnswer > cap) next.questionsToAnswer = cap;
+      // Also ensure it stays at least 2
+      if (next.questionsToAnswer < 2) next.questionsToAnswer = Math.min(2, cap);
+      return next;
+    });
 
   // Rough estimate: ~90 s per question turn (guess + reveal + score)
   const estimatedMins = Math.round(
@@ -176,10 +188,10 @@ export default function TVGameSetup({ onConfirm }: Props) {
           />
           <Stepper
             label="questions to answer"
-            sublabel="questions each player answers"
+            sublabel={`questions each player answers (max ${maxAnswerable}: ${settings.maxPlayers}p × ${settings.questionsToWrite}q)`}
             value={settings.questionsToAnswer}
             min={2}
-            max={10}
+            max={maxAnswerable}
             onChange={(v) => update('questionsToAnswer', v)}
             accentColor={Y2K.yellow}
           />

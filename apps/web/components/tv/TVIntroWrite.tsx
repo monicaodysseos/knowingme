@@ -35,7 +35,9 @@ function BlobDeco({ size = 60, color = Y2K.cyan, x = 0, y = 0, rotate = 0 }: { s
 }
 
 export default function TVIntroWrite({ state }: Props) {
-  const { players } = state;
+  const { players, settings } = state;
+  const qw = settings.questionsToWrite;
+  const qa = settings.questionsToAnswer;
 
   return (
     <motion.div
@@ -111,7 +113,7 @@ export default function TVIntroWrite({ state }: Props) {
             display: 'inline-flex', gap: 14, alignItems: 'center', alignSelf: 'flex-start',
           }}
         >
-          <span><b style={{ color: Y2K.yellow }}>2 questions</b></span>
+          <span><b style={{ color: Y2K.yellow }}>{qw} question{qw !== 1 ? 's' : ''}</b></span>
           <span style={{ opacity: 0.5 }}>·</span>
           <span><b style={{ color: Y2K.yellow }}>3 minutes</b></span>
           <span style={{ opacity: 0.5 }}>·</span>
@@ -125,7 +127,7 @@ export default function TVIntroWrite({ state }: Props) {
           transition={{ delay: 0.35 }}
           style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 20, color: Y2K.dark, maxWidth: 700, lineHeight: 1.3 }}
         >
-          write 2 questions you want <u>someone else</u> to answer. we&apos;ll shuffle &amp; deal them out so each player gets 5 random ones ✦
+          write {qw} question{qw !== 1 ? 's' : ''} you want <u>someone else</u> to answer. we&apos;ll shuffle &amp; deal them out so each player gets {qa} random {qa !== 1 ? 'ones' : 'one'} ✦
         </motion.div>
 
         {/* Bottom row: avatar lineup + call to action */}
