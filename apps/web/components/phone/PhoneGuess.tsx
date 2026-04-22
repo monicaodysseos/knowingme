@@ -60,7 +60,7 @@ export default function PhoneGuess({
         {/* gloss */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.2)', borderRadius: '16px 16px 50% 50%', pointerEvents: 'none' }} />
         <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 1 }}>
-          what will
+          what did
         </p>
         <p style={{
           fontFamily: Y2K.display, fontWeight: 900, fontSize: 26,
@@ -71,7 +71,7 @@ export default function PhoneGuess({
           {subjectName}
         </p>
         <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 1 }}>
-          say?
+          answer?
         </p>
       </div>
 

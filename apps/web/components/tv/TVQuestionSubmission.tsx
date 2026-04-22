@@ -50,16 +50,18 @@ function BlobDeco({ size = 48, color = Y2K.yellow, x = 0, y = 0, rotate = 0 }: {
   );
 }
 
-const HOW_IT_WORKS = [
-  { n: 1, t: 'write 2 qs' },
-  { n: 2, t: 'shuffle' },
-  { n: 3, t: 'answer 5' },
-  { n: 4, t: 'everyone guesses' },
-];
-
 export default function TVQuestionSubmission({ state }: Props) {
-  const { players, submissionProgress, timerEnd } = state;
+  const { players, submissionProgress, timerEnd, settings } = state;
   const { playBeep } = useGameSounds();
+  const qw = settings.questionsToWrite;
+  const qa = settings.questionsToAnswer;
+
+  const HOW_IT_WORKS = [
+    { n: 1, t: `write ${qw} q${qw !== 1 ? 's' : ''}` },
+    { n: 2, t: 'shuffle' },
+    { n: 3, t: `answer ${qa}` },
+    { n: 4, t: 'everyone guesses' },
+  ];
 
   useEffect(() => {
     playQuestionsMusic();
@@ -101,7 +103,7 @@ export default function TVQuestionSubmission({ state }: Props) {
             filter: `drop-shadow(4px 4px 0 ${Y2K.hotPink}) drop-shadow(8px 8px 0 #0b0429)`,
             transform: 'rotate(-3deg)', display: 'inline-block', textTransform: 'uppercase',
           }}>
-            write 2 qs
+            write {qw} q{qw !== 1 ? 's' : ''}
           </div>
         </motion.div>
 
@@ -110,7 +112,7 @@ export default function TVQuestionSubmission({ state }: Props) {
           style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 17, color: '#3a1555', maxWidth: 620, lineHeight: 1.35 }}
         >
           any juicy question you want someone else to answer. ★ we&apos;ll shuffle them and hand each player{' '}
-          <b style={{ color: Y2K.deepPink }}>5 random questions</b> to answer next.
+          <b style={{ color: Y2K.deepPink }}>{qa} random question{qa !== 1 ? 's' : ''}</b> to answer next.
         </motion.p>
 
         {/* Avatar progress */}

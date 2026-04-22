@@ -96,7 +96,7 @@ export default function TVIntroGuess({ state }: Props) {
             margin: 0, lineHeight: 0.85, textTransform: 'uppercase',
           }}
         >
-          Guess<br />em all.
+          Time to<br />Guess.
         </motion.h1>
 
         {/* Points table */}
