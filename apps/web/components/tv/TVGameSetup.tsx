@@ -188,7 +188,7 @@ export default function TVGameSetup({ onConfirm }: Props) {
           />
           <Stepper
             label="questions to answer"
-            sublabel={`questions each player answers (max ${maxAnswerable}: ${settings.maxPlayers}p × ${settings.questionsToWrite}q)`}
+            sublabel={`questions each player answers (max ${maxAnswerable} available)`}
             value={settings.questionsToAnswer}
             min={2}
             max={maxAnswerable}
