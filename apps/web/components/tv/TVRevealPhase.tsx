@@ -180,9 +180,6 @@ export default function TVRevealPhase({ state }: Props) {
               <span style={{ flex: 1, fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(14px, 1.5vw, 22px)', color: '#fff', textAlign: 'right' }}>
                 &ldquo;{answer}&rdquo;
               </span>
-              <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(14px, 1.4vw, 20px)', color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
-                ← the answer
-              </span>
             </motion.div>
           )}
         </AnimatePresence>

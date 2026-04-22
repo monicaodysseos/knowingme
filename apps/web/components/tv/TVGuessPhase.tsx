@@ -12,20 +12,6 @@ interface Props {
   state: TVState;
 }
 
-function Sticker({ color, rotate = 0, r = 18, style = {}, children }: { color: string; rotate?: number; r?: number; style?: React.CSSProperties; children: React.ReactNode }) {
-  return (
-    <div style={{
-      background: color, borderRadius: r, transform: `rotate(${rotate}deg)`,
-      border: `3px solid ${Y2K.dark}`,
-      boxShadow: `inset 0 2px 0 rgba(255,255,255,0.7), 0 6px 0 rgba(11,4,41,0.45), 0 12px 20px rgba(12,6,40,0.15)`,
-      position: 'relative', overflow: 'hidden', ...style,
-    }}>
-      <div style={{ position: 'absolute', top: 4, left: 12, right: 12, height: '35%', background: 'linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%)', borderRadius: `${r - 4}px ${r - 4}px 50% 50%`, pointerEvents: 'none' }} />
-      {children}
-    </div>
-  );
-}
-
 function Sparkle({ size = 24, color = Y2K.yellow, x = 0, y = 0, rotate = 0 }: { size?: number; color?: string; x?: number; y?: number; rotate?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rotate}deg)`, pointerEvents: 'none' }}>
@@ -59,100 +45,154 @@ export default function TVGuessPhase({ state }: Props) {
 
   return (
     <div
-      className="min-h-screen relative overflow-hidden"
+      className="min-h-screen relative overflow-hidden flex flex-col"
       style={{ background: Y2K.bg, fontFamily: Y2K.body }}
     >
       {/* Vignette */}
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(12,6,40,0.12) 100%)', pointerEvents: 'none' }} />
 
-      <Sparkle size={28} color={Y2K.cyan} x={40} y={80} rotate={10} />
-      <Sparkle size={20} color={Y2K.yellow} x={880} y={120} />
-      <Heart size={28} color={Y2K.pink} x={60} y={450} rotate={-20} />
+      <Sparkle size={26} color={Y2K.cyan} x={48} y={70} rotate={10} />
+      <Sparkle size={18} color={Y2K.yellow} x={900} y={110} />
+      <Heart size={26} color={Y2K.pink} x={56} y={460} rotate={-20} />
 
-      {/* Side-by-side layout */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', padding: '30px 44px', gap: 28, zIndex: 1, alignItems: 'center' }}>
+      {/* Main content */}
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', padding: '36px 56px 24px', gap: 20 }}>
 
-        {/* LEFT: subject + question */}
+        {/* ── Heading: avatar + "how did NAME answer?" ── */}
         <motion.div
           key={subjectPlayer.id}
-          initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200 }}
-          style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: 16 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 20 }}
         >
-          {/* Subject header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 96, height: 96, display: 'grid', placeItems: 'center', transform: 'rotate(-4deg)' }}>
-              <Y2KAvatar avatar={subjectPlayer.avatar} size={92} />
-            </div>
-            <div>
-              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 14, letterSpacing: 3, textTransform: 'uppercase', color: Y2K.cyan, WebkitTextStroke: `0.5px ${Y2K.dark}`, textShadow: `1px 1px 0 ${Y2K.dark}` }}>
-                now answering ★
-              </div>
-              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 52, color: subjectPlayer.color.hex, WebkitTextStroke: `2.5px ${Y2K.dark}`, letterSpacing: -1, textShadow: `4px 4px 0 ${Y2K.dark}`, lineHeight: 1 }}>
-                {subjectPlayer.name}
-              </div>
-              {totalForSubject > 1 && (
-                <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#3a1555', marginTop: 4 }}>
-                  question {questionIndex + 1} of {totalForSubject}
-                </div>
-              )}
-            </div>
+          {/* Avatar bubble */}
+          <div style={{
+            width: 100, height: 100, borderRadius: '50%',
+            background: '#fff', border: `4px solid ${Y2K.dark}`,
+            boxShadow: `0 6px 0 ${Y2K.dark}`,
+            display: 'grid', placeItems: 'center', flexShrink: 0,
+            transform: 'rotate(-4deg)',
+          }}>
+            <Y2KAvatar avatar={subjectPlayer.avatar} size={82} />
           </div>
 
-          {/* Question sticker */}
-          <Sticker color="#fff" r={22} rotate={-1} style={{ padding: '18px 20px' }}>
-            <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 10, color: Y2K.deepPink, letterSpacing: 3, marginBottom: 4, textTransform: 'uppercase' }}>THE QUESTION</div>
-            <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(18px, 2vw, 28px)', color: Y2K.dark, lineHeight: 1.2, letterSpacing: -0.5 }}>
-              {questionText}
+          {/* Heading text */}
+          <div>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 16, color: '#3a1555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2, opacity: 0.7 }}>
+              how did
             </div>
-          </Sticker>
-
-          <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#3a1555' }}>
-            ✦ everyone else guesses what <b style={{ color: Y2K.deepPink }}>{subjectPlayer.name}</b> will say →
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
+              <span style={{
+                fontFamily: Y2K.display, fontWeight: 900,
+                fontSize: 'clamp(48px, 6vw, 80px)',
+                color: subjectPlayer.color.hex,
+                WebkitTextStroke: `3px ${Y2K.dark}`,
+                textShadow: `5px 5px 0 ${Y2K.dark}`,
+                letterSpacing: '-0.03em', lineHeight: 1,
+                textTransform: 'uppercase',
+              }}>
+                {subjectPlayer.name}
+              </span>
+              <span style={{
+                fontFamily: Y2K.display, fontWeight: 900,
+                fontSize: 'clamp(32px, 4vw, 54px)',
+                color: Y2K.dark, letterSpacing: '-0.02em', lineHeight: 1,
+              }}>
+                answer?
+              </span>
+            </div>
+            {totalForSubject > 1 && (
+              <div style={{
+                marginTop: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: Y2K.dark, color: '#fff',
+                fontFamily: Y2K.display, fontWeight: 800, fontSize: 12, letterSpacing: 2,
+                padding: '4px 12px', borderRadius: 999,
+              }}>
+                Q {questionIndex + 1} / {totalForSubject}
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* RIGHT: guess count + timer + guesser grid */}
+        {/* ── Question card ── */}
         <motion.div
-          initial={{ x: 30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, delay: 0.08 }}
-          style={{ flex: 0.95, display: 'flex', flexDirection: 'column', gap: 12 }}
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 180, delay: 0.08 }}
+          style={{
+            background: Y2K.dark,
+            borderRadius: 24, border: `4px solid ${Y2K.dark}`,
+            boxShadow: `0 8px 0 rgba(11,4,41,0.4), 0 16px 32px rgba(12,6,40,0.2)`,
+            padding: '28px 32px',
+            position: 'relative', overflow: 'hidden',
+          }}
         >
-          {/* Count sticker + timer */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <Sticker color={subjectPlayer.color.hex} r={18} style={{ padding: '10px 16px' }}>
-              <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 40, color: '#fff', WebkitTextStroke: `2px ${Y2K.dark}`, lineHeight: 1 }}>
-                {guessCount}<span style={{ opacity: 0.7, fontSize: 28 }}>/{guessers.length}</span>
-              </div>
-              <div style={{ fontFamily: Y2K.body, fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>GUESSES IN</div>
-            </Sticker>
+          {/* Gloss */}
+          <div style={{ position: 'absolute', top: 0, left: 16, right: 16, height: '40%', background: 'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 100%)', borderRadius: '0 0 50% 50%', pointerEvents: 'none' }} />
+          <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 11, letterSpacing: 3, color: subjectPlayer.color.hex, textTransform: 'uppercase', marginBottom: 10 }}>
+            ✦ THE QUESTION ✦
+          </div>
+          <div style={{
+            fontFamily: Y2K.display, fontWeight: 900,
+            fontSize: 'clamp(24px, 3.2vw, 48px)',
+            color: '#fff', lineHeight: 1.15, letterSpacing: '-0.5px',
+          }}>
+            {questionText}
+          </div>
+        </motion.div>
 
-            {timerEnd > 0 && (
-              <CountdownRing timerEnd={timerEnd} totalSeconds={60} size={110} beep={playBeep} />
-            )}
+        {/* ── Bottom bar ── */}
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 180, delay: 0.14 }}
+          style={{
+            marginTop: 'auto',
+            background: '#fff', borderRadius: 20,
+            border: `3px solid ${Y2K.dark}`,
+            boxShadow: `0 5px 0 rgba(11,4,41,0.35)`,
+            padding: '12px 20px',
+            display: 'flex', alignItems: 'center', gap: 18,
+          }}
+        >
+          {/* Guess count badge */}
+          <div style={{
+            background: subjectPlayer.color.hex, borderRadius: 14,
+            border: `3px solid ${Y2K.dark}`,
+            boxShadow: `0 3px 0 rgba(11,4,41,0.4)`,
+            padding: '6px 14px', flexShrink: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+          }}>
+            <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff', WebkitTextStroke: `1.5px ${Y2K.dark}`, lineHeight: 1 }}>
+              {guessCount}<span style={{ opacity: 0.75, fontSize: 20 }}>/{guessers.length}</span>
+            </span>
+            <span style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' }}>guessed</span>
           </div>
 
-          {/* Guesser grid */}
-          <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 11, color: '#3a1555', letterSpacing: 2, textTransform: 'uppercase' }}>
-            everyone else ✎ typing
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+          {/* Timer */}
+          {timerEnd > 0 && (
+            <CountdownRing timerEnd={timerEnd} totalSeconds={60} size={72} beep={playBeep} />
+          )}
+
+          {/* Player avatar row */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {guessers.map((p) => (
               <div key={p.id} style={{
-                background: '#fff', border: `2.5px solid ${Y2K.dark}`, borderRadius: 12,
-                padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6,
-                boxShadow: `0 3px 0 rgba(11,4,41,0.35)`,
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: 'rgba(11,4,41,0.06)', borderRadius: 99,
+                padding: '4px 10px 4px 4px',
+                border: `2px solid ${Y2K.dark}`,
               }}>
-                <Y2KAvatar avatar={p.avatar} size={26} />
-                <div style={{ flex: 1, fontFamily: Y2K.display, fontWeight: 800, fontSize: 12, color: p.color.hex, WebkitTextStroke: `0.3px ${Y2K.dark}` }}>{p.name}</div>
+                <Y2KAvatar avatar={p.avatar} size={24} />
+                <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 12, color: p.color.hex, WebkitTextStroke: `0.3px ${Y2K.dark}` }}>{p.name}</span>
               </div>
             ))}
           </div>
 
-          <div style={{ marginTop: 'auto', fontFamily: Y2K.body, fontSize: 12, fontWeight: 700, color: '#3a1555', textAlign: 'center' }}>
-            ✧ type your guess on your phone ✧
+          <div style={{ fontFamily: Y2K.body, fontSize: 12, fontWeight: 700, color: '#3a1555', whiteSpace: 'nowrap', flexShrink: 0, opacity: 0.7 }}>
+            ✧ type on ur phone
           </div>
         </motion.div>
       </div>
