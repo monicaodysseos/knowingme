@@ -58,7 +58,7 @@ function Sticker({ color, rotate = 0, r = 20, style = {}, children }: { color: s
 
 export default function TVLobby({ state, onStart }: Props) {
   const { roomCode, players, settings } = state;
-  const canStart = players.length >= 3;
+  const canStart = players.length >= 2;
   const MAX_PLAYERS = settings.maxPlayers;
 
   const [siteUrl, setSiteUrl] = useState(
@@ -209,7 +209,7 @@ export default function TVLobby({ state, onStart }: Props) {
           {/* Need more players hint */}
           {!canStart && (
             <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#3a1555', paddingLeft: 2 }}>
-              need {3 - players.length} more player{3 - players.length !== 1 ? 's' : ''} to start…
+              need {2 - players.length} more player{2 - players.length !== 1 ? 's' : ''} to start…
             </p>
           )}
 
@@ -237,7 +237,7 @@ export default function TVLobby({ state, onStart }: Props) {
                     textTransform: 'uppercase', letterSpacing: '0.04em',
                   }}
                 >
-                  {canStart ? 'start the show ▶︎' : 'need 3+ players…'}
+                  {canStart ? 'start the show ▶︎' : 'need 2+ players…'}
                 </button>
               </Sticker>
             </motion.div>

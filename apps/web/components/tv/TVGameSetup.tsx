@@ -172,7 +172,7 @@ export default function TVGameSetup({ onConfirm }: Props) {
             label="max players"
             sublabel="maximum players who can join"
             value={settings.maxPlayers}
-            min={3}
+            min={2}
             max={12}
             onChange={(v) => update('maxPlayers', v)}
             accentColor={Y2K.hotPink}

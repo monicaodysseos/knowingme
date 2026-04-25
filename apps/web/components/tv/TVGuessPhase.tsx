@@ -192,7 +192,7 @@ export default function TVGuessPhase({ state }: Props) {
           </div>
 
           <div style={{ fontFamily: Y2K.body, fontSize: 12, fontWeight: 700, color: '#3a1555', whiteSpace: 'nowrap', flexShrink: 0, opacity: 0.7 }}>
-            ✧ type on ur phone
+            {guessers.length === 1 ? `✧ waiting for ${guessers[0].name}…` : '✧ type on ur phone'}
           </div>
         </motion.div>
       </div>

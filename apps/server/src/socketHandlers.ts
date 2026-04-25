@@ -159,9 +159,9 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    // Guard: require at least 3 players to have joined (regardless of current
+    // Guard: require at least 2 players to have joined (regardless of current
     // connection state — a player may be mid-reconnect when host clicks Start).
-    const minToStart = Math.min(3, ctx.settings.maxPlayers);
+    const minToStart = Math.min(2, ctx.settings.maxPlayers);
     if (ctx.players.length < minToStart) {
       console.log('[host:start] not enough players: %d joined', ctx.players.length);
       ack?.({ ok: false, error: `Need ${minToStart} players (have ${ctx.players.length})` });

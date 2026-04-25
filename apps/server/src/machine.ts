@@ -279,7 +279,7 @@ export const gameMachine = setup({
   },
 
   guards: {
-    hasMinPlayers: ({ context }) => context.players.length >= 3,
+    hasMinPlayers: ({ context }) => context.players.length >= 2,
 
     allQuestionsSubmitted: ({ context }) =>
       context.players.every((p) => p.submittedQuestionIds.length >= context.settings.questionsToWrite),

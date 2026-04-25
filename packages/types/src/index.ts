@@ -8,7 +8,7 @@ export type QuestionTier = 'T1' | 'T2';
 // ── Game settings (chosen by host before room creation) ───────────────────
 
 export interface GameSettings {
-  maxPlayers: number;         // 3–12, default 8
+  maxPlayers: number;         // 2–12, default 8
   questionsToWrite: number;   // 1–5,  default 2
   questionsToAnswer: number;  // 2–10, default 5
 }
