@@ -74,21 +74,25 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 
   // During TV intro screens (round announcement 2.5s + instruction slide 8s = 10.5s),
   // show "Look at the TV" instead of the real action so phones are idle while TV plays intros.
+  // Uses a Set (like the TV) so each phase only triggers the intro ONCE, even if the server
+  // re-enters the same phase string on subsequent turns (e.g. GUESS_PHASE → SCORE_PHASE → GUESS_PHASE).
   const INTRO_PHASES = new Set(['QUESTION_SUBMISSION', 'ANSWER_PHASE', 'GUESS_PHASE']);
   const INTRO_DURATION_MS = 2500 + 8000;
   const [showingIntro, setShowingIntro] = useState(false);
-  const prevPhaseRef = useRef<string | null>(null);
+  const shownIntros = useRef(new Set<string>());
 
   useEffect(() => {
     if (!state) return;
     const phase = state.phase;
-    if (phase !== prevPhaseRef.current && INTRO_PHASES.has(phase)) {
-      prevPhaseRef.current = phase;
+    if (INTRO_PHASES.has(phase) && !shownIntros.current.has(phase)) {
+      shownIntros.current.add(phase);
       setShowingIntro(true);
       const t = setTimeout(() => setShowingIntro(false), INTRO_DURATION_MS);
       return () => clearTimeout(t);
     }
-    prevPhaseRef.current = phase;
+    // Entering any other phase (or a re-entered intro phase) always clears the intro flag,
+    // so a cancelled timer never leaves showingIntro stuck at true.
+    setShowingIntro(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase]);
 
