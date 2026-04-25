@@ -89,6 +89,22 @@ export default function PhoneAnswer({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Top banner */}
+      <div style={{
+        background: Y2K.cyan,
+        borderRadius: 14,
+        border: `2.5px solid ${Y2K.dark}`,
+        boxShadow: `0 3px 0 rgba(11,4,41,0.35)`,
+        padding: '10px 16px',
+        textAlign: 'center',
+      }}>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: Y2K.dark, lineHeight: 1.3, letterSpacing: '-0.2px' }}>
+          Answer for{' '}
+          <span style={{ color: Y2K.hotPink, WebkitTextStroke: `0.5px ${Y2K.dark}` }}>YOU</span>
+          rself
+        </p>
+      </div>
+
       {/* Progress row */}
       <div className="flex items-center justify-between">
         <span style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555' }}>

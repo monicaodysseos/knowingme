@@ -123,6 +123,20 @@ export default function PhoneQuestionSubmit({ count, onSubmit }: Props) {
 
   return (
     <div className="flex-1 flex flex-col gap-5 justify-center px-1">
+      {/* Top banner */}
+      <div style={{
+        background: Y2K.yellow,
+        borderRadius: 14,
+        border: `2.5px solid ${Y2K.dark}`,
+        boxShadow: `0 3px 0 rgba(11,4,41,0.35)`,
+        padding: '10px 16px',
+        textAlign: 'center',
+      }}>
+        <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: Y2K.dark, lineHeight: 1.4, letterSpacing: '-0.2px' }}>
+          Write your own questions — someone else will answer them for themselves
+        </p>
+      </div>
+
       {/* Header */}
       <div className="text-center">
         <h2 style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark, letterSpacing: '-0.5px' }}>

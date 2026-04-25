@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
@@ -72,6 +72,26 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 
   const accentColor = '#F97316';
 
+  // During TV intro screens (round announcement 2.5s + instruction slide 8s = 10.5s),
+  // show "Look at the TV" instead of the real action so phones are idle while TV plays intros.
+  const INTRO_PHASES = new Set(['QUESTION_SUBMISSION', 'ANSWER_PHASE', 'GUESS_PHASE']);
+  const INTRO_DURATION_MS = 2500 + 8000;
+  const [showingIntro, setShowingIntro] = useState(false);
+  const prevPhaseRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    const phase = state.phase;
+    if (phase !== prevPhaseRef.current && INTRO_PHASES.has(phase)) {
+      prevPhaseRef.current = phase;
+      setShowingIntro(true);
+      const t = setTimeout(() => setShowingIntro(false), INTRO_DURATION_MS);
+      return () => clearTimeout(t);
+    }
+    prevPhaseRef.current = phase;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.phase]);
+
   if (!connected || !state) {
     return (
       <PhoneLayout>
@@ -115,25 +135,25 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     <PhoneLayout accent={accentColor}>
       <AnimatePresence mode="wait">
         <motion.div
-          key={`${phase}-${action.type}-${state.turnIndex}`}
+          key={`${phase}-${showingIntro ? 'intro' : action.type}-${state.turnIndex}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.25, ease: 'easeInOut' }}
           className="flex-1 flex flex-col"
         >
-          {action.type === 'WAIT' && (
-            <PhoneWaiting message={action.message} />
+          {(showingIntro || action.type === 'WAIT') && (
+            <PhoneWaiting message={showingIntro ? 'Look at the TV for instructions you fool!' : (action as { type: 'WAIT'; message: string }).message} />
           )}
 
-          {action.type === 'SUBMIT_QUESTIONS' && (
+          {!showingIntro && action.type === 'SUBMIT_QUESTIONS' && (
             <PhoneQuestionSubmit
               count={action.count}
               onSubmit={(qs, onAck) => submitQuestions(qs, onAck)}
             />
           )}
 
-          {action.type === 'ANSWER_QUESTION' && (
+          {!showingIntro && action.type === 'ANSWER_QUESTION' && (
             <PhoneAnswer
               assignmentId={action.assignmentId}
               questionText={action.questionText}
@@ -145,7 +165,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {action.type === 'SUBMIT_GUESS' && (
+          {!showingIntro && action.type === 'SUBMIT_GUESS' && (
             <PhoneGuess
               subjectName={action.subjectName}
               subjectColor={action.subjectColor}
@@ -155,7 +175,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {action.type === 'VOTE_GUESSES' && (
+          {!showingIntro && action.type === 'VOTE_GUESSES' && (
             <PhoneVoteGuesses
               questionText={action.questionText}
               subjectName={action.subjectName}
@@ -166,7 +186,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {action.type === 'VIEW_RESULTS' && (
+          {!showingIntro && action.type === 'VIEW_RESULTS' && (
             <PhoneResults
               scores={action.scores}
               awards={action.awards}
