@@ -237,7 +237,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
 
       case 'QUESTION_SUBMISSION':
         if (player.submittedQuestionIds.length >= ctx.settings.questionsToWrite) {
-          action = { type: 'WAIT', message: 'Questions submitted! Waiting for everyone…' };
+          action = { type: 'WAIT', message: 'Look at the TV for instructions you fool!' };
         } else {
           action = { type: 'SUBMIT_QUESTIONS', examples: EXAMPLE_PROMPTS, count: ctx.settings.questionsToWrite };
         }
@@ -258,7 +258,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
           (a) => a.answer !== undefined || a.skipped,
         ).length;
         if (!nextAssignment) {
-          action = { type: 'WAIT', message: 'All done! Waiting for others…' };
+          action = { type: 'WAIT', message: 'Look at the TV for instructions you fool!' };
         } else {
           action = {
             type: 'ANSWER_QUESTION',
@@ -283,7 +283,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
             (g) => g.guesserPlayerId === player.id,
           );
           if (alreadyGuessed) {
-            action = { type: 'WAIT', message: 'Guess submitted! Waiting for others…' };
+            action = { type: 'WAIT', message: 'Look at the TV for instructions you fool!' };
           } else {
             const subjectPlayer = ctx.players.find(
               (p) => p.id === currentTurn.subjectPlayerId,

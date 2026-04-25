@@ -17,6 +17,7 @@ import TVFinalAwards from '../../components/tv/TVFinalAwards';
 import TVIntroWrite from '../../components/tv/TVIntroWrite';
 import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
 import TVIntroGuess from '../../components/tv/TVIntroGuess';
+import TVRoundAnnouncement from '../../components/tv/TVRoundAnnouncement';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
@@ -126,31 +127,45 @@ export default function TVPage() {
   return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} />;
 }
 
-const INTRO_PHASES = ['QUESTION_SUBMISSION', 'ANSWER_PHASE', 'GUESS_PHASE'] as const;
 
 function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
   const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
 
-  // Show round intro for 5 seconds when each phase first starts (once per phase per session)
+  // For each phase, show: round announcement (2.5s) → instruction slide (8s) → game UI
   const [introPhase, setIntroPhase] = useState<string | null>(null);
   const shownIntros = useRef(new Set<string>());
+
+  const ROUND_MAP: Record<string, 1 | 2 | 3> = {
+    QUESTION_SUBMISSION: 1,
+    ANSWER_PHASE: 2,
+    GUESS_PHASE: 3,
+  };
 
   useEffect(() => {
     if (!state) return;
     const phase = state.phase;
-    if ((INTRO_PHASES as readonly string[]).includes(phase) && !shownIntros.current.has(phase)) {
-      shownIntros.current.add(phase);
+    const round = ROUND_MAP[phase];
+    if (!round || shownIntros.current.has(phase)) return;
+
+    shownIntros.current.add(phase);
+    setIntroPhase(`round-${round}`);
+
+    const t1 = setTimeout(() => {
       setIntroPhase(phase);
       playRoundStartMusic();
-      const t = setTimeout(() => {
-        setIntroPhase(null);
-        stopRoundStartMusic();
-      }, 8000);
-      return () => {
-        clearTimeout(t);
-        stopRoundStartMusic();
-      };
-    }
+    }, 2500);
+
+    const t2 = setTimeout(() => {
+      setIntroPhase(null);
+      stopRoundStartMusic();
+    }, 2500 + 8000);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      stopRoundStartMusic();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase]);
 
   useEffect(() => {
@@ -190,7 +205,10 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
         exit={{ opacity: 0, scale: 1.02 }}
         transition={{ duration: 0.35, ease: 'easeInOut' }}
       >
-        {/* Round intro screens — shown for 5 seconds before each phase */}
+        {/* Round announcements (2.5s) then instruction slides (8s) before each phase */}
+        {introPhase === 'round-1' && <TVRoundAnnouncement round={1} />}
+        {introPhase === 'round-2' && <TVRoundAnnouncement round={2} />}
+        {introPhase === 'round-3' && <TVRoundAnnouncement round={3} />}
         {introPhase === 'QUESTION_SUBMISSION' && <TVIntroWrite state={state} />}
         {introPhase === 'ANSWER_PHASE' && <TVIntroAnswer state={state} />}
         {introPhase === 'GUESS_PHASE' && <TVIntroGuess state={state} />}
