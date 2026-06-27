@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import { Y2K } from '../../lib/y2k';
-import { playLobbyMusic, stopLobbyMusic } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -65,11 +64,6 @@ export default function TVLobby({ state, onStart }: Props) {
     process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
   );
   useEffect(() => { setSiteUrl(window.location.origin); }, []);
-
-  useEffect(() => {
-    playLobbyMusic();
-    return stopLobbyMusic;
-  }, []);
 
   const joinUrl = `${siteUrl}/play?room=${roomCode}`;
 
@@ -228,7 +222,7 @@ export default function TVLobby({ state, onStart }: Props) {
                 }}
               >
                 <button
-                  onClick={() => { stopLobbyMusic(); onStart(); }}
+                  onClick={onStart}
                   disabled={!canStart}
                   style={{
                     fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff',

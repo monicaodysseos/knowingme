@@ -7,8 +7,8 @@ import Y2KAvatar from '../components/tv/Y2KAvatar';
 
 const DARK = '#0b0429';
 const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)';
-const DISPLAY = "'Rubik', 'Nunito', sans-serif";
-const BODY = "'Space Grotesk', 'Nunito', sans-serif";
+const DISPLAY = "var(--font-rubik), 'Rubik', 'Nunito', sans-serif";
+const BODY = "var(--font-space-grotesk), 'Space Grotesk', 'Nunito', sans-serif";
 
 function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0, className = '' }: { size?: number; color?: string; x?: number; y?: number; rotate?: number; className?: string }) {
   return (

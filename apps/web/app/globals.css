@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Space+Grotesk:wght@400;500;700&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap');
+/* Fonts are loaded via next/font in app/layout.tsx (self-hosted, no render-block)
+   and exposed as the CSS variables referenced below. */
 
 @tailwind base;
 @tailwind components;
@@ -8,6 +9,19 @@
   --bg: #0d0818;
   --surface: #180e2a;
   --border: #2a1850;
+
+  /* Y2K palette — single source of truth, mirrors lib/y2k.ts */
+  --y2k-pink: #FF4FB4;
+  --y2k-hot-pink: #FF1E8E;
+  --y2k-deep-pink: #A8167A;
+  --y2k-cyan: #00D5FF;
+  --y2k-yellow: #FFE24A;
+  --y2k-dark: #0b0429;
+  --y2k-cream: #FFF5DA;
+
+  /* Shared interaction tuning */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --focus-ring: 0 0 0 3px rgba(255, 79, 180, 0.55), 0 0 0 6px rgba(0, 213, 255, 0.35);
 }
 
 * {
@@ -20,7 +34,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: #ffffff;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-nunito), 'Nunito', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -103,4 +117,77 @@ select {
 
 .award-enter {
   animation: award-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Interactivity & polish (Phase 3)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Pop-in entrance for cards/badges (use alongside JS-driven content) */
+@keyframes pop-in {
+  0%   { transform: scale(0.85) translateY(8px); opacity: 0; }
+  60%  { transform: scale(1.03) translateY(0);   opacity: 1; }
+  100% { transform: scale(1) translateY(0);      opacity: 1; }
+}
+.pop-in { animation: pop-in 0.42s var(--ease-bounce) both; }
+
+/* Soft idle float for decorative/mascot elements */
+@keyframes y2k-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.y2k-float { animation: y2k-float 3.2s ease-in-out infinite; }
+
+/* Hover lift — for cards and tappable tiles that aren't already animated */
+.y2k-hover-lift {
+  transition: transform 0.18s var(--ease-bounce), box-shadow 0.18s ease, filter 0.18s ease;
+  will-change: transform;
+}
+@media (hover: hover) {
+  .y2k-hover-lift:hover {
+    transform: translateY(-3px) scale(1.02);
+    filter: brightness(1.04);
+  }
+}
+.y2k-hover-lift:active { transform: translateY(0) scale(0.98); }
+
+/* Input focus glow — subtle lift + cyan/pink ring on focus. !important layers
+   the ring over the chunky drop-shadow these inputs set via inline styles. */
+.y2k-input {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.y2k-input:focus,
+.y2k-input:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: var(--focus-ring), 0 3px 0 var(--y2k-dark) !important;
+}
+
+/* Keyboard / TV-remote focus rings on anything interactive.
+   :focus-visible only shows for keyboard nav, never on mouse click. */
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 12px;
+}
+
+/* Respect the user's OS "reduce motion" setting: keep the game readable but
+   strip the looping/large-movement animation. One-shot transitions are kept
+   short rather than removed so transitions still feel intentional. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .y2k-float,
+  .timer-danger { animation: none !important; }
 }

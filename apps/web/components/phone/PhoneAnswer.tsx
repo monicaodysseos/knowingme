@@ -140,6 +140,7 @@ export default function PhoneAnswer({
       <div className="flex flex-col gap-1">
         <textarea
           key={assignmentId}
+          className="y2k-input"
           value={answer}
           onChange={(e) => setAnswer(e.target.value.slice(0, 120))}
           placeholder="ur answer…"

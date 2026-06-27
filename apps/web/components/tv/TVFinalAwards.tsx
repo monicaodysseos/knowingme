@@ -6,7 +6,7 @@ import type { TVState, AwardResult } from '@ksero-se/types';
 import ParticleBurst from './ParticleBurst';
 import Y2KAvatar from './Y2KAvatar';
 import { Y2K } from '../../lib/y2k';
-import { useGameSounds, playFinalMusic, stopFinalMusic } from '../../lib/hooks/useGameSounds';
+import { useGameSounds, playMusic, stopMusic } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -369,8 +369,8 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
   useEffect(() => {
     if (topPhase !== 'awards') return;
     if (awardPhase === 'done') {
-      playFinalMusic();
-      return stopFinalMusic;
+      playMusic('final');
+      return stopMusic;
     }
   }, [topPhase, awardPhase]);
 

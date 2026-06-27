@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
@@ -30,13 +29,7 @@ function Heart({ size = 24, color = Y2K.pink, x = 0, y = 0, rotate = 0 }: { size
 
 export default function TVGuessPhase({ state }: Props) {
   const { currentTurn, players, timerEnd } = state;
-  const { playTick, stopTick, playBeep } = useGameSounds();
-
-  useEffect(() => {
-    playTick();
-    return stopTick;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTurn?.questionText]);
+  const { playBeep } = useGameSounds();
 
   if (!currentTurn) return null;
 

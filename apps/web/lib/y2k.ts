@@ -10,8 +10,8 @@ export const Y2K = {
   yellow:   '#FFE24A',
   dark:     '#0b0429',
   cream:    '#FFF5DA',
-  display:  "'Rubik', 'Nunito', sans-serif",
-  body:     "'Space Grotesk', 'Nunito', sans-serif",
+  display:  "var(--font-rubik), 'Rubik', 'Nunito', sans-serif",
+  body:     "var(--font-space-grotesk), 'Space Grotesk', 'Nunito', sans-serif",
 } as const;
 
 // Map PlayerCharacter ids → Y2K creature ids

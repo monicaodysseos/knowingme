@@ -1,25 +1,38 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../../lib/socket';
 import type { GameSettings } from '@ksero-se/types';
-import { unlockTVAudio, playLobbyMusic, playRoundStartMusic, stopRoundStartMusic } from '../../lib/hooks/useGameSounds';
+import { unlockAudio, playMusic, stopMusic, playRoundStartSting, stopRoundStartSting, type MusicKey } from '../../lib/hooks/useGameSounds';
 import TVGameSetup from '../../components/tv/TVGameSetup';
 import TVLobby from '../../components/tv/TVLobby';
 import TVQuestionSubmission from '../../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../../components/tv/TVAnswerPhase';
 import TVGuessPhase from '../../components/tv/TVGuessPhase';
-import TVRevealPhase from '../../components/tv/TVRevealPhase';
-import TVScorePhase from '../../components/tv/TVScorePhase';
-import TVFinalAwards from '../../components/tv/TVFinalAwards';
+// Heavy, later-game screens — code-split so they don't weigh down the initial
+// lobby load. They're only needed once their phase arrives.
+const TVRevealPhase = dynamic(() => import('../../components/tv/TVRevealPhase'), { ssr: false });
+const TVScorePhase = dynamic(() => import('../../components/tv/TVScorePhase'), { ssr: false });
+const TVFinalAwards = dynamic(() => import('../../components/tv/TVFinalAwards'), { ssr: false });
 import TVIntroWrite from '../../components/tv/TVIntroWrite';
 import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
 import TVIntroGuess from '../../components/tv/TVIntroGuess';
 import TVRoundAnnouncement from '../../components/tv/TVRoundAnnouncement';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
+
+// The single source of truth for which looping track plays in each phase.
+// Phases not listed here are intentionally silent (REVEAL/SCORE), or manage
+// their own music internally (FINAL_AWARDS/GAME_OVER → TVFinalAwards).
+const MUSIC_BY_PHASE: Record<string, MusicKey> = {
+  LOBBY: 'lobby',
+  QUESTION_SUBMISSION: 'questions',
+  ANSWER_PHASE: 'answer',
+  GUESS_PHASE: 'guess',
+};
 
 function createRoom(settings: GameSettings): Promise<string> {
   return fetch(`${SERVER_URL}/api/rooms`, {
@@ -41,6 +54,8 @@ export default function TVPage() {
   const [error, setError] = useState<string | null>(null);
   // Show setup screen unless we're restoring an existing session
   const [setupDone, setSetupDone] = useState(false);
+  // Becomes true after the first user gesture unlocks audio autoplay.
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const handleRoomExpired = useCallback(() => {
     disconnectSocket();
@@ -67,14 +82,16 @@ export default function TVPage() {
     }
   }, []);
 
-  // Unlock audio on first interaction anywhere on the page (including setup screen)
+  // Unlock audio on first interaction anywhere on the page (including the setup
+  // screen). We only prime autoplay here — the actual track is chosen by the
+  // single music effect in TVScreen, which waits for `audioUnlocked`.
   useEffect(() => {
     let unlocked = false;
     const unlock = () => {
       if (unlocked) return;
       unlocked = true;
-      unlockTVAudio();
-      playLobbyMusic();
+      unlockAudio();
+      setAudioUnlocked(true);
       document.removeEventListener('click', unlock);
       document.removeEventListener('keydown', unlock);
       document.removeEventListener('touchstart', unlock);
@@ -124,11 +141,11 @@ export default function TVPage() {
     );
   }
 
-  return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} />;
+  return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} audioUnlocked={audioUnlocked} />;
 }
 
 
-function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired: () => void }) {
+function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string; onRoomExpired: () => void; audioUnlocked: boolean }) {
   const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
 
   // For each phase, show: round announcement (2.5s) → instruction slide (8s) → game UI
@@ -152,21 +169,35 @@ function TVScreen({ roomCode, onRoomExpired }: { roomCode: string; onRoomExpired
 
     const t1 = setTimeout(() => {
       setIntroPhase(phase);
-      playRoundStartMusic();
+      playRoundStartSting();
     }, 2500);
 
     const t2 = setTimeout(() => {
       setIntroPhase(null);
-      stopRoundStartMusic();
+      stopRoundStartSting();
     }, 2500 + 8000);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      stopRoundStartMusic();
+      stopRoundStartSting();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase]);
+
+  // ── Single owner of looping background music ────────────────────────────
+  // While an intro slide is showing we stay silent (the round sting covers it);
+  // otherwise the current phase decides the track. `playMusic` is idempotent,
+  // so frequent state updates within a phase never restart or double the song.
+  const desiredMusic: MusicKey | null = introPhase
+    ? null
+    : (state ? MUSIC_BY_PHASE[state.phase] ?? null : null);
+
+  useEffect(() => {
+    if (!audioUnlocked) return;
+    if (desiredMusic) playMusic(desiredMusic);
+    else stopMusic();
+  }, [desiredMusic, audioUnlocked]);
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;

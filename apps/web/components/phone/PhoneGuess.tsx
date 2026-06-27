@@ -98,6 +98,7 @@ export default function PhoneGuess({
           ur guess ✦
         </label>
         <textarea
+          className="y2k-input"
           value={guess}
           onChange={(e) => setGuess(e.target.value.slice(0, 120))}
           placeholder={`what did ${subjectName} say?`}

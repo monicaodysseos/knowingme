@@ -20,193 +20,160 @@ function ensureRunning(ctx: AudioContext): void {
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 }
 
-// Module-level singleton for the TV guess-phase track.
-// Created once, reused across renders. Must be pre-warmed by a user gesture
-// (the TV's unlock button) before autoplay policy allows it to play.
-let _tvTrack: HTMLAudioElement | null = null;
+// ============================================================================
+//  MUSIC MANAGER
+//  ---------------------------------------------------------------------------
+//  Single owner of looping background music. Only ONE looping track plays at a
+//  time. `playMusic(key)` is idempotent: asking for the track that is already
+//  playing does nothing, so re-renders / repeated phase events can never start
+//  a second copy of the same song (the "plays twice" echo bug).
+//
+//  Driven from one place — the TV screen's phase effect (app/tv/page.tsx).
+//  Individual phase components must NOT start/stop music themselves.
+// ============================================================================
 
-function getTVTrack(): HTMLAudioElement | null {
+export type MusicKey = 'lobby' | 'questions' | 'answer' | 'guess' | 'final';
+
+const TRACK_SRC: Record<MusicKey, string> = {
+  lobby: '/ksero-se.mp3',
+  questions: '/questionssong.mp3',
+  answer: '/answeringquestionssong.mp3',
+  guess: '/guessingsong.mp3',
+  final: '/finalsong.mp3',
+};
+
+const TRACK_VOLUME: Record<MusicKey, number> = {
+  lobby: 0.6,
+  questions: 0.6,
+  answer: 0.6,
+  guess: 0.55,
+  final: 0.6,
+};
+
+const _elements: Partial<Record<MusicKey, HTMLAudioElement>> = {};
+let _currentKey: MusicKey | null = null;
+
+// A single resume-guard, attached only to the track that is currently meant to
+// be playing. Re-resumes playback if something external (a TV remote spacebar /
+// media key) pauses it. Because it is removed on every intentional stop and
+// re-attached to the new element on every switch, it can never accumulate or
+// fire for a stale track — which is what the old per-track guards did.
+let _resumeGuard: (() => void) | null = null;
+let _guardedEl: HTMLAudioElement | null = null;
+
+function getEl(key: MusicKey): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
-  if (!_tvTrack) {
-    _tvTrack = new Audio('/guessingsong.wav');
-    _tvTrack.loop = true;
-    _tvTrack.volume = 0.55;
+  let el = _elements[key];
+  if (!el) {
+    el = new Audio(TRACK_SRC[key]);
+    el.loop = true;
+    el.volume = TRACK_VOLUME[key];
+    el.preload = 'auto';
+    _elements[key] = el;
   }
-  return _tvTrack;
+  return el;
 }
 
-// Module-level singleton for the lobby track.
-let _lobbyTrack: HTMLAudioElement | null = null;
-let _lobbyPauseGuard: (() => void) | null = null;
+function detachGuard(): void {
+  if (_guardedEl && _resumeGuard) _guardedEl.removeEventListener('pause', _resumeGuard);
+  _resumeGuard = null;
+  _guardedEl = null;
+}
 
-function getLobbyTrack(): HTMLAudioElement | null {
+function attachGuard(key: MusicKey, el: HTMLAudioElement): void {
+  detachGuard();
+  _resumeGuard = () => {
+    // Only resume if this is still the intended track.
+    if (_currentKey === key) el.play().catch(() => {});
+  };
+  _guardedEl = el;
+  el.addEventListener('pause', _resumeGuard);
+}
+
+/** Start (or keep playing) the given looping background track. Idempotent. */
+export function playMusic(key: MusicKey): void {
+  const el = getEl(key);
+  if (!el) return;
+
+  // Already playing this exact track → leave it alone.
+  if (_currentKey === key && !el.paused && !el.ended) return;
+
+  // Switching tracks → stop whatever is currently playing first.
+  if (_currentKey && _currentKey !== key) {
+    const cur = _elements[_currentKey];
+    if (cur) { cur.pause(); cur.currentTime = 0; }
+  }
+
+  _currentKey = key;
+  attachGuard(key, el);
+  el.currentTime = 0;
+  el.play().catch(() => {});
+}
+
+/** Stop whatever looping background track is playing. */
+export function stopMusic(): void {
+  detachGuard();
+  if (_currentKey) {
+    const cur = _elements[_currentKey];
+    if (cur) { cur.pause(); cur.currentTime = 0; }
+    _currentKey = null;
+  }
+}
+
+// ── Round-intro sting (short, non-looping; independent of background music) ──
+let _roundStartEl: HTMLAudioElement | null = null;
+
+function getRoundStart(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
-  if (!_lobbyTrack) {
-    _lobbyTrack = new Audio('/ksero-se.wav');
-    _lobbyTrack.loop = true;
-    _lobbyTrack.volume = 0.6;
+  if (!_roundStartEl) {
+    _roundStartEl = new Audio('/RoundStartSounds.mp3');
+    _roundStartEl.loop = false;
+    _roundStartEl.volume = 0.7;
+    _roundStartEl.preload = 'auto';
   }
-  return _lobbyTrack;
+  return _roundStartEl;
 }
 
-// Module-level singleton for the final awards track.
-let _finalTrack: HTMLAudioElement | null = null;
-let _finalPauseGuard: (() => void) | null = null;
+export function playRoundStartSting(): void {
+  const el = getRoundStart();
+  if (!el) return;
+  el.currentTime = 0;
+  el.play().catch(() => {});
+}
 
-function getFinalTrack(): HTMLAudioElement | null {
-  if (typeof window === 'undefined') return null;
-  if (!_finalTrack) {
-    _finalTrack = new Audio('/finalsong.wav');
-    _finalTrack.loop = true;
-    _finalTrack.volume = 0.6;
+export function stopRoundStartSting(): void {
+  const el = getRoundStart();
+  if (!el) return;
+  el.pause();
+  el.currentTime = 0;
+}
+
+/** Call once inside a user-gesture handler. Resumes the AudioContext, performs
+ *  a silent play→pause to satisfy the browser autoplay policy for the rest of
+ *  the session, and warms the track buffers so playback starts instantly. */
+let _unlocked = false;
+export function unlockAudio(): void {
+  const ctx = getAudioCtx();
+  if (ctx) ensureRunning(ctx);
+
+  if (!_unlocked) {
+    _unlocked = true;
+    // Prime with the guess track (not the first track heard on the lobby
+    // screen), muted, so the unlock is inaudible and never collides with the
+    // first real track the phase effect plays.
+    const primer = getEl('guess');
+    if (primer) {
+      const vol = primer.volume;
+      primer.volume = 0;
+      primer.play()
+        .then(() => { primer.pause(); primer.currentTime = 0; primer.volume = vol; })
+        .catch(() => { primer.volume = vol; });
+    }
   }
-  return _finalTrack;
-}
 
-// Module-level singleton for the question submission track.
-let _questionsTrack: HTMLAudioElement | null = null;
-let _questionsPauseGuard: (() => void) | null = null;
-
-function getQuestionsTrack(): HTMLAudioElement | null {
-  if (typeof window === 'undefined') return null;
-  if (!_questionsTrack) {
-    _questionsTrack = new Audio('/questionssong.wav');
-    _questionsTrack.loop = true;
-    _questionsTrack.volume = 0.6;
-  }
-  return _questionsTrack;
-}
-
-// Module-level singleton for the answer phase track.
-let _answerPhaseTrack: HTMLAudioElement | null = null;
-let _answerPauseGuard: (() => void) | null = null;
-
-function getAnswerPhaseTrack(): HTMLAudioElement | null {
-  if (typeof window === 'undefined') return null;
-  if (!_answerPhaseTrack) {
-    _answerPhaseTrack = new Audio('/answeringquestionssong.wav');
-    _answerPhaseTrack.loop = true;
-    _answerPhaseTrack.volume = 0.6;
-  }
-  return _answerPhaseTrack;
-}
-
-export function playFinalMusic(): void {
-  const audio = getFinalTrack();
-  if (!audio) return;
-  if (_finalPauseGuard) audio.removeEventListener('pause', _finalPauseGuard);
-  _finalPauseGuard = () => { audio.play().catch(() => {}); };
-  audio.addEventListener('pause', _finalPauseGuard);
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
-}
-
-export function stopFinalMusic(): void {
-  const audio = getFinalTrack();
-  if (!audio) return;
-  if (_finalPauseGuard) { audio.removeEventListener('pause', _finalPauseGuard); _finalPauseGuard = null; }
-  audio.pause();
-  audio.currentTime = 0;
-}
-
-/** Call this once inside a user-gesture handler so the browser allows
- *  HTMLAudio autoplay for the rest of the session. Only the TV track needs
- *  pre-warming here — all music tracks self-guard against pause races. */
-export function unlockTVAudio(): void {
-  const tv = getTVTrack();
-  if (tv) tv.play().then(() => { tv.pause(); tv.currentTime = 0; }).catch(() => {});
-}
-
-export function playLobbyMusic(): void {
-  const audio = getLobbyTrack();
-  if (!audio) return;
-  // Remove any existing guard before re-attaching
-  if (_lobbyPauseGuard) audio.removeEventListener('pause', _lobbyPauseGuard);
-  // Guard against accidental pauses from TV remote spacebar / media keys
-  _lobbyPauseGuard = () => { audio.play().catch(() => {}); };
-  audio.addEventListener('pause', _lobbyPauseGuard);
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
-}
-
-export function stopLobbyMusic(): void {
-  const audio = getLobbyTrack();
-  if (!audio) return;
-  // Remove guard first so our intentional pause isn't immediately reversed
-  if (_lobbyPauseGuard) {
-    audio.removeEventListener('pause', _lobbyPauseGuard);
-    _lobbyPauseGuard = null;
-  }
-  audio.pause();
-  audio.currentTime = 0;
-}
-
-export function playQuestionsMusic(): void {
-  const audio = getQuestionsTrack();
-  if (!audio) return;
-  if (_questionsPauseGuard) audio.removeEventListener('pause', _questionsPauseGuard);
-  _questionsPauseGuard = () => { audio.play().catch(() => {}); };
-  audio.addEventListener('pause', _questionsPauseGuard);
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
-}
-
-export function stopQuestionsMusic(): void {
-  const audio = getQuestionsTrack();
-  if (!audio) return;
-  if (_questionsPauseGuard) { audio.removeEventListener('pause', _questionsPauseGuard); _questionsPauseGuard = null; }
-  audio.pause();
-  audio.currentTime = 0;
-}
-
-// Module-level singleton for the round intro track.
-let _roundStartTrack: HTMLAudioElement | null = null;
-let _roundStartPauseGuard: (() => void) | null = null;
-
-function getRoundStartTrack(): HTMLAudioElement | null {
-  if (typeof window === 'undefined') return null;
-  if (!_roundStartTrack) {
-    _roundStartTrack = new Audio('/RoundStartSounds.wav');
-    _roundStartTrack.loop = false;
-    _roundStartTrack.volume = 0.7;
-  }
-  return _roundStartTrack;
-}
-
-export function playRoundStartMusic(): void {
-  const audio = getRoundStartTrack();
-  if (!audio) return;
-  if (_roundStartPauseGuard) audio.removeEventListener('pause', _roundStartPauseGuard);
-  _roundStartPauseGuard = () => { audio.play().catch(() => {}); };
-  audio.addEventListener('pause', _roundStartPauseGuard);
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
-}
-
-export function stopRoundStartMusic(): void {
-  const audio = getRoundStartTrack();
-  if (!audio) return;
-  if (_roundStartPauseGuard) { audio.removeEventListener('pause', _roundStartPauseGuard); _roundStartPauseGuard = null; }
-  audio.pause();
-  audio.currentTime = 0;
-}
-
-export function playAnswerPhaseMusic(): void {
-  const audio = getAnswerPhaseTrack();
-  if (!audio) return;
-  if (_answerPauseGuard) audio.removeEventListener('pause', _answerPauseGuard);
-  _answerPauseGuard = () => { audio.play().catch(() => {}); };
-  audio.addEventListener('pause', _answerPauseGuard);
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
-}
-
-export function stopAnswerPhaseMusic(): void {
-  const audio = getAnswerPhaseTrack();
-  if (!audio) return;
-  if (_answerPauseGuard) { audio.removeEventListener('pause', _answerPauseGuard); _answerPauseGuard = null; }
-  audio.pause();
-  audio.currentTime = 0;
+  // Warm buffers for instant start later.
+  (Object.keys(TRACK_SRC) as MusicKey[]).forEach((k) => getEl(k)?.load());
+  getRoundStart()?.load();
 }
 
 export function useGameSounds() {
@@ -227,20 +194,6 @@ export function useGameSounds() {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
     osc.start(now);
     osc.stop(now + 0.2);
-  }, []);
-  // ── Background music (looping audio file during GUESS_PHASE) ────────────
-  const playTick = useCallback(() => {
-    const audio = getTVTrack();
-    if (!audio) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-  }, []);
-
-  const stopTick = useCallback(() => {
-    const audio = getTVTrack();
-    if (!audio) return;
-    audio.pause();
-    audio.currentTime = 0;
   }, []);
 
   // ── Drumroll (white noise, gated rapidly, building gain) ─────────────────
@@ -436,5 +389,5 @@ export function useGameSounds() {
     return () => { try { source.stop(); } catch {} };
   }, []);
 
-  return { playTick, stopTick, playBlink, playBeep, playDrumroll, playReveal, playAwardFanfare, playGameOver, playApplause };
+  return { playBlink, playBeep, playDrumroll, playReveal, playAwardFanfare, playGameOver, playApplause };
 }

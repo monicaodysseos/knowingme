@@ -176,6 +176,7 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
               <div className="flex flex-col gap-1">
                 <input
                   type="text"
+                  className="y2k-input"
                   value={name}
                   onChange={(e) => setName(e.target.value.slice(0, 16))}
                   placeholder="ur name"

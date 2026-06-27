@@ -184,6 +184,7 @@ export default function PhoneQuestionSubmit({ count, onSubmit }: Props) {
       <div className="flex flex-col gap-1">
         <textarea
           key={step}
+          className="y2k-input"
           value={currentValue}
           onChange={(e) => setCurrentValue(e.target.value.slice(0, 80))}
           placeholder="e.g. What is your biggest irrational fear?"

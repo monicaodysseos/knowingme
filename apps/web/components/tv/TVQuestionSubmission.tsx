@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import CountdownRing from './CountdownRing';
 import { Y2K } from '../../lib/y2k';
-import { playQuestionsMusic, stopQuestionsMusic, useGameSounds } from '../../lib/hooks/useGameSounds';
+import { useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
@@ -63,10 +62,6 @@ export default function TVQuestionSubmission({ state }: Props) {
     { n: 4, t: 'everyone guesses' },
   ];
 
-  useEffect(() => {
-    playQuestionsMusic();
-    return stopQuestionsMusic;
-  }, []);
 
   const total = submissionProgress?.total ?? players.length;
   const submitted = submissionProgress?.submitted ?? 0;
