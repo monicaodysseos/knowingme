@@ -14,6 +14,7 @@ import PhoneGuess from '../../components/phone/PhoneGuess';
 import PhoneVoteGuesses from '../../components/phone/PhoneVoteGuesses';
 import PhoneResults from '../../components/phone/PhoneResults';
 import PhoneLayout from '../../components/phone/PhoneLayout';
+import Loader from '../../components/Loader';
 
 // ── Pre-join screen ───────────────────────────────────────────────────────────
 
@@ -118,15 +119,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
               </button>
             </>
           ) : (
-            <>
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                className="w-10 h-10 rounded-full border-4 border-transparent"
-                style={{ borderTopColor: '#F97316' }}
-              />
-              <p className="font-bold text-gray-600">Connecting to room {roomCode}…</p>
-            </>
+            <Loader dark label={`connecting to ${roomCode}…`} />
           )}
         </div>
       </PhoneLayout>
@@ -241,7 +234,7 @@ export default function PlayPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-bg">
-          <div className="text-gray-400 font-bold">Loading…</div>
+          <Loader label="loading…" />
         </div>
       }
     >

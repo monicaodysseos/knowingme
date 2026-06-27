@@ -8,6 +8,7 @@ import { disconnectSocket } from '../../lib/socket';
 import type { GameSettings } from '@ksero-se/types';
 import { unlockAudio, playMusic, stopMusic, playRoundStartSting, stopRoundStartSting, type MusicKey } from '../../lib/hooks/useGameSounds';
 import FitScreen from '../../components/tv/FitScreen';
+import Loader from '../../components/Loader';
 import TVGameSetup from '../../components/tv/TVGameSetup';
 import TVLobby from '../../components/tv/TVLobby';
 import TVQuestionSubmission from '../../components/tv/TVQuestionSubmission';
@@ -114,14 +115,11 @@ export default function TVPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-          className="w-16 h-16 rounded-full border-4 border-transparent"
-          style={{ borderTopColor: '#FF4FB4' }}
-        />
-      </div>
+      <FitScreen>
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>
+          <Loader dark label="creating your room…" />
+        </div>
+      </FitScreen>
     );
   }
 
@@ -214,15 +212,11 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
 
   if (!state) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-bg">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-          className="w-12 h-12 rounded-full border-4 border-transparent"
-          style={{ borderTopColor: '#FF4FB4' }}
-        />
-        <p className="text-gray-400 font-bold">Connecting…</p>
-      </div>
+      <FitScreen>
+        <div className="min-h-screen flex flex-col items-center justify-center">
+          <Loader dark label="connecting…" />
+        </div>
+      </FitScreen>
     );
   }
 
