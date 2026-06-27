@@ -8,6 +8,7 @@ interface Props {
   scores: ScoreEntry[];
   awards?: AwardResult[];
   onPlayAgain?: () => void;
+  isHost?: boolean;
   playerId?: string;
 }
 
@@ -39,7 +40,7 @@ const AWARD_COLORS: Record<string, string> = {
   'best-duo': '#EC4899',
 };
 
-export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: Props) {
+export default function PhoneResults({ scores, awards, onPlayAgain, isHost, playerId }: Props) {
   const myRank = scores.findIndex((s) => s.playerId === playerId) + 1;
   const myScore = scores.find((s) => s.playerId === playerId);
 
@@ -160,6 +161,14 @@ export default function PhoneResults({ scores, awards, onPlayAgain, playerId }: 
           >
             play again ↻
           </motion.button>
+        </div>
+      )}
+
+      {!isHost && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px 24px', background: `linear-gradient(180deg, transparent 0%, ${Y2K.cream} 30%)`, zIndex: 10, textAlign: 'center' }}>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#9CA3AF' }}>
+            waiting for the host to start a new game…
+          </p>
         </div>
       )}
     </div>

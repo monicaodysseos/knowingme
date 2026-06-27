@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
@@ -15,6 +15,83 @@ import PhoneVoteGuesses from '../../components/phone/PhoneVoteGuesses';
 import PhoneResults from '../../components/phone/PhoneResults';
 import PhoneLayout from '../../components/phone/PhoneLayout';
 import Loader from '../../components/Loader';
+import { Y2K } from '../../lib/y2k';
+
+// ── Big chunky Y2K action button (host controls) ──────────────────────────────
+function HostButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="y2k-hover-lift"
+      style={{
+        width: '100%',
+        padding: '18px',
+        borderRadius: 99,
+        fontFamily: Y2K.display,
+        fontWeight: 900,
+        fontSize: 20,
+        color: '#fff',
+        background: disabled ? '#d1d5db' : Y2K.hotPink,
+        border: `3px solid ${Y2K.dark}`,
+        boxShadow: disabled ? 'none' : `0 5px 0 ${Y2K.dark}`,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        letterSpacing: '0.04em',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── Lobby screen on the phone (host sees Start; others wait) ───────────────────
+function PhoneLobby({ isHost, canStart, playerCount, onStart }: { isHost: boolean; canStart: boolean; playerCount: number; onStart: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-center">
+      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 26, color: Y2K.dark }}>
+        {isHost ? "you're the host ★" : "you're in!"}
+      </div>
+      <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#6B7280' }}>
+        {playerCount} player{playerCount === 1 ? '' : 's'} in the lobby
+      </p>
+      {isHost ? (
+        <div className="w-full" style={{ maxWidth: 320 }}>
+          <HostButton
+            label={canStart ? 'start the game ▶' : 'need 2+ players…'}
+            onClick={onStart}
+            disabled={!canStart}
+          />
+        </div>
+      ) : (
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#9CA3AF' }}>
+          waiting for the host to start…
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Round-instructions wait (host can skip) ────────────────────────────────────
+function PhoneIntroWait({ isHost, secondsLeft, onSkip }: { isHost: boolean; secondsLeft: number; onSkip: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-center">
+      <div style={{ fontSize: 54 }}>📺</div>
+      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark }}>
+        read the instructions<br />on the TV
+      </div>
+      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 40, color: Y2K.hotPink }}>
+        {secondsLeft}s
+      </div>
+      {isHost && (
+        <div className="w-full" style={{ maxWidth: 320 }}>
+          <HostButton label="skip intro ⏭" onClick={onSkip} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Pre-join screen ───────────────────────────────────────────────────────────
 
@@ -64,6 +141,8 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     submitGuess,
     submitVote,
     playAgain,
+    hostStart,
+    skipIntro,
   } = usePhoneSocket({
     roomCode,
     name,
@@ -73,29 +152,19 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 
   const accentColor = '#F97316';
 
-  // During TV intro screens (round announcement 2.5s + instruction slide 8s = 10.5s),
-  // show "Look at the TV" instead of the real action so phones are idle while TV plays intros.
-  // Uses a Set (like the TV) so each phase only triggers the intro ONCE, even if the server
-  // re-enters the same phase string on subsequent turns (e.g. GUESS_PHASE → SCORE_PHASE → GUESS_PHASE).
-  const INTRO_PHASES = new Set(['QUESTION_SUBMISSION', 'ANSWER_PHASE', 'GUESS_PHASE']);
-  const INTRO_DURATION_MS = 2500 + 8000;
-  const [showingIntro, setShowingIntro] = useState(false);
-  const shownIntros = useRef(new Set<string>());
-
+  // The round instructions are synced by the server (state.introEndsAt). While
+  // they're showing, phones wait (host can skip). Tick once a second so the
+  // countdown updates and the screen flips to the real task when time's up.
+  const [, setTick] = useState(0);
+  const introEndsAt = state?.introEndsAt ?? 0;
   useEffect(() => {
-    if (!state) return;
-    const phase = state.phase;
-    if (INTRO_PHASES.has(phase) && !shownIntros.current.has(phase)) {
-      shownIntros.current.add(phase);
-      setShowingIntro(true);
-      const t = setTimeout(() => setShowingIntro(false), INTRO_DURATION_MS);
-      return () => clearTimeout(t);
-    }
-    // Entering any other phase (or a re-entered intro phase) always clears the intro flag,
-    // so a cancelled timer never leaves showingIntro stuck at true.
-    setShowingIntro(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.phase]);
+    if (introEndsAt <= Date.now()) return;
+    const iv = setInterval(() => {
+      setTick((t) => t + 1);
+      if (introEndsAt <= Date.now()) clearInterval(iv);
+    }, 500);
+    return () => clearInterval(iv);
+  }, [introEndsAt]);
 
   if (!connected || !state) {
     return (
@@ -127,30 +196,49 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
   }
 
   const { action, timerEnd, phase } = state;
+  const introActive = introEndsAt > Date.now();
+  const introSecondsLeft = Math.max(0, Math.ceil((introEndsAt - Date.now()) / 1000));
+
+  // What screen are we showing? (lobby and intro take priority over the action)
+  const screen = phase === 'LOBBY' ? 'lobby' : introActive ? 'intro' : action.type;
 
   return (
     <PhoneLayout accent={accentColor}>
       <AnimatePresence mode="wait">
         <motion.div
-          key={`${phase}-${showingIntro ? 'intro' : action.type}-${state.turnIndex}`}
+          key={`${phase}-${screen}-${state.turnIndex}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.25, ease: 'easeInOut' }}
           className="flex-1 flex flex-col"
         >
-          {(showingIntro || action.type === 'WAIT') && (
-            <PhoneWaiting message={showingIntro ? 'Look at the TV for instructions you fool!' : (action as { type: 'WAIT'; message: string }).message} />
+          {screen === 'lobby' && (
+            <PhoneLobby
+              isHost={state.isHost}
+              canStart={state.canStart}
+              playerCount={state.playerCount}
+              onStart={hostStart}
+            />
           )}
 
-          {!showingIntro && action.type === 'SUBMIT_QUESTIONS' && (
+          {screen === 'intro' && (
+            <PhoneIntroWait isHost={state.isHost} secondsLeft={introSecondsLeft} onSkip={skipIntro} />
+          )}
+
+          {screen === 'WAIT' && (
+            <PhoneWaiting message={(action as { type: 'WAIT'; message: string }).message} />
+          )}
+
+          {screen === 'SUBMIT_QUESTIONS' && action.type === 'SUBMIT_QUESTIONS' && (
             <PhoneQuestionSubmit
+              roomCode={roomCode}
               count={action.count}
               onSubmit={(qs, onAck) => submitQuestions(qs, onAck)}
             />
           )}
 
-          {!showingIntro && action.type === 'ANSWER_QUESTION' && (
+          {screen === 'ANSWER_QUESTION' && action.type === 'ANSWER_QUESTION' && (
             <PhoneAnswer
               assignmentId={action.assignmentId}
               questionText={action.questionText}
@@ -162,7 +250,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {!showingIntro && action.type === 'SUBMIT_GUESS' && (
+          {screen === 'SUBMIT_GUESS' && action.type === 'SUBMIT_GUESS' && (
             <PhoneGuess
               subjectName={action.subjectName}
               subjectColor={action.subjectColor}
@@ -172,7 +260,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {!showingIntro && action.type === 'VOTE_GUESSES' && (
+          {screen === 'VOTE_GUESSES' && action.type === 'VOTE_GUESSES' && (
             <PhoneVoteGuesses
               questionText={action.questionText}
               subjectName={action.subjectName}
@@ -183,11 +271,12 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             />
           )}
 
-          {!showingIntro && action.type === 'VIEW_RESULTS' && (
+          {screen === 'VIEW_RESULTS' && action.type === 'VIEW_RESULTS' && (
             <PhoneResults
               scores={action.scores}
               awards={action.awards}
-              onPlayAgain={playAgain}
+              onPlayAgain={state.isHost ? playAgain : undefined}
+              isHost={state.isHost}
               playerId={playerId ?? undefined}
             />
           )}

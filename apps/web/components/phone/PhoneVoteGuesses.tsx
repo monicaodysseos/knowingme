@@ -1,15 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { PlayerColor, PlayerCharacter } from '@ksero-se/types';
-import Y2KAvatar from '../tv/Y2KAvatar';
+import type { PlayerColor } from '@ksero-se/types';
 import { Y2K } from '../../lib/y2k';
 
+// Anonymous during voting — the subject judges the text without seeing who
+// wrote it. Names are revealed on the TV afterwards.
 interface Guess {
   id: string;
-  guesserName: string;
-  guesserColor: PlayerColor;
-  guesserAvatar: PlayerCharacter;
   text: string;
 }
 
@@ -117,7 +115,7 @@ export default function PhoneVoteGuesses({
 
       {/* Guess cards */}
       <div className="flex flex-col gap-3">
-        {guesses.map((g) => {
+        {guesses.map((g, gi) => {
           const decision = decisions[g.id];
           return (
             <div
@@ -138,11 +136,8 @@ export default function PhoneVoteGuesses({
                 }`,
               }}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Y2KAvatar avatar={g.guesserAvatar} size={28} />
-                <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 14, color: g.guesserColor.hex, WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
-                  {g.guesserName}
-                </span>
+              <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                guess #{gi + 1}
               </div>
               <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: Y2K.dark, marginBottom: 10, lineHeight: 1.3 }}>
                 &ldquo;{g.text}&rdquo;

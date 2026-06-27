@@ -37,7 +37,8 @@ function BlobDeco({ size = 60, color = Y2K.cyan, x = 0, y = 0, rotate = 0 }: { s
 export default function TVIntroWrite({ state }: Props) {
   const { players, settings } = state;
   const qw = settings.questionsToWrite;
-  const qa = settings.questionsToAnswer;
+  // With "ask every question", each player answers ~the number they wrote.
+  const qa = settings.questionsToWrite;
 
   return (
     <motion.div

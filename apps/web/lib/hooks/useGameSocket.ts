@@ -152,6 +152,19 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     };
   }, [doJoin]); // re-runs only when roomCode or name change
 
+  // When the player returns to the tab (mobile browsers often drop the socket
+  // while backgrounded), reconnect immediately so they're restored to their
+  // place rather than left on a stale "connecting" screen.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const socket = getSocket();
+      if (!socket.connected) socket.connect();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   const submitQuestions = useCallback(
     (questions: string[], onAck?: (ok: boolean, error?: string) => void) => {
       getSocket().emit('submit:questions', questions, (res?: { ok: boolean; error?: string }) => {
@@ -181,6 +194,16 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     getSocket().emit('play:again');
   }, []);
 
+  const hostStart = useCallback(() => {
+    getSocket().emit('host:start', (res?: { ok: boolean; error?: string }) => {
+      if (res && !res.ok) console.warn('[hostStart] server rejected:', res.error);
+    });
+  }, []);
+
+  const skipIntro = useCallback(() => {
+    getSocket().emit('skip:intro');
+  }, []);
+
   return {
     state,
     connected,
@@ -191,5 +214,7 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     submitGuess,
     submitVote,
     playAgain,
+    hostStart,
+    skipIntro,
   };
 }

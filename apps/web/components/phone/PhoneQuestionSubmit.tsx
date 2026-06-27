@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { EXAMPLE_PROMPTS } from '@ksero-se/types';
 import { Y2K } from '../../lib/y2k';
 
 interface Props {
+  roomCode: string;
   count: number;
   onSubmit: (questions: string[], onAck?: (ok: boolean, error?: string) => void) => void;
 }
@@ -27,12 +28,44 @@ function Sticker({ color, r = 14, rotate = 0, style = {}, children }: { color: s
   );
 }
 
-export default function PhoneQuestionSubmit({ count, onSubmit }: Props) {
-  const [step, setStep] = useState(1); // 1-based, up to count
-  const [questions, setQuestions] = useState<string[]>(() => Array(count).fill(''));
+// Restore an in-progress draft so switching tabs / a dropped socket doesn't
+// wipe progress. Read synchronously on mount — this component only renders once
+// the socket is connected (never during SSR), so localStorage is safe here.
+function readDraft(key: string, count: number): { step: number; questions: string[] } {
+  const empty = { step: 1, questions: Array(count).fill('') as string[] };
+  if (typeof window === 'undefined') return empty;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return empty;
+    const d = JSON.parse(raw) as { step?: number; questions?: string[] };
+    const questions = Array(count).fill('') as string[];
+    if (Array.isArray(d.questions)) d.questions.slice(0, count).forEach((q, i) => { questions[i] = String(q ?? '').slice(0, 80); });
+    const step = typeof d.step === 'number' ? Math.min(Math.max(1, d.step), count) : 1;
+    return { step, questions };
+  } catch {
+    return empty;
+  }
+}
+
+export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props) {
+  const draftKey = `ksero-${roomCode}-qdraft`;
+  const [step, setStep] = useState(() => readDraft(draftKey, count).step);
+  const [questions, setQuestions] = useState<string[]>(() => readDraft(draftKey, count).questions);
   const [submitted, setSubmitted] = useState(false);
   const [serverOk, setServerOk] = useState<boolean | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Persist on every change (until confirmed); clear once the server accepts.
+  useEffect(() => {
+    if (submitted) return;
+    try { localStorage.setItem(draftKey, JSON.stringify({ step, questions })); } catch {}
+  }, [step, questions, submitted, draftKey]);
+
+  useEffect(() => {
+    if (serverOk === true) {
+      try { localStorage.removeItem(draftKey); } catch {}
+    }
+  }, [serverOk, draftKey]);
 
   const currentValue = questions[step - 1] ?? '';
   const setCurrentValue = (v: string) => {
@@ -200,20 +233,6 @@ export default function PhoneQuestionSubmit({ count, onSubmit }: Props) {
         <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>{currentValue.length}/80</span>
       </div>
 
-      {/* Surprise me */}
-      <button
-        type="button"
-        onClick={surpriseMe}
-        style={{
-          width: '100%', padding: '14px', borderRadius: 99,
-          fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: Y2K.dark,
-          background: Y2K.yellow, border: `2.5px solid ${Y2K.dark}`,
-          boxShadow: `0 4px 0 ${Y2K.dark}`, cursor: 'pointer', letterSpacing: '0.05em',
-        }}
-      >
-        surprise me ✦
-      </button>
-
       {/* Next / Submit */}
       <button
         type="button"
@@ -233,6 +252,21 @@ export default function PhoneQuestionSubmit({ count, onSubmit }: Props) {
         }}
       >
         {isLast ? 'send it ✦' : `next → q${step + 1}`}
+      </button>
+
+      {/* Generate a question (below, smaller) */}
+      <button
+        type="button"
+        onClick={surpriseMe}
+        disabled={submitted}
+        style={{
+          width: '100%', padding: '12px', borderRadius: 99,
+          fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: Y2K.dark,
+          background: Y2K.yellow, border: `2.5px solid ${Y2K.dark}`,
+          boxShadow: `0 3px 0 ${Y2K.dark}`, cursor: 'pointer', letterSpacing: '0.02em',
+        }}
+      >
+        Can&apos;t think of a question? Generate one here ✦
       </button>
     </div>
   );

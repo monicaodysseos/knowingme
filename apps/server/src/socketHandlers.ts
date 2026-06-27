@@ -9,7 +9,7 @@ import {
   sendCurrentState,
 } from './roomManager';
 import { saveSession, resolveSession } from './redis';
-import { TIMER } from './machine';
+import { TIMER, INTRO_MS } from './machine';
 import type { JoinPayload, JoinAck } from '@ksero-se/types';
 
 // ── Room creation endpoint (HTTP) ─ see index.ts ──────────────────────────
@@ -200,6 +200,12 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    // Input is gated while the round instructions are still showing.
+    if (entry.actor.getSnapshot().context.introEndsAt > Date.now()) {
+      ack?.({ ok: false, error: 'Read the instructions first…' });
+      return;
+    }
+
     const required = entry.actor.getSnapshot().context.settings.questionsToWrite;
     const qs = questions
       .map((q: string) => q.trim().slice(0, 80))
@@ -232,6 +238,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
+    if (entry.actor.getSnapshot().context.introEndsAt > Date.now()) return;
 
     entry.actor.send({
       type: 'SUBMIT_ANSWER',
@@ -250,6 +257,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
+    if (entry.actor.getSnapshot().context.introEndsAt > Date.now()) return;
 
     entry.actor.send({ type: 'SUBMIT_GUESS', playerId, text: (text ?? '').trim().slice(0, 120) });
 
@@ -322,6 +330,29 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     // TV (role === 'tv') always allowed; player sockets must be the host
     if (role !== 'tv' && ctx.hostId !== playerId) return;
     entry.actor.send({ type: 'PLAY_AGAIN' });
+  });
+
+  // ── Skip the round instructions (host only) ───────────────────────────────
+  socket.on('skip:intro', () => {
+    const { roomCode, playerId, role } = socket.data ?? {};
+    const entry = getRoom(roomCode);
+    if (!entry) return;
+    const ctx = entry.actor.getSnapshot().context;
+    if (role !== 'tv' && ctx.hostId !== playerId) return;
+    if (!(ctx.introEndsAt > Date.now())) return; // no active intro
+
+    entry.actor.send({ type: 'SKIP_INTRO' });
+
+    // For the short guess phase, restart the guess countdown so the full guess
+    // window begins now that the instructions are dismissed.
+    if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
+      setRoomTimer(io, roomCode, 'guess', TIMER.GUESS, () => {
+        const e = getRoom(roomCode);
+        if (!e) return;
+        e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
+        startReveal(io, roomCode);
+      });
+    }
   });
 
   // ── Disconnect ───────────────────────────────────────────────────────────
@@ -404,7 +435,10 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
     return;
   }
 
-  setRoomTimer(io, roomCode, 'guess', TIMER.GUESS, () => {
+  // The first guess turn shows the round instructions first, so its timer
+  // includes the intro window (host can skip, which restarts the timer).
+  const introOffset = ctx.currentTurnIndex === 0 ? INTRO_MS : 0;
+  setRoomTimer(io, roomCode, 'guess', introOffset + TIMER.GUESS, () => {
     const e = getRoom(roomCode);
     if (!e) return;
     e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });

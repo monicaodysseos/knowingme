@@ -116,7 +116,7 @@ export default function TVRevealPhase({ state }: Props) {
           what everyone guessed
         </div>
         <AnimatePresence>
-          {visibleGuesses.map((g) => (
+          {visibleGuesses.map((g, i) => (
             <motion.div
               key={g.id}
               initial={{ x: 60, opacity: 0, scale: 0.95 }}
@@ -134,10 +134,22 @@ export default function TVRevealPhase({ state }: Props) {
                 opacity: g.isCorrect === false ? 0.75 : 1,
               }}
             >
-              <Y2KAvatar avatar={g.guesserAvatar} size={36} />
-              <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(14px, 1.5vw, 22px)', color: g.guesserColor.hex, minWidth: '8vw', WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
-                {g.guesserName}
-              </span>
+              {/* Identity stays hidden until the subject has voted on this guess. */}
+              {g.isCorrect === undefined ? (
+                <>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E5E7EB', border: `2px solid ${Y2K.dark}`, display: 'grid', placeItems: 'center', fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark, flexShrink: 0 }}>?</div>
+                  <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(14px, 1.5vw, 22px)', color: '#9CA3AF', minWidth: '8vw', WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
+                    guess #{i + 1}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Y2KAvatar avatar={g.guesserAvatar} size={36} />
+                  <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(14px, 1.5vw, 22px)', color: g.guesserColor.hex, minWidth: '8vw', WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
+                    {g.guesserName}
+                  </span>
+                </>
+              )}
               <span style={{ flex: 1, fontFamily: Y2K.body, fontWeight: 700, fontSize: 'clamp(14px, 1.5vw, 22px)', color: Y2K.dark, textAlign: 'right', textDecoration: g.isCorrect === false ? 'line-through' : 'none', textDecorationColor: 'rgba(11,4,41,0.4)' }}>
                 &ldquo;{g.text}&rdquo;
               </span>

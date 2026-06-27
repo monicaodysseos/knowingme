@@ -25,8 +25,14 @@ export const TIMER = {
   GUESS: 60_000,                // 60 s per guess turn
 };
 
-const POINTS_CORRECT_GUESS = 200;
-const POINTS_KNOWABLE = 100;
+// How long the round instructions show before the first turn of a phase.
+export const INTRO_MS = 60_000; // 1 min, skippable by the host
+
+// Per-round scoring: a 100-point pool is split evenly among everyone who
+// guessed correctly, and the subject earns a "knowable" bonus for being guessed.
+const ROUND_POOL = 100;
+const SUBJECT_BONUS_PER_CORRECT = 25;
+const SUBJECT_BONUS_CAP = 100;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -58,32 +64,38 @@ function assignQuestions(
   players: Player[],
   pool: Question[],
   _mode: GameMode,
-  questionsToAnswer: number,
+  _questionsToAnswer: number,
 ): QuestionAssignment[] {
-  // Only use player-submitted questions.
-  // Each player gets their own independent shuffle so question order differs per player.
+  // Assign EVERY player-submitted question to exactly one player so they all
+  // get asked. Each question goes to a non-author, balanced as evenly as
+  // possible across players (the least-loaded eligible player answers it).
   const submitted = pool.filter((q) => q.submittedByPlayerId !== undefined);
-  if (submitted.length === 0) return [];
+  if (submitted.length === 0 || players.length === 0) return [];
+
+  const counts: Record<string, number> = {};
+  players.forEach((p) => { counts[p.id] = 0; });
 
   const assignments: QuestionAssignment[] = [];
-  players.forEach((player) => {
-    // Shuffle the full pool, then stable-partition so the player's own questions
-    // are pushed to the end — they'll only be used if there aren't enough others.
-    const shuffled = shuffle(submitted);
-    const othersFirst = [
-      ...shuffled.filter((q) => q.submittedByPlayerId !== player.id),
-      ...shuffled.filter((q) => q.submittedByPlayerId === player.id),
-    ];
-    const count = Math.min(questionsToAnswer, othersFirst.length);
-    for (let j = 0; j < count; j++) {
-      assignments.push({
-        id: uuidv4(),
-        questionId: othersFirst[j].id,
-        questionText: othersFirst[j].text,
-        assignedToPlayerId: player.id,
-      });
-    }
-  });
+  // Shuffle the questions so the round order is random each game.
+  for (const q of shuffle(submitted)) {
+    // Prefer players who didn't write this question; only fall back to the
+    // author if literally nobody else exists (e.g. a single-player edge case).
+    let eligible = players.filter((p) => p.id !== q.submittedByPlayerId);
+    if (eligible.length === 0) eligible = [...players];
+
+    // Pick the least-loaded eligible player, breaking ties randomly.
+    const minCount = Math.min(...eligible.map((p) => counts[p.id]));
+    const leastLoaded = shuffle(eligible.filter((p) => counts[p.id] === minCount));
+    const chosen = leastLoaded[0];
+
+    counts[chosen.id] += 1;
+    assignments.push({
+      id: uuidv4(),
+      questionId: q.id,
+      questionText: q.text,
+      assignedToPlayerId: chosen.id,
+    });
+  }
 
   return assignments;
 }
@@ -220,11 +232,17 @@ function applyScores(
 
   const updated = { ...ctx.scores };
 
-  for (const g of turn.guesses) {
-    if (g.isCorrect) {
-      updated[g.guesserPlayerId] = (updated[g.guesserPlayerId] ?? 0) + POINTS_CORRECT_GUESS * mul;
-      updated[turn.subjectPlayerId] = (updated[turn.subjectPlayerId] ?? 0) + POINTS_KNOWABLE * mul;
+  const correct = turn.guesses.filter((g) => g.isCorrect);
+  if (correct.length > 0) {
+    // The round's 100-point pool is split evenly among correct guessers.
+    const each = Math.round((ROUND_POOL * mul) / correct.length);
+    for (const g of correct) {
+      updated[g.guesserPlayerId] = (updated[g.guesserPlayerId] ?? 0) + each;
     }
+    // The subject earns a "knowable" bonus that grows with how many people
+    // guessed them right (capped), rewarding being predictable.
+    const subjectBonus = Math.min(SUBJECT_BONUS_PER_CORRECT * correct.length, SUBJECT_BONUS_CAP) * mul;
+    updated[turn.subjectPlayerId] = (updated[turn.subjectPlayerId] ?? 0) + subjectBonus;
   }
 
   return updated;
@@ -261,6 +279,7 @@ export function initialContext(roomCode: string, mode: GameMode, settings?: Game
     currentTurnIndex: 0,
     currentQuestionSlot: 0,
     timerEnd: 0,
+    introEndsAt: 0,
     scores: {},
     roundDeltas: {},
     duoMatrix: {},
@@ -486,6 +505,31 @@ export const gameMachine = setup({
       timerEnd: (_, params: { duration: number }) => Date.now() + params.duration,
     }),
 
+    // Round instructions: show for INTRO_MS, skippable by the host.
+    startIntro: assign({
+      introEndsAt: () => Date.now() + INTRO_MS,
+    }),
+
+    clearIntro: assign({
+      introEndsAt: () => 0,
+    }),
+
+    // Skipping the guess intro also restarts the (short) guess countdown so
+    // players get the full guess time once the instructions are dismissed.
+    clearIntroResetGuess: assign({
+      introEndsAt: () => 0,
+      timerEnd: () => Date.now() + TIMER.GUESS,
+    }),
+
+    // Entering a guess turn: only the very first turn gets the instructions
+    // intro; the timer accounts for the intro so the 60 s guess window is full.
+    enterGuess: assign({
+      introEndsAt: ({ context }) =>
+        context.currentTurnIndex === 0 ? Date.now() + INTRO_MS : 0,
+      timerEnd: ({ context }) =>
+        Date.now() + (context.currentTurnIndex === 0 ? INTRO_MS : 0) + TIMER.GUESS,
+    }),
+
     recordGuess: assign({
       playerTurns: ({ context, event }) => {
         if (event.type !== 'SUBMIT_GUESS') return context.playerTurns;
@@ -600,13 +644,14 @@ export const gameMachine = setup({
     },
 
     QUESTION_SUBMISSION: {
-      entry: {
-        type: 'setTimer',
-        params: { duration: TIMER.QUESTION_SUBMISSION },
-      },
+      entry: [
+        { type: 'setTimer', params: { duration: TIMER.QUESTION_SUBMISSION } },
+        'startIntro',
+      ],
       on: {
         PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
+        SKIP_INTRO: { actions: 'clearIntro' },
         SUBMIT_QUESTIONS: {
           actions: 'recordQuestions',
         },
@@ -623,13 +668,14 @@ export const gameMachine = setup({
     },
 
     ANSWER_PHASE: {
-      entry: {
-        type: 'setTimer',
-        params: { duration: TIMER.ANSWER_PHASE },
-      },
+      entry: [
+        { type: 'setTimer', params: { duration: TIMER.ANSWER_PHASE } },
+        'startIntro',
+      ],
       on: {
         PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
+        SKIP_INTRO: { actions: 'clearIntro' },
         SUBMIT_ANSWER: {
           actions: 'recordAnswer',
         },
@@ -645,13 +691,11 @@ export const gameMachine = setup({
     },
 
     GUESS_PHASE: {
-      entry: {
-        type: 'setTimer',
-        params: { duration: TIMER.GUESS },
-      },
+      entry: 'enterGuess',
       on: {
         PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
+        SKIP_INTRO: { actions: 'clearIntroResetGuess' },
         SUBMIT_GUESS: {
           actions: 'recordGuess',
         },

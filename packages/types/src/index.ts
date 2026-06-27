@@ -137,6 +137,7 @@ export interface GameContext {
   currentTurnIndex: number;
   currentQuestionSlot: number; // 0–4 during ANSWER_PHASE
   timerEnd: number;            // unix ms
+  introEndsAt: number;         // unix ms — round instructions show while > now (0 = none)
   scores: Record<string, number>;
   roundDeltas: Record<string, number>; // points earned in the most recent scored turn
   duoMatrix: DuoMatrix;
@@ -163,6 +164,7 @@ export type GameEvent =
   | { type: 'ALL_GUESSES_MARKED' }
   | { type: 'ADVANCE_REVEAL' }
   | { type: 'NEXT_TURN' }
+  | { type: 'SKIP_INTRO' }
   | { type: 'PLAY_AGAIN' };
 
 // ── Socket payload types ───────────────────────────────────────────────────
@@ -200,6 +202,7 @@ export interface TVState {
     }>;
     answer?: string;   // only populated during REVEAL_PHASE
     revealIndex: number;
+    namesRevealed: boolean; // false while voting (guesses anonymous), true once scored
   };
   awards?: AwardResult[];
   submissionProgress?: {
@@ -208,6 +211,7 @@ export interface TVState {
   };
   isRoundEnd?: boolean;   // true if next turn is a different subject (or no more turns)
   isLastRound?: boolean;  // true if no more turns remain after this one (→ FINAL_AWARDS next)
+  introEndsAt?: number;   // unix ms — while > now, show the round instructions slide
 }
 
 // What a phone client receives
@@ -217,6 +221,10 @@ export interface PhoneState {
   timerEnd: number;
   action: PhoneAction;
   turnIndex: number;  // current turn index — used as a remount key on the phone
+  isHost: boolean;        // this player is the host (shows Start / Play Again / Skip)
+  playerCount: number;    // players joined (for the lobby start button)
+  canStart: boolean;      // enough players to start the game
+  introEndsAt: number;    // unix ms — while > now, the round instructions are showing
 }
 
 export type PhoneAction =
@@ -230,11 +238,10 @@ export type PhoneAction =
       subjectName: string;
       subjectColor: PlayerColor;
       answer: string;
+      // Guesser identity is intentionally omitted here — the subject votes on the
+      // anonymous guess text first; names are revealed afterwards on the TV.
       guesses: Array<{
         id: string;
-        guesserName: string;
-        guesserColor: PlayerColor;
-        guesserAvatar: PlayerCharacter;
         text: string;
       }>;
     }
@@ -252,6 +259,7 @@ export const SOCKET_EVENTS = {
   SUBMIT_VOTE: 'submit:vote',
   RECONNECT_TOKEN: 'reconnect:token',
   PLAY_AGAIN: 'play:again',
+  SKIP_INTRO: 'skip:intro',
 
   // server → client
   TV_UPDATE: 'tv:update',

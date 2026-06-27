@@ -165,6 +165,8 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         ? currentTurn.answer
         : undefined,
       revealIndex: ctx.revealIndex,
+      // Guesser identities stay hidden through voting; revealed once scored.
+      namesRevealed: phase === 'SCORE_PHASE',
     };
   }
 
@@ -219,6 +221,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
     submissionProgress,
     isRoundEnd,
     isLastRound,
+    introEndsAt: ctx.introEndsAt || undefined,
   };
 
   io.to(`tv:${roomCode}`).emit('tv:update', tvState);
@@ -313,11 +316,10 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
               subjectName,
               subjectColor: subjectPlayerObj?.color ?? ctx.players[0].color,
               answer: currentTurn.answer,
+              // Anonymous: the subject votes on the guess text without seeing
+              // who wrote each one (names are revealed on the TV afterwards).
               guesses: currentTurn.guesses.map((g) => ({
                 id: g.id,
-                guesserName: g.guesserName,
-                guesserColor: g.guesserColor,
-                guesserAvatar: ctx.players.find((p) => p.id === g.guesserPlayerId)?.avatar ?? 'blob',
                 text: g.text,
               })),
             };
@@ -349,6 +351,10 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       timerEnd: ctx.timerEnd,
       action,
       turnIndex: ctx.currentTurnIndex,
+      isHost: player.isHost,
+      playerCount: ctx.players.length,
+      canStart: ctx.players.length >= Math.min(2, ctx.settings.maxPlayers),
+      introEndsAt: ctx.introEndsAt || 0,
     };
 
     io.to(`player:${player.socketId}`).emit('phone:update', phoneState);

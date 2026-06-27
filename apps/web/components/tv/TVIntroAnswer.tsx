@@ -35,7 +35,8 @@ function BlobDeco({ size = 60, color = Y2K.pink, x = 0, y = 0, rotate = 0 }: { s
 }
 
 export default function TVIntroAnswer({ state }: Props) {
-  const qa = state.settings.questionsToAnswer;
+  // With "ask every question", each player answers ~the number they wrote.
+  const qa = state.settings.questionsToWrite;
   // Compact envelope sizing for large counts
   const envW = qa > 6 ? 58 : 82;
   const envH = qa > 6 ? 40 : 56;

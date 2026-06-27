@@ -26,9 +26,9 @@ function Heart({ size = 24, color = Y2K.yellow, x = 0, y = 0, rotate = 0 }: { si
 }
 
 const SCORE_ROWS = [
-  { pts: '+200', label: 'you guess right', color: Y2K.yellow },
-  { pts: '+100', label: 'someone guesses you', color: Y2K.cyan },
-  { pts: '0',    label: 'nobody guesses you', color: '#fff' },
+  { pts: '100', label: 'split between everyone who guesses right', color: Y2K.yellow },
+  { pts: '+', label: 'bonus for being guessed (knowable)', color: Y2K.cyan },
+  { pts: '0',    label: 'nobody guesses right', color: '#fff' },
 ];
 
 export default function TVIntroGuess({ state }: Props) {

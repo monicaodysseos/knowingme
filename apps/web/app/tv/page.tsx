@@ -147,48 +147,50 @@ export default function TVPage() {
 function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string; onRoomExpired: () => void; audioUnlocked: boolean }) {
   const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
 
-  // For each phase, show: round announcement (2.5s) → instruction slide (8s) → game UI
-  const [introPhase, setIntroPhase] = useState<string | null>(null);
-  const shownIntros = useRef(new Set<string>());
-
   const ROUND_MAP: Record<string, 1 | 2 | 3> = {
     QUESTION_SUBMISSION: 1,
     ANSWER_PHASE: 2,
     GUESS_PHASE: 3,
   };
+  const INTRO_TOTAL_MS = 60_000; // must match the server's INTRO_MS
 
+  // The round instructions are synced by the server (state.introEndsAt). Tick
+  // so the slide shows for the right duration and flips to the game when it
+  // ends or the host skips. The first ~2.5s shows a punchy round announcement.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const introEndsAt = state?.introEndsAt ?? 0;
+  useEffect(() => {
+    setNowMs(Date.now());
+    if (introEndsAt <= Date.now()) return;
+    const iv = setInterval(() => {
+      const t = Date.now();
+      setNowMs(t);
+      if (introEndsAt <= t) clearInterval(iv);
+    }, 300);
+    return () => clearInterval(iv);
+  }, [introEndsAt]);
+
+  const introActive = introEndsAt > nowMs;
+  const showAnnounce = introActive && introEndsAt - nowMs > INTRO_TOTAL_MS - 2500;
+
+  // Play the round-start sting once when each phase's instructions begin.
+  const stung = useRef(new Set<string>());
   useEffect(() => {
     if (!state) return;
-    const phase = state.phase;
-    const round = ROUND_MAP[phase];
-    if (!round || shownIntros.current.has(phase)) return;
-
-    shownIntros.current.add(phase);
-    setIntroPhase(`round-${round}`);
-
-    const t1 = setTimeout(() => {
-      setIntroPhase(phase);
+    if (state.phase === 'LOBBY') stung.current.clear();
+    if (introActive && !stung.current.has(state.phase)) {
+      stung.current.add(state.phase);
       playRoundStartSting();
-    }, 2500);
-
-    const t2 = setTimeout(() => {
-      setIntroPhase(null);
-      stopRoundStartSting();
-    }, 2500 + 8000);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      stopRoundStartSting();
-    };
+    }
+    if (!introActive) stopRoundStartSting();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.phase]);
+  }, [state?.phase, introActive]);
 
   // ── Single owner of looping background music ────────────────────────────
-  // While an intro slide is showing we stay silent (the round sting covers it);
+  // While the instructions show we stay silent (the round sting covers it);
   // otherwise the current phase decides the track. `playMusic` is idempotent,
   // so frequent state updates within a phase never restart or double the song.
-  const desiredMusic: MusicKey | null = introPhase
+  const desiredMusic: MusicKey | null = introActive
     ? null
     : (state ? MUSIC_BY_PHASE[state.phase] ?? null : null);
 
@@ -220,7 +222,9 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
     );
   }
 
-  const displayKey = introPhase ? `intro-${introPhase}` : state.phase;
+  const introRound = ROUND_MAP[state.phase];
+  const displayKey = introActive ? `intro-${showAnnounce ? 'a-' : ''}${state.phase}` : state.phase;
+  const introSecondsLeft = Math.max(0, Math.ceil((introEndsAt - nowMs) / 1000));
 
   return (
     <FitScreen>
@@ -231,35 +235,48 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 1.02 }}
         transition={{ duration: 0.35, ease: 'easeInOut' }}
+        style={{ position: 'relative' }}
       >
-        {/* Round announcements (2.5s) then instruction slides (8s) before each phase */}
-        {introPhase === 'round-1' && <TVRoundAnnouncement round={1} />}
-        {introPhase === 'round-2' && <TVRoundAnnouncement round={2} />}
-        {introPhase === 'round-3' && <TVRoundAnnouncement round={3} />}
-        {introPhase === 'QUESTION_SUBMISSION' && <TVIntroWrite state={state} />}
-        {introPhase === 'ANSWER_PHASE' && <TVIntroAnswer state={state} />}
-        {introPhase === 'GUESS_PHASE' && <TVIntroGuess state={state} />}
+        {/* Round instructions (server-synced, 1 min, host-skippable): a brief
+            announcement then the detailed slide. */}
+        {introActive && showAnnounce && introRound && <TVRoundAnnouncement round={introRound} />}
+        {introActive && !showAnnounce && state.phase === 'QUESTION_SUBMISSION' && <TVIntroWrite state={state} />}
+        {introActive && !showAnnounce && state.phase === 'ANSWER_PHASE' && <TVIntroAnswer state={state} />}
+        {introActive && !showAnnounce && state.phase === 'GUESS_PHASE' && <TVIntroGuess state={state} />}
+
+        {introActive && !showAnnounce && (
+          <div style={{ position: 'absolute', bottom: '3vh', left: 0, right: 0, textAlign: 'center', zIndex: 50, pointerEvents: 'none' }}>
+            <span style={{
+              fontFamily: "var(--font-space-grotesk), sans-serif", fontWeight: 700,
+              fontSize: 'clamp(12px, 1.6vw, 20px)', color: '#0b0429',
+              background: 'rgba(255,255,255,0.82)', padding: '7px 18px', borderRadius: 999,
+              border: '2px solid #0b0429', boxShadow: '0 3px 0 rgba(11,4,41,0.35)',
+            }}>
+              starts in {introSecondsLeft}s · host can skip on their phone
+            </span>
+          </div>
+        )}
 
         {/* Normal game phases */}
-        {!introPhase && state.phase === 'LOBBY' && (
+        {!introActive && state.phase === 'LOBBY' && (
           <TVLobby state={state} onStart={hostStart} />
         )}
-        {!introPhase && state.phase === 'QUESTION_SUBMISSION' && (
+        {!introActive && state.phase === 'QUESTION_SUBMISSION' && (
           <TVQuestionSubmission state={state} />
         )}
-        {!introPhase && state.phase === 'ANSWER_PHASE' && (
+        {!introActive && state.phase === 'ANSWER_PHASE' && (
           <TVAnswerPhase state={state} />
         )}
-        {!introPhase && state.phase === 'GUESS_PHASE' && (
+        {!introActive && state.phase === 'GUESS_PHASE' && (
           <TVGuessPhase state={state} />
         )}
-        {!introPhase && state.phase === 'REVEAL_PHASE' && (
+        {!introActive && state.phase === 'REVEAL_PHASE' && (
           <TVRevealPhase state={state} />
         )}
-        {!introPhase && state.phase === 'SCORE_PHASE' && (
+        {!introActive && state.phase === 'SCORE_PHASE' && (
           <TVScorePhase state={state} />
         )}
-        {!introPhase && (state.phase === 'FINAL_AWARDS' || state.phase === 'GAME_OVER') && (
+        {!introActive && (state.phase === 'FINAL_AWARDS' || state.phase === 'GAME_OVER') && (
           <TVFinalAwards state={state} onPlayAgain={playAgain} />
         )}
       </motion.div>
