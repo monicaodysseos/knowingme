@@ -7,6 +7,7 @@ import { useTVSocket } from '../../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../../lib/socket';
 import type { GameSettings } from '@ksero-se/types';
 import { unlockAudio, playMusic, stopMusic, playRoundStartSting, stopRoundStartSting, type MusicKey } from '../../lib/hooks/useGameSounds';
+import FitScreen from '../../components/tv/FitScreen';
 import TVGameSetup from '../../components/tv/TVGameSetup';
 import TVLobby from '../../components/tv/TVLobby';
 import TVQuestionSubmission from '../../components/tv/TVQuestionSubmission';
@@ -108,7 +109,7 @@ export default function TVPage() {
 
   // Show setup screen first (unless restoring session or loading/error)
   if (!setupDone && !roomCode && !loading && !error) {
-    return <TVGameSetup onConfirm={handleConfirmSetup} />;
+    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} /></FitScreen>;
   }
 
   if (loading) {
@@ -228,6 +229,7 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
   const displayKey = introPhase ? `intro-${introPhase}` : state.phase;
 
   return (
+    <FitScreen>
     <AnimatePresence mode="wait">
       <motion.div
         key={displayKey}
@@ -268,5 +270,6 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
         )}
       </motion.div>
     </AnimatePresence>
+    </FitScreen>
   );
 }
