@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
 import { disconnectSocket } from '../../lib/socket';
@@ -14,11 +13,9 @@ import TVLobby from '../../components/tv/TVLobby';
 import TVQuestionSubmission from '../../components/tv/TVQuestionSubmission';
 import TVAnswerPhase from '../../components/tv/TVAnswerPhase';
 import TVGuessPhase from '../../components/tv/TVGuessPhase';
-// Heavy, later-game screens — code-split so they don't weigh down the initial
-// lobby load. They're only needed once their phase arrives.
-const TVRevealPhase = dynamic(() => import('../../components/tv/TVRevealPhase'), { ssr: false });
-const TVScorePhase = dynamic(() => import('../../components/tv/TVScorePhase'), { ssr: false });
-const TVFinalAwards = dynamic(() => import('../../components/tv/TVFinalAwards'), { ssr: false });
+import TVRevealPhase from '../../components/tv/TVRevealPhase';
+import TVScorePhase from '../../components/tv/TVScorePhase';
+import TVFinalAwards from '../../components/tv/TVFinalAwards';
 import TVIntroWrite from '../../components/tv/TVIntroWrite';
 import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
 import TVIntroGuess from '../../components/tv/TVIntroGuess';
