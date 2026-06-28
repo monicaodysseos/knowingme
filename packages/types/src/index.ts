@@ -11,6 +11,7 @@ export interface GameSettings {
   maxPlayers: number;         // 2–12, default 8
   questionsToWrite: number;   // 1–5,  default 2
   questionsToAnswer: number;  // 2–10, default 5
+  phonesOnly?: boolean;       // true = no TV; every phone shows the synced game
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -225,6 +226,7 @@ export interface PhoneState {
   playerCount: number;    // players joined (for the lobby start button)
   canStart: boolean;      // enough players to start the game
   introEndsAt: number;    // unix ms — while > now, the round instructions are showing
+  phonesOnly: boolean;    // no TV — this phone must render the shared "show" itself
 }
 
 export type PhoneAction =

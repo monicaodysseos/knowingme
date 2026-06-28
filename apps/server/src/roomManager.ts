@@ -355,6 +355,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       playerCount: ctx.players.length,
       canStart: ctx.players.length >= Math.min(2, ctx.settings.maxPlayers),
       introEndsAt: ctx.introEndsAt || 0,
+      phonesOnly: ctx.settings.phonesOnly ?? false,
     };
 
     io.to(`player:${player.socketId}`).emit('phone:update', phoneState);

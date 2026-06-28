@@ -9,6 +9,7 @@ const DARK = '#0b0429';
 const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)';
 const DISPLAY = "var(--font-rubik), 'Rubik', 'Nunito', sans-serif";
 const BODY = "var(--font-space-grotesk), 'Space Grotesk', 'Nunito', sans-serif";
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
 function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0, className = '' }: { size?: number; color?: string; x?: number; y?: number; rotate?: number; className?: string }) {
   return (
@@ -224,6 +225,45 @@ export default function LandingPage() {
               border: `2px solid ${DARK}`, boxShadow: `0 3px 0 ${DARK}`,
               transform: 'rotate(8deg)',
             }}>HOST ···</div>
+          </motion.button>
+
+          {/* PLAY ON PHONES ONLY (no TV) */}
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={async () => {
+              try {
+                const res = await fetch(`${SERVER_URL}/api/rooms`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ mode: 'social', settings: { maxPlayers: 8, questionsToWrite: 2, questionsToAnswer: 5, phonesOnly: true } }),
+                });
+                const data = await res.json();
+                if (data?.roomCode) router.push(`/play?room=${data.roomCode}`);
+              } catch {}
+            }}
+            style={{
+              background: '#00D5FF', borderRadius: 999,
+              border: `3px solid ${DARK}`,
+              padding: 'clamp(12px, 2vh, 16px) 24px',
+              boxShadow: `0 6px 0 ${DARK}, 0 10px 24px rgba(0,213,255,0.25)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              cursor: 'pointer', position: 'relative', width: '100%',
+            }}
+          >
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '45%', background: 'rgba(255,255,255,0.22)', borderRadius: '999px 999px 50% 50%', pointerEvents: 'none' }} />
+            <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 'clamp(16px, 4.5vw, 24px)', color: DARK, letterSpacing: -0.5 }}>
+              play on phones only
+            </span>
+            <span style={{ fontSize: 18 }}>📱</span>
+            <div style={{
+              position: 'absolute', top: -10, right: 24,
+              background: '#FFE24A', color: DARK,
+              fontFamily: DISPLAY, fontWeight: 900, fontSize: 11, letterSpacing: 1.5,
+              padding: '3px 10px', borderRadius: 999,
+              border: `2px solid ${DARK}`, boxShadow: `0 3px 0 ${DARK}`,
+              transform: 'rotate(-6deg)',
+            }}>NO TV</div>
           </motion.button>
 
           {/* JOIN WITH CODE */}

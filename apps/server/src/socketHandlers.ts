@@ -52,6 +52,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       if (existing) {
         socket.join(roomCode);
         socket.join(`player:${socket.id}`);
+        // No-TV mode: phones also receive the shared broadcast.
+        if (ctx.settings.phonesOnly) socket.join(`tv:${roomCode}`);
         socket.data = { roomCode, playerId: existing.id, role: 'player', sessionToken };
         entry.actor.send({
           type: 'PLAYER_RECONNECT',
@@ -94,6 +96,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     socket.join(roomCode);
     socket.join(`player:${socket.id}`);
+    // No-TV mode: phones also receive the shared broadcast.
+    if (ctx.settings.phonesOnly) socket.join(`tv:${roomCode}`);
 
     entry.actor.send({
       type: 'PLAYER_JOIN',

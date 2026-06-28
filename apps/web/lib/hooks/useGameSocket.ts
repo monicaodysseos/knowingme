@@ -61,6 +61,7 @@ interface UsePhoneSocketOptions {
 
 export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhoneSocketOptions) {
   const [state, setPhoneState] = useState<PhoneState | null>(null);
+  const [tvState, setTvState] = useState<TVState | null>(null); // no-TV mode: shared broadcast
   const [connected, setConnected] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -132,10 +133,13 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     };
 
     const handleUpdate = (data: PhoneState) => setPhoneState(data);
+    // In no-TV mode the server also adds this socket to the broadcast room.
+    const handleTvUpdate = (data: TVState) => setTvState(data);
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('phone:update', handleUpdate);
+    socket.on('tv:update', handleTvUpdate);
 
     // If socket is already connected when this effect runs (name changed),
     // call doJoin immediately — but joinedRef guards against a double-call
@@ -149,6 +153,7 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('phone:update', handleUpdate);
+      socket.off('tv:update', handleTvUpdate);
     };
   }, [doJoin]); // re-runs only when roomCode or name change
 
@@ -206,6 +211,7 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
 
   return {
     state,
+    tvState,
     connected,
     joinError,
     playerId,

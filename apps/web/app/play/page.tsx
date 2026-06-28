@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
 import type { PlayerCharacter } from '@ksero-se/types';
 
@@ -13,6 +14,9 @@ import PhoneAnswer from '../../components/phone/PhoneAnswer';
 import PhoneGuess from '../../components/phone/PhoneGuess';
 import PhoneVoteGuesses from '../../components/phone/PhoneVoteGuesses';
 import PhoneResults from '../../components/phone/PhoneResults';
+import PhoneReveal from '../../components/phone/PhoneReveal';
+import PhoneScoreboard from '../../components/phone/PhoneScoreboard';
+import PhoneBroadcastStatus from '../../components/phone/PhoneBroadcastStatus';
 import PhoneLayout from '../../components/phone/PhoneLayout';
 import Loader from '../../components/Loader';
 import { Y2K } from '../../lib/y2k';
@@ -47,12 +51,33 @@ function HostButton({ label, onClick, disabled }: { label: string; onClick: () =
 }
 
 // ── Lobby screen on the phone (host sees Start; others wait) ───────────────────
-function PhoneLobby({ isHost, canStart, playerCount, onStart }: { isHost: boolean; canStart: boolean; playerCount: number; onStart: () => void }) {
+// In phones-only mode this is also where the room code + QR live, so others can join.
+function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, onStart }: { isHost: boolean; canStart: boolean; playerCount: number; roomCode: string; phonesOnly: boolean; onStart: () => void }) {
+  const [origin, setOrigin] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const joinUrl = `${origin}/play?room=${roomCode}`;
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-center">
+    <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 text-center">
       <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 26, color: Y2K.dark }}>
         {isHost ? "you're the host ★" : "you're in!"}
       </div>
+
+      {phonesOnly && (
+        <div className="flex flex-col items-center gap-3">
+          {origin && (
+            <div style={{ background: '#fff', borderRadius: 18, padding: 12, border: `3px solid ${Y2K.dark}`, boxShadow: `0 5px 0 ${Y2K.dark}` }}>
+              <QRCodeSVG value={joinUrl} size={132} bgColor="#ffffff" fgColor={Y2K.dark} level="M" />
+            </div>
+          )}
+          <div style={{ background: Y2K.hotPink, borderRadius: 14, padding: '8px 20px', border: `3px solid ${Y2K.dark}`, boxShadow: `0 4px 0 ${Y2K.dark}` }}>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.15em' }}>ROOM</div>
+            <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 36, color: '#fff', letterSpacing: 4, WebkitTextStroke: `1px ${Y2K.dark}` }}>{roomCode}</div>
+          </div>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 12, color: '#9CA3AF' }}>others scan or enter this code at kserose.com</p>
+        </div>
+      )}
+
       <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#6B7280' }}>
         {playerCount} player{playerCount === 1 ? '' : 's'} in the lobby
       </p>
@@ -73,14 +98,31 @@ function PhoneLobby({ isHost, canStart, playerCount, onStart }: { isHost: boolea
   );
 }
 
-// ── Round-instructions wait (host can skip) ────────────────────────────────────
-function PhoneIntroWait({ isHost, secondsLeft, onSkip }: { isHost: boolean; secondsLeft: number; onSkip: () => void }) {
+// ── Round instructions (host can skip) ─────────────────────────────────────────
+const INTRO_COPY: Record<string, { round: number; title: string; blurb: string }> = {
+  QUESTION_SUBMISSION: { round: 1, title: 'write questions ✍️', blurb: "write questions for others to answer about themselves. weirder = better!" },
+  ANSWER_PHASE: { round: 2, title: 'answer time ✿', blurb: 'answer the questions you got — honestly! others will try to guess what you said.' },
+  GUESS_PHASE: { round: 3, title: 'time to guess 🔮', blurb: 'guess what each person answered. 100 pts split between everyone who gets it right.' },
+};
+
+function PhoneIntroWait({ isHost, secondsLeft, phase, phonesOnly, onSkip }: { isHost: boolean; secondsLeft: number; phase: string; phonesOnly: boolean; onSkip: () => void }) {
+  const copy = INTRO_COPY[phase];
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-center">
-      <div style={{ fontSize: 54 }}>📺</div>
-      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark }}>
-        read the instructions<br />on the TV
-      </div>
+      {phonesOnly && copy ? (
+        <>
+          <div style={{ fontFamily: Y2K.body, fontWeight: 800, fontSize: 13, color: Y2K.deepPink, letterSpacing: '0.15em' }}>ROUND {copy.round}</div>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: Y2K.dark, lineHeight: 1.1 }}>{copy.title}</div>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#3a1555', maxWidth: 320, lineHeight: 1.4 }}>{copy.blurb}</p>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 54 }}>📺</div>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark }}>
+            read the instructions<br />on the TV
+          </div>
+        </>
+      )}
       <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 40, color: Y2K.hotPink }}>
         {secondsLeft}s
       </div>
@@ -133,6 +175,7 @@ interface PhoneGameProps {
 function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
   const {
     state,
+    tvState,
     connected,
     joinError,
     playerId,
@@ -218,16 +261,25 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
               isHost={state.isHost}
               canStart={state.canStart}
               playerCount={state.playerCount}
+              roomCode={roomCode}
+              phonesOnly={state.phonesOnly}
               onStart={hostStart}
             />
           )}
 
           {screen === 'intro' && (
-            <PhoneIntroWait isHost={state.isHost} secondsLeft={introSecondsLeft} onSkip={skipIntro} />
+            <PhoneIntroWait isHost={state.isHost} secondsLeft={introSecondsLeft} phase={phase} phonesOnly={state.phonesOnly} onSkip={skipIntro} />
           )}
 
           {screen === 'WAIT' && (
-            <PhoneWaiting message={(action as { type: 'WAIT'; message: string }).message} />
+            state.phonesOnly && tvState ? (
+              phase === 'REVEAL_PHASE' ? <PhoneReveal state={tvState} />
+              : phase === 'SCORE_PHASE' ? <PhoneScoreboard state={tvState} />
+              : (phase === 'QUESTION_SUBMISSION' || phase === 'ANSWER_PHASE' || phase === 'GUESS_PHASE') ? <PhoneBroadcastStatus state={tvState} />
+              : <PhoneWaiting message={(action as { type: 'WAIT'; message: string }).message} />
+            ) : (
+              <PhoneWaiting message={(action as { type: 'WAIT'; message: string }).message} />
+            )
           )}
 
           {screen === 'SUBMIT_QUESTIONS' && action.type === 'SUBMIT_QUESTIONS' && (
