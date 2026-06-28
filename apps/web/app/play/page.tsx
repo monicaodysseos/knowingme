@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
-import type { PlayerCharacter } from '@ksero-se/types';
+import type { PlayerCharacter, GameSettings } from '@ksero-se/types';
+import TVGameSetup from '../../components/tv/TVGameSetup';
+
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
 import PhoneJoin from '../../components/phone/PhoneJoin';
 import PhoneWaiting from '../../components/phone/PhoneWaiting';
@@ -338,11 +341,42 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
   );
 }
 
+// ── Phones-only host setup → creates the room, then joins as first player ──────
+function PhonesOnlyCreate({ onCreated }: { onCreated: (code: string) => void }) {
+  const [creating, setCreating] = useState(false);
+  const handleConfirm = async (settings: GameSettings) => {
+    setCreating(true);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'social', settings: { ...settings, phonesOnly: true } }),
+      });
+      const data = await res.json();
+      if (data?.roomCode) { onCreated(data.roomCode); return; }
+    } catch {}
+    setCreating(false);
+  };
+
+  if (creating) {
+    return (
+      <PhoneLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader dark label="creating your room…" />
+        </div>
+      </PhoneLayout>
+    );
+  }
+  return <TVGameSetup onConfirm={handleConfirm} />;
+}
+
 // ── Root page component ───────────────────────────────────────────────────────
 
 function PhoneApp() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, 4);
+  const wantHost = searchParams.get('host') === '1';
 
   const [ready, setReady] = useState<{
     name: string;
@@ -355,6 +389,11 @@ function PhoneApp() {
       setReady({ name, avatar, sessionToken }),
     [],
   );
+
+  // No room yet + asked to host a phones-only game → pick settings, create, then join.
+  if (!roomCode && wantHost) {
+    return <PhonesOnlyCreate onCreated={(code) => router.replace(`/play?room=${code}`)} />;
+  }
 
   if (!ready) {
     return <PreJoin roomCode={roomCode} onReady={handleReady} />;

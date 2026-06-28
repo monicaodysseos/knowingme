@@ -107,25 +107,12 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
 export default function TVGameSetup({ onConfirm }: Props) {
   const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_SETTINGS });
 
-  // Total questions available = maxPlayers × questionsToWrite.
-  // questionsToAnswer can never exceed this — there simply aren't more questions.
-  const maxAnswerable = settings.maxPlayers * settings.questionsToWrite;
-
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
-    setSettings((s) => {
-      const next = { ...s, [key]: value } as GameSettings;
-      // Recompute cap after any change and clamp questionsToAnswer
-      const cap = next.maxPlayers * next.questionsToWrite;
-      if (next.questionsToAnswer > cap) next.questionsToAnswer = cap;
-      // Also ensure it stays at least 2
-      if (next.questionsToAnswer < 2) next.questionsToAnswer = Math.min(2, cap);
-      return next;
-    });
+    setSettings((s) => ({ ...s, [key]: value }));
 
-  // Rough estimate: ~90 s per question turn (guess + reveal + score)
-  const estimatedMins = Math.round(
-    (settings.questionsToAnswer * settings.maxPlayers * 90) / 60,
-  );
+  // Every submitted question gets asked, so rounds ≈ players × questions each writes.
+  const totalRounds = settings.maxPlayers * settings.questionsToWrite;
+  const estimatedMins = Math.max(1, Math.round((totalRounds * 90) / 60));
 
   return (
     <div
@@ -178,22 +165,13 @@ export default function TVGameSetup({ onConfirm }: Props) {
             accentColor={Y2K.hotPink}
           />
           <Stepper
-            label="questions to write"
-            sublabel="questions each player submits"
+            label="questions each"
+            sublabel="prompts every player writes (all get asked)"
             value={settings.questionsToWrite}
             min={1}
             max={5}
             onChange={(v) => update('questionsToWrite', v)}
             accentColor={Y2K.cyan}
-          />
-          <Stepper
-            label="questions to answer"
-            sublabel={`questions each player answers (max ${maxAnswerable} available)`}
-            value={settings.questionsToAnswer}
-            min={2}
-            max={maxAnswerable}
-            onChange={(v) => update('questionsToAnswer', v)}
-            accentColor={Y2K.yellow}
           />
         </div>
 
@@ -201,7 +179,7 @@ export default function TVGameSetup({ onConfirm }: Props) {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <Sticker color={Y2K.dark} r={999} rotate={-1} style={{ padding: '7px 18px' }}>
             <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: 0.5 }}>
-              ≈ {estimatedMins} min game · {settings.questionsToAnswer * settings.maxPlayers} total turns
+              ≈ {estimatedMins} min · up to {totalRounds} rounds
             </span>
           </Sticker>
         </div>

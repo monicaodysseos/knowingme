@@ -9,7 +9,6 @@ const DARK = '#0b0429';
 const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)';
 const DISPLAY = "var(--font-rubik), 'Rubik', 'Nunito', sans-serif";
 const BODY = "var(--font-space-grotesk), 'Space Grotesk', 'Nunito', sans-serif";
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
 function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0, className = '' }: { size?: number; color?: string; x?: number; y?: number; rotate?: number; className?: string }) {
   return (
@@ -224,24 +223,14 @@ export default function LandingPage() {
               padding: '3px 10px', borderRadius: 999,
               border: `2px solid ${DARK}`, boxShadow: `0 3px 0 ${DARK}`,
               transform: 'rotate(8deg)',
-            }}>HOST ···</div>
+            }}>FULL EXPERIENCE</div>
           </motion.button>
 
           {/* PLAY ON PHONES ONLY (no TV) */}
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={async () => {
-              try {
-                const res = await fetch(`${SERVER_URL}/api/rooms`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ mode: 'social', settings: { maxPlayers: 8, questionsToWrite: 2, questionsToAnswer: 5, phonesOnly: true } }),
-                });
-                const data = await res.json();
-                if (data?.roomCode) router.push(`/play?room=${data.roomCode}`);
-              } catch {}
-            }}
+            onClick={() => router.push('/play?host=1')}
             style={{
               background: '#00D5FF', borderRadius: 999,
               border: `3px solid ${DARK}`,
