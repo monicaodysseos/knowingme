@@ -19,7 +19,7 @@ export default function PhoneScoreboard({ state }: { state: TVState }) {
         <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#6B7280', marginTop: 2 }}>{subtitle}</div>
       </div>
       <div className="flex justify-center">
-        <Leaderboard scores={state.scores} players={state.players} highlight />
+        <Leaderboard scores={state.scores} players={state.players} highlight revealFromBottom />
       </div>
     </div>
   );

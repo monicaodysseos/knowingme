@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ScoreEntry, PlayerCharacter } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
@@ -9,12 +10,28 @@ interface Props {
   scores: ScoreEntry[];
   players?: { id: string; avatar: PlayerCharacter }[];
   highlight?: boolean;
+  revealFromBottom?: boolean; // reveal last place first, building up to the winner
 }
 
 const RANK_BG: Record<number, string> = { 1: '#FFE24A', 2: '#E0E5EE', 3: '#E89B5C' };
 
-export default function Leaderboard({ scores, players = [], highlight = false }: Props) {
+export default function Leaderboard({ scores, players = [], highlight = false, revealFromBottom = false }: Props) {
   const avatarMap = Object.fromEntries(players.map((p) => [p.id, p.avatar]));
+
+  // Dramatic build-up: reveal entries from last place upward, winner last.
+  const [revealed, setRevealed] = useState(revealFromBottom ? 1 : scores.length);
+  useEffect(() => {
+    if (!revealFromBottom) { setRevealed(scores.length); return; }
+    setRevealed(1);
+    if (scores.length <= 1) return;
+    const iv = setInterval(() => {
+      setRevealed((r) => {
+        if (r >= scores.length) { clearInterval(iv); return r; }
+        return r + 1;
+      });
+    }, 900);
+    return () => clearInterval(iv);
+  }, [revealFromBottom, scores.length]);
 
   // Compute previous ranks from deltas
   const withPrev = scores.map((e) => ({ ...e, prevScore: e.score - e.delta }));
@@ -32,15 +49,17 @@ export default function Leaderboard({ scores, players = [], highlight = false }:
           const isTop = rank === 1 && highlight;
           const rankBg = RANK_BG[rank] ?? Y2K.dark;
           const rankColor = rank <= 3 ? Y2K.dark : '#fff';
+          // Bottom-up reveal: an entry shows once the reveal reaches its rank.
+          const shown = !revealFromBottom || i >= scores.length - revealed;
 
           return (
             <motion.div
               key={entry.playerId}
               layout
               initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
+              animate={{ opacity: shown ? 1 : 0, x: shown ? 0 : 30, scale: shown ? 1 : 0.96 }}
               exit={{ opacity: 0, x: -30 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 26, delay: i * 0.04 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 26, delay: revealFromBottom ? 0 : i * 0.04 }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: 'clamp(7px, 1vh, 12px) clamp(12px, 1.2vw, 18px)',

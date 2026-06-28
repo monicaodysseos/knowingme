@@ -142,7 +142,7 @@ export default function TVPage() {
 
 
 function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string; onRoomExpired: () => void; audioUnlocked: boolean }) {
-  const { state, connected, hostStart, playAgain } = useTVSocket(roomCode, onRoomExpired);
+  const { state, connected, hostStart, playAgain, hostContinue } = useTVSocket(roomCode, onRoomExpired);
 
   const ROUND_MAP: Record<string, 1 | 2 | 3> = {
     QUESTION_SUBMISSION: 1,
@@ -268,10 +268,10 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
           <TVGuessPhase state={state} />
         )}
         {!introActive && state.phase === 'REVEAL_PHASE' && (
-          <TVRevealPhase state={state} />
+          <TVRevealPhase state={state} onContinue={hostContinue} />
         )}
         {!introActive && state.phase === 'SCORE_PHASE' && (
-          <TVScorePhase state={state} />
+          <TVScorePhase state={state} onContinue={hostContinue} />
         )}
         {!introActive && (state.phase === 'FINAL_AWARDS' || state.phase === 'GAME_OVER') && (
           <TVFinalAwards state={state} onPlayAgain={playAgain} />

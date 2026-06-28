@@ -9,7 +9,7 @@ import {
   sendCurrentState,
 } from './roomManager';
 import { saveSession, resolveSession } from './redis';
-import { TIMER, INTRO_MS } from './machine';
+import { TIMER, INTRO_MS, RESULT_HOLD_MS, SCOREBOARD_HOLD_MS } from './machine';
 import type { JoinPayload, JoinAck } from '@ksero-se/types';
 
 // ── Room creation endpoint (HTTP) ─ see index.ts ──────────────────────────
@@ -302,26 +302,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
 
-    const scoreCtx = entry.actor.getSnapshot().context;
-    const idx = scoreCtx.currentTurnIndex;
-    const currentTurnObj = scoreCtx.playerTurns[idx];
-    const nextTurn = scoreCtx.playerTurns[idx + 1];
-    const isLastRound = !nextTurn;
-    let isRoundEnd: boolean;
-    if (!nextTurn) {
-      isRoundEnd = true;
-    } else {
-      const currentSlot = scoreCtx.playerTurns.slice(0, idx).filter(
-        (t) => t.subjectPlayerId === currentTurnObj?.subjectPlayerId,
-      ).length;
-      const nextSlot = scoreCtx.playerTurns.slice(0, idx + 1).filter(
-        (t) => t.subjectPlayerId === nextTurn.subjectPlayerId,
-      ).length;
-      isRoundEnd = nextSlot !== currentSlot;
-    }
-    const delay = isLastRound ? 1000 : isRoundEnd ? 5000 : 1500;
-    setRoomTimer(io, roomCode, 'score-display', delay, () => {
-      advanceToNextTurn(io, roomCode);
+    // Stay on the results (who guessed right + points) for RESULT_HOLD_MS, or
+    // until the host taps continue, then move on to the scoreboard.
+    setRoomTimer(io, roomCode, 'reveal-hold', RESULT_HOLD_MS, () => {
+      goToScore(io, roomCode);
     });
   });
 
@@ -356,6 +340,27 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
         startReveal(io, roomCode);
       });
+    }
+  });
+
+  // ── Host advances the results / scoreboard (host only) ────────────────────
+  socket.on('host:continue', () => {
+    const { roomCode, playerId, role } = socket.data ?? {};
+    const entry = getRoom(roomCode);
+    if (!entry) return;
+    const ctx = entry.actor.getSnapshot().context;
+    if (role !== 'tv' && ctx.hostId !== playerId) return;
+
+    const phase = entry.actor.getSnapshot().value;
+    if (phase === 'REVEAL_PHASE') {
+      // Only once the subject has finished marking (or there were no guesses).
+      const turn = ctx.playerTurns[ctx.currentTurnIndex];
+      const marked = !turn || turn.guesses.length === 0 || turn.guesses.every((g) => g.isCorrect !== undefined);
+      if (!marked) return;
+      goToScore(io, roomCode);
+    } else if (phase === 'SCORE_PHASE') {
+      clearRoomTimer(roomCode, 'score-hold');
+      advanceToNextTurn(io, roomCode);
     }
   });
 
@@ -457,22 +462,19 @@ function startReveal(io: Server, roomCode: string): void {
   const ctx = entry.actor.getSnapshot().context;
   const turn = ctx.playerTurns[ctx.currentTurnIndex];
   if (!turn) {
-    // No turn (empty playerTurns) — fast-forward to FINAL_AWARDS
+    // No turn (empty playerTurns) — go straight to the scoreboard, which then
+    // advances to FINAL_AWARDS.
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
-    setRoomTimer(io, roomCode, 'score-display', 1000, () => {
-      advanceToNextTurn(io, roomCode);
-    });
+    goToScore(io, roomCode);
     return;
   }
 
   const total = turn.guesses.length;
 
-  // Edge case: no guesses — skip straight to scoring
+  // Edge case: no guesses — nothing to reveal, skip the result hold.
   if (total === 0) {
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
-    setRoomTimer(io, roomCode, 'score-display', 4000, () => {
-      advanceToNextTurn(io, roomCode);
-    });
+    goToScore(io, roomCode);
     return;
   }
 
@@ -483,10 +485,26 @@ function startReveal(io: Server, roomCode: string): void {
   // State is now broadcast via actor.subscribe — subject's phone will show VOTE_GUESSES
 }
 
+/** Move from the result hold to the scoreboard, then arm the scoreboard hold. */
+function goToScore(io: Server, roomCode: string): void {
+  const entry = getRoom(roomCode);
+  if (!entry) return;
+  clearRoomTimer(roomCode, 'reveal-hold');
+  if (entry.actor.getSnapshot().value === 'REVEAL_PHASE') {
+    entry.actor.send({ type: 'GO_TO_SCORE' });
+  }
+  if (entry.actor.getSnapshot().value === 'SCORE_PHASE') {
+    setRoomTimer(io, roomCode, 'score-hold', SCOREBOARD_HOLD_MS, () => {
+      advanceToNextTurn(io, roomCode);
+    });
+  }
+}
+
 function advanceToNextTurn(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
 
+  clearRoomTimer(roomCode, 'score-hold');
   entry.actor.send({ type: 'NEXT_TURN' });
 
   const newVal = entry.actor.getSnapshot().value;

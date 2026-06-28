@@ -226,6 +226,12 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
 
   io.to(`tv:${roomCode}`).emit('tv:update', tvState);
 
+  // The host can advance the result/scoreboard once marking is done.
+  const revealMarked = !currentTurn
+    || currentTurn.guesses.length === 0
+    || currentTurn.guesses.every((g) => g.isCorrect !== undefined);
+  const hostCanContinue = (phase === 'REVEAL_PHASE' && revealMarked) || phase === 'SCORE_PHASE';
+
   // ── Per-player phone payloads ───────────────────────────────────────────
   for (const player of ctx.players) {
     if (!player.isConnected) continue;
@@ -308,8 +314,10 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         if (allRevealed && currentTurn?.answer) {
           const subjectPlayerObj = ctx.players.find((p) => p.id === currentTurn.subjectPlayerId);
           const subjectName = subjectPlayerObj?.name ?? '?';
-          if (player.id === currentTurn.subjectPlayerId) {
-            // Only the subject marks correct / wrong
+          const markingDone = currentTurn.guesses.length > 0 && currentTurn.guesses.every((g) => g.isCorrect !== undefined);
+          const watchMsg = ctx.settings.phonesOnly ? 'here come the results…' : 'watch the TV for the results…';
+          if (player.id === currentTurn.subjectPlayerId && !markingDone) {
+            // Only the subject marks correct / wrong — and only until done.
             action = {
               type: 'VOTE_GUESSES',
               questionText: currentTurn.questionText,
@@ -317,17 +325,20 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
               subjectColor: subjectPlayerObj?.color ?? ctx.players[0].color,
               answer: currentTurn.answer,
               // Anonymous: the subject votes on the guess text without seeing
-              // who wrote each one (names are revealed on the TV afterwards).
+              // who wrote each one (names are revealed afterwards).
               guesses: currentTurn.guesses.map((g) => ({
                 id: g.id,
                 text: g.text,
               })),
             };
+          } else if (player.id === currentTurn.subjectPlayerId) {
+            // Subject has finished marking → watch the results like everyone else.
+            action = { type: 'WAIT', message: watchMsg };
           } else {
-            action = { type: 'WAIT', message: `${subjectName} is marking the answers…` };
+            action = { type: 'WAIT', message: markingDone ? watchMsg : `${subjectName} is marking the answers…` };
           }
         } else {
-          action = { type: 'WAIT', message: 'Watch the TV for the reveal…' };
+          action = { type: 'WAIT', message: ctx.settings.phonesOnly ? 'watch the reveal…' : 'Watch the TV for the reveal…' };
         }
         break;
       }
@@ -356,6 +367,8 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       canStart: ctx.players.length >= Math.min(2, ctx.settings.maxPlayers),
       introEndsAt: ctx.introEndsAt || 0,
       phonesOnly: ctx.settings.phonesOnly ?? false,
+      finalRevealAt: ctx.finalRevealAt || 0,
+      canContinue: player.isHost && hostCanContinue,
     };
 
     io.to(`player:${player.socketId}`).emit('phone:update', phoneState);

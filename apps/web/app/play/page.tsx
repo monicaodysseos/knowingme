@@ -170,6 +170,24 @@ function PhoneIntroWait({ isHost, secondsLeft, phase, phonesOnly, onSkip }: { is
   );
 }
 
+// ── End-of-game curtain: keep eyes on the TV (or build suspense) until the
+//    leaderboard + awards have played, then the results appear on the phone. ──
+function PhoneFinalWait({ phonesOnly }: { phonesOnly: boolean }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 text-center">
+      <motion.div animate={{ scale: [1, 1.12, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }} style={{ fontSize: 64 }}>
+        {phonesOnly ? '🥁' : '📺'}
+      </motion.div>
+      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 26, color: Y2K.dark, lineHeight: 1.15 }}>
+        {phonesOnly ? (<>final scores<br />incoming…</>) : (<>look up!<br />final scores on the TV</>)}
+      </div>
+      <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#6B7280', maxWidth: 300 }}>
+        {phonesOnly ? 'drumroll please… 🥁' : 'watch the big screen — your results pop up here in a moment'}
+      </p>
+    </div>
+  );
+}
+
 // ── Pre-join screen ───────────────────────────────────────────────────────────
 
 interface PreJoinProps {
@@ -221,6 +239,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     playAgain,
     hostStart,
     skipIntro,
+    hostContinue,
   } = usePhoneSocket({
     roomCode,
     name,
@@ -230,19 +249,20 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 
   const accentColor = '#F97316';
 
-  // The round instructions are synced by the server (state.introEndsAt). While
-  // they're showing, phones wait (host can skip). Tick once a second so the
-  // countdown updates and the screen flips to the real task when time's up.
+  // Tick while the round instructions OR the final-results curtain are counting
+  // down, so the screen flips at the right moment.
   const [, setTick] = useState(0);
   const introEndsAt = state?.introEndsAt ?? 0;
+  const finalRevealAt = state?.finalRevealAt ?? 0;
   useEffect(() => {
-    if (introEndsAt <= Date.now()) return;
+    const deadline = Math.max(introEndsAt, finalRevealAt);
+    if (deadline <= Date.now()) return;
     const iv = setInterval(() => {
       setTick((t) => t + 1);
-      if (introEndsAt <= Date.now()) clearInterval(iv);
+      if (deadline <= Date.now()) clearInterval(iv);
     }, 500);
     return () => clearInterval(iv);
-  }, [introEndsAt]);
+  }, [introEndsAt, finalRevealAt]);
 
   if (!connected || !state) {
     return (
@@ -276,9 +296,15 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
   const { action, timerEnd, phase } = state;
   const introActive = introEndsAt > Date.now();
   const introSecondsLeft = Math.max(0, Math.ceil((introEndsAt - Date.now()) / 1000));
+  // At the end of the game, hold the phones on a "look at the TV" curtain while
+  // the TV plays its leaderboard + awards ceremony, then reveal the results.
+  const finalHolding = action.type === 'VIEW_RESULTS' && finalRevealAt > Date.now();
 
-  // What screen are we showing? (lobby and intro take priority over the action)
-  const screen = phase === 'LOBBY' ? 'lobby' : introActive ? 'intro' : action.type;
+  // What screen are we showing? (lobby/intro/final-curtain take priority)
+  const screen = phase === 'LOBBY' ? 'lobby'
+    : introActive ? 'intro'
+    : finalHolding ? 'final-wait'
+    : action.type;
 
   return (
     <PhoneLayout accent={accentColor}>
@@ -305,6 +331,10 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 
           {screen === 'intro' && (
             <PhoneIntroWait isHost={state.isHost} secondsLeft={introSecondsLeft} phase={phase} phonesOnly={state.phonesOnly} onSkip={skipIntro} />
+          )}
+
+          {screen === 'final-wait' && (
+            <PhoneFinalWait phonesOnly={state.phonesOnly} />
           )}
 
           {screen === 'WAIT' && (
@@ -370,6 +400,13 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
           )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Host's "continue" control over the result/scoreboard holds. */}
+      {state.canContinue && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px 22px', background: `linear-gradient(180deg, transparent 0%, ${Y2K.cream} 35%)`, zIndex: 20 }}>
+          <HostButton label="continue ▶" onClick={hostContinue} />
+        </div>
+      )}
     </PhoneLayout>
   );
 }

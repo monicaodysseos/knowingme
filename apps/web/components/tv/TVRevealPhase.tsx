@@ -5,11 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState } from '@ksero-se/types';
 import Y2KAvatar from './Y2KAvatar';
 import ParticleBurst from './ParticleBurst';
+import ContinueBar from './ContinueBar';
 import { Y2K } from '../../lib/y2k';
 import { useGameSounds } from '../../lib/hooks/useGameSounds';
 
 interface Props {
   state: TVState;
+  onContinue?: () => void;
 }
 
 type RevealStage = 'guesses' | 'drumroll' | 'answer' | 'marking';
@@ -32,7 +34,7 @@ function Sticker({ color, rotate = 0, r = 18, style = {}, children }: { color: s
   );
 }
 
-export default function TVRevealPhase({ state }: Props) {
+export default function TVRevealPhase({ state, onContinue }: Props) {
   const { currentTurn } = state;
   const [stage, setStage] = useState<RevealStage>('guesses');
   const [visibleCount, setVisibleCount] = useState(0);
@@ -82,12 +84,19 @@ export default function TVRevealPhase({ state }: Props) {
 
   const { subjectPlayer, questionText, questionIndex, totalForSubject, guessesRevealed, answer } = currentTurn;
   const visibleGuesses = guessesRevealed.slice(0, visibleCount);
+  // Subject has finished marking → results are final, show the continue control.
+  const marksIn = guessesRevealed.length > 0 && guessesRevealed.every((g) => g.isCorrect !== undefined);
 
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
       style={{ background: Y2K.bg, padding: '4vh 6vw' }}
     >
+      {marksIn && (
+        <div style={{ position: 'absolute', bottom: '3vh', left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 60 }}>
+          <ContinueBar timerEnd={state.timerEnd} onContinue={onContinue} label="next ▶" />
+        </div>
+      )}
       {/* Subject header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '2vw', marginBottom: '3vh', width: '100%', maxWidth: '88vw' }}>
         <Y2KAvatar avatar={subjectPlayer.avatar} size={64} />

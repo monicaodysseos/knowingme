@@ -46,8 +46,9 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
     });
   }, []);
   const playAgain = useCallback(() => getSocket().emit('play:again'), []);
+  const hostContinue = useCallback(() => getSocket().emit('host:continue'), []);
 
-  return { state, connected, hostStart, playAgain };
+  return { state, connected, hostStart, playAgain, hostContinue };
 }
 
 // ── Phone hook ─────────────────────────────────────────────────────────────
@@ -209,6 +210,10 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     getSocket().emit('skip:intro');
   }, []);
 
+  const hostContinue = useCallback(() => {
+    getSocket().emit('host:continue');
+  }, []);
+
   return {
     state,
     tvState,
@@ -222,5 +227,6 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     playAgain,
     hostStart,
     skipIntro,
+    hostContinue,
   };
 }

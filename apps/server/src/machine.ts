@@ -28,6 +28,11 @@ export const TIMER = {
 // How long the round instructions show before the first turn of a phase.
 export const INTRO_MS = 60_000; // 1 min, skippable by the host
 
+// After voting, the result + scoreboard each hold this long unless the host
+// taps "continue" / "skip".
+export const RESULT_HOLD_MS = 60_000;   // reveal results (who guessed right + points)
+export const SCOREBOARD_HOLD_MS = 60_000; // running scoreboard between rounds
+
 // Per-round scoring: a 100-point pool is split evenly among everyone who
 // guessed correctly, and the subject earns a "knowable" bonus for being guessed.
 const ROUND_POOL = 100;
@@ -280,6 +285,7 @@ export function initialContext(roomCode: string, mode: GameMode, settings?: Game
     currentQuestionSlot: 0,
     timerEnd: 0,
     introEndsAt: 0,
+    finalRevealAt: 0,
     scores: {},
     roundDeltas: {},
     duoMatrix: {},
@@ -606,6 +612,16 @@ export const gameMachine = setup({
         computeAwards(context.players, context.playerTurns, context.duoMatrix),
     }),
 
+    // When the game ends: with a TV, give it time to play its leaderboard +
+    // awards ceremony before the phones reveal the results. Phones-only has no
+    // shared ceremony, so just a brief drumroll beat before the results.
+    setFinalReveal: assign({
+      finalRevealAt: ({ context }) =>
+        context.settings.phonesOnly
+          ? Date.now() + 5_000
+          : Date.now() + 14_000 + context.players.length * 1_500 + 16_000,
+    }),
+
     resetForNewGame: assign(({ context }) => ({
       ...initialContext(context.roomCode, context.mode, context.settings),
       players: context.players.map((p) => ({
@@ -717,17 +733,19 @@ export const gameMachine = setup({
           // No more reveals — wait for marking
         ],
         MARK_GUESS: { actions: 'markGuess' },
+        // Apply scores and HOLD here showing the results (who guessed right +
+        // points). The server arms a timer / the host taps continue → GO_TO_SCORE.
         ALL_GUESSES_MARKED: {
-          actions: ['applyRoundScores'],
-          target: 'SCORE_PHASE',
+          actions: ['applyRoundScores', { type: 'setTimer', params: { duration: RESULT_HOLD_MS } }],
         },
+        GO_TO_SCORE: { target: 'SCORE_PHASE' },
       },
     },
 
     SCORE_PHASE: {
       entry: {
         type: 'setTimer',
-        params: { duration: 4_000 },
+        params: { duration: SCOREBOARD_HOLD_MS },
       },
       on: {
         PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
@@ -739,7 +757,7 @@ export const gameMachine = setup({
             target: 'GUESS_PHASE',  // next question's guess phase
           },
           {
-            actions: ['nextTurn', 'computeAwards'],
+            actions: ['nextTurn', 'computeAwards', 'setFinalReveal'],
             target: 'FINAL_AWARDS',
           },
         ],

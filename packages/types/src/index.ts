@@ -139,6 +139,7 @@ export interface GameContext {
   currentQuestionSlot: number; // 0–4 during ANSWER_PHASE
   timerEnd: number;            // unix ms
   introEndsAt: number;         // unix ms — round instructions show while > now (0 = none)
+  finalRevealAt: number;       // unix ms — phones reveal final results once past this
   scores: Record<string, number>;
   roundDeltas: Record<string, number>; // points earned in the most recent scored turn
   duoMatrix: DuoMatrix;
@@ -165,6 +166,7 @@ export type GameEvent =
   | { type: 'ALL_GUESSES_MARKED' }
   | { type: 'ADVANCE_REVEAL' }
   | { type: 'NEXT_TURN' }
+  | { type: 'GO_TO_SCORE' }
   | { type: 'SKIP_INTRO' }
   | { type: 'PLAY_AGAIN' };
 
@@ -215,6 +217,9 @@ export interface TVState {
   introEndsAt?: number;   // unix ms — while > now, show the round instructions slide
 }
 
+// Whether the host can advance the current screen (reveal results / scoreboard).
+// (Declared here for clarity; used on PhoneState below.)
+
 // What a phone client receives
 export interface PhoneState {
   phase: GamePhase;
@@ -227,6 +232,8 @@ export interface PhoneState {
   canStart: boolean;      // enough players to start the game
   introEndsAt: number;    // unix ms — while > now, the round instructions are showing
   phonesOnly: boolean;    // no TV — this phone must render the shared "show" itself
+  finalRevealAt: number;  // unix ms — final results reveal on phones once past this
+  canContinue: boolean;   // host can advance the current reveal/scoreboard screen now
 }
 
 export type PhoneAction =
@@ -262,6 +269,7 @@ export const SOCKET_EVENTS = {
   RECONNECT_TOKEN: 'reconnect:token',
   PLAY_AGAIN: 'play:again',
   SKIP_INTRO: 'skip:intro',
+  HOST_CONTINUE: 'host:continue',
 
   // server → client
   TV_UPDATE: 'tv:update',
