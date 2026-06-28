@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
-import type { PlayerCharacter, GameSettings } from '@ksero-se/types';
+import type { PlayerCharacter, GameSettings, TVState } from '@ksero-se/types';
 import TVGameSetup from '../../components/tv/TVGameSetup';
+import Y2KAvatar from '../../components/tv/Y2KAvatar';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
@@ -53,39 +54,70 @@ function HostButton({ label, onClick, disabled }: { label: string; onClick: () =
   );
 }
 
+// ── Player chip: avatar in a colored ring + name (host gets a ★) ───────────────
+function PlayerChip({ name, color, avatar, isHost, isConnected }: { name: string; color: { hex: string }; avatar: PlayerCharacter; isHost: boolean; isConnected: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1" style={{ width: 68, opacity: isConnected ? 1 : 0.4 }}>
+      <div style={{ position: 'relative', width: 54, height: 54, borderRadius: '50%', background: '#fff', border: `3px solid ${color.hex}`, boxShadow: `0 3px 0 ${Y2K.dark}`, display: 'grid', placeItems: 'center' }}>
+        <Y2KAvatar avatar={avatar} size={42} />
+        {isHost && (
+          <span style={{ position: 'absolute', top: -9, right: -7, fontSize: 17, filter: 'drop-shadow(0 1px 0 #0b0429)' }}>★</span>
+        )}
+      </div>
+      <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 12, color: Y2K.dark, maxWidth: 68, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+    </div>
+  );
+}
+
 // ── Lobby screen on the phone (host sees Start; others wait) ───────────────────
-// In phones-only mode this is also where the room code + QR live, so others can join.
-function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, onStart }: { isHost: boolean; canStart: boolean; playerCount: number; roomCode: string; phonesOnly: boolean; onStart: () => void }) {
+// In phones-only mode this is also where the room code + QR live, so others can join,
+// and the host can see everyone who's joined so far (avatar + name).
+function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, players, onStart }: { isHost: boolean; canStart: boolean; playerCount: number; roomCode: string; phonesOnly: boolean; players: TVState['players']; onStart: () => void }) {
   const [origin, setOrigin] = useState('');
   useEffect(() => { setOrigin(window.location.origin); }, []);
   const joinUrl = `${origin}/play?room=${roomCode}`;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 text-center">
-      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 26, color: Y2K.dark }}>
+    <div className="flex-1 flex flex-col items-center gap-4 px-5 py-5 text-center overflow-y-auto" style={{ justifyContent: 'flex-start' }}>
+      <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 24, color: Y2K.dark }}>
         {isHost ? "you're the host ★" : "you're in!"}
       </div>
 
       {phonesOnly && (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2">
           {origin && (
-            <div style={{ background: '#fff', borderRadius: 18, padding: 12, border: `3px solid ${Y2K.dark}`, boxShadow: `0 5px 0 ${Y2K.dark}` }}>
-              <QRCodeSVG value={joinUrl} size={132} bgColor="#ffffff" fgColor={Y2K.dark} level="M" />
+            <div style={{ background: '#fff', borderRadius: 16, padding: 10, border: `3px solid ${Y2K.dark}`, boxShadow: `0 4px 0 ${Y2K.dark}` }}>
+              <QRCodeSVG value={joinUrl} size={108} bgColor="#ffffff" fgColor={Y2K.dark} level="M" />
             </div>
           )}
-          <div style={{ background: Y2K.hotPink, borderRadius: 14, padding: '8px 20px', border: `3px solid ${Y2K.dark}`, boxShadow: `0 4px 0 ${Y2K.dark}` }}>
-            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.15em' }}>ROOM</div>
-            <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 36, color: '#fff', letterSpacing: 4, WebkitTextStroke: `1px ${Y2K.dark}` }}>{roomCode}</div>
+          <div style={{ background: Y2K.hotPink, borderRadius: 12, padding: '6px 18px', border: `3px solid ${Y2K.dark}`, boxShadow: `0 4px 0 ${Y2K.dark}` }}>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.15em' }}>ROOM</div>
+            <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 30, color: '#fff', letterSpacing: 3, WebkitTextStroke: `1px ${Y2K.dark}` }}>{roomCode}</div>
           </div>
-          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 12, color: '#9CA3AF' }}>others scan or enter this code at kserose.com</p>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 11, color: '#9CA3AF' }}>others scan or enter this code at kserose.com</p>
         </div>
       )}
 
-      <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#6B7280' }}>
-        {playerCount} player{playerCount === 1 ? '' : 's'} in the lobby
-      </p>
+      {/* Who's joined */}
+      {players.length > 0 ? (
+        <div className="w-full" style={{ maxWidth: 360 }}>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 13, color: Y2K.deepPink, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+            squad · {players.length}
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {players.map((p) => (
+              <PlayerChip key={p.id} name={p.name} color={p.color} avatar={p.avatar} isHost={p.isHost} isConnected={p.isConnected} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#6B7280' }}>
+          {playerCount} player{playerCount === 1 ? '' : 's'} in the lobby
+        </p>
+      )}
+
       {isHost ? (
-        <div className="w-full" style={{ maxWidth: 320 }}>
+        <div className="w-full" style={{ maxWidth: 320, marginTop: 4 }}>
           <HostButton
             label={canStart ? 'start the game ▶' : 'need 2+ players…'}
             onClick={onStart}
@@ -266,6 +298,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
               playerCount={state.playerCount}
               roomCode={roomCode}
               phonesOnly={state.phonesOnly}
+              players={tvState?.players ?? []}
               onStart={hostStart}
             />
           )}
