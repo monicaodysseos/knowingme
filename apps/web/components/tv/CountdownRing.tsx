@@ -17,7 +17,11 @@ export default function CountdownRing({
   strokeWidth = 8,
   beep,
 }: Props) {
-  const [remaining, setRemaining] = useState(totalSeconds);
+  // Seed from the real deadline, not from totalSeconds — otherwise the first
+  // paint shows a value that doesn't match the clock and the arc jumps.
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000)),
+  );
   const lastBeepedAt = useRef<number>(-1);
 
   useEffect(() => {
@@ -40,7 +44,11 @@ export default function CountdownRing({
   const r = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * r;
   const cx = size / 2;
-  const progress = Math.max(0, remaining / totalSeconds);
+  // Clamp to 0..1. Without the upper clamp, a remaining value larger than the
+  // window (e.g. a stale/!yet-received total) makes the offset negative and the
+  // arc renders back-to-front.
+  const total = Math.max(1, totalSeconds);
+  const progress = Math.min(1, Math.max(0, remaining / total));
   const offset = circumference * (1 - progress);
 
   const danger = remaining <= 5 && remaining > 0;

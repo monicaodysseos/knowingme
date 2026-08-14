@@ -8,7 +8,9 @@ interface Props {
 }
 
 export default function PhoneCountdown({ timerEnd, totalSeconds }: Props) {
-  const [remaining, setRemaining] = useState(totalSeconds);
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, Math.ceil((timerEnd - Date.now()) / 1000)),
+  );
 
   useEffect(() => {
     const update = () => {
@@ -20,7 +22,8 @@ export default function PhoneCountdown({ timerEnd, totalSeconds }: Props) {
     return () => clearInterval(id);
   }, [timerEnd]);
 
-  const pct = Math.max(0, remaining / totalSeconds);
+  // Clamp 0..1 so an out-of-range total can never overflow the bar.
+  const pct = Math.min(1, Math.max(0, remaining / Math.max(1, totalSeconds)));
   const danger = remaining <= 10 && remaining > 0;
   const colour = remaining > 20 ? '#F97316' : remaining > 10 ? '#FFD23F' : '#ef4444';
 
