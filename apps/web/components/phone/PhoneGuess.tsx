@@ -10,6 +10,7 @@ interface Props {
   subjectColor: PlayerColor;
   questionText: string;
   timerEnd: number;
+  timerTotalSeconds: number;
   onSubmit: (guess: string) => void;
 }
 
@@ -18,6 +19,7 @@ export default function PhoneGuess({
   subjectColor,
   questionText,
   timerEnd,
+  timerTotalSeconds,
   onSubmit,
 }: Props) {
   const [guess, setGuess] = useState('');
@@ -76,7 +78,7 @@ export default function PhoneGuess({
       </div>
 
       {/* Timer */}
-      <PhoneCountdown timerEnd={timerEnd} totalSeconds={60} />
+      <PhoneCountdown timerEnd={timerEnd} totalSeconds={timerTotalSeconds} />
 
       {/* ── Question card ── */}
       <div style={{

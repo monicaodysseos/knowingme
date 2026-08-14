@@ -11,6 +11,7 @@ interface Props {
   totalSlots: number;
   canSkip: boolean;
   timerEnd: number;
+  timerTotalSeconds: number;
   onSubmit: (assignmentId: string, answer: string, skipped?: boolean) => void;
 }
 
@@ -38,6 +39,7 @@ export default function PhoneAnswer({
   totalSlots,
   canSkip,
   timerEnd,
+  timerTotalSeconds,
   onSubmit,
 }: Props) {
   const [answer, setAnswer] = useState('');
@@ -127,7 +129,7 @@ export default function PhoneAnswer({
         </div>
       </div>
 
-      <PhoneCountdown timerEnd={timerEnd} totalSeconds={45} />
+      <PhoneCountdown timerEnd={timerEnd} totalSeconds={timerTotalSeconds} />
 
       {/* Question sticker */}
       <Sticker color="#fff" r={16} style={{ padding: '16px 18px' }}>

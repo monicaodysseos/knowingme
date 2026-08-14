@@ -138,6 +138,7 @@ export interface GameContext {
   currentTurnIndex: number;
   currentQuestionSlot: number; // 0–4 during ANSWER_PHASE
   timerEnd: number;            // unix ms
+  timerTotalMs: number;        // full length of the current window, for the countdown ring
   introEndsAt: number;         // unix ms — round instructions show while > now (0 = none)
   finalRevealAt: number;       // unix ms — phones reveal final results once past this
   scores: Record<string, number>;
@@ -188,6 +189,7 @@ export interface TVState {
   }>;
   scores: ScoreEntry[];
   timerEnd: number;
+  timerTotalMs: number;   // full length of this window, so rings start full
   mode: GameMode;
   currentTurn?: {
     subjectPlayer: { id: string; name: string; color: PlayerColor; avatar: PlayerCharacter };
@@ -226,6 +228,7 @@ export interface PhoneState {
   phase: GamePhase;
   playerId: string;
   timerEnd: number;
+  timerTotalMs: number;   // full length of this window, so rings start full
   action: PhoneAction;
   turnIndex: number;  // current turn index — used as a remount key on the phone
   isHost: boolean;        // this player is the host (shows Start / Play Again / Skip)

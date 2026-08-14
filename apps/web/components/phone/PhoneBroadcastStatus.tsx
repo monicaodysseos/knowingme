@@ -47,7 +47,7 @@ export default function PhoneBroadcastStatus({ state }: { state: TVState }) {
         </div>
       )}
 
-      <CountdownRing timerEnd={state.timerEnd} totalSeconds={TOTAL_SECONDS[phase] ?? 60} size={96} />
+      <CountdownRing timerEnd={state.timerEnd} totalSeconds={Math.max(1, Math.round(state.timerTotalMs / 1000)) || (TOTAL_SECONDS[phase] ?? 60)} size={96} />
 
       {sub && <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#6B7280' }}>{sub}</div>}
 

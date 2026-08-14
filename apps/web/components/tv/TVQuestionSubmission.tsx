@@ -50,10 +50,13 @@ function BlobDeco({ size = 48, color = Y2K.yellow, x = 0, y = 0, rotate = 0 }: {
 }
 
 export default function TVQuestionSubmission({ state }: Props) {
-  const { players, submissionProgress, timerEnd, settings } = state;
+  const { players, submissionProgress, timerEnd, timerTotalMs, settings } = state;
   const { playBeep } = useGameSounds();
   const qw = settings.questionsToWrite;
-  const qa = settings.questionsToAnswer;
+  // Every question written gets asked and the deal is even, so each player
+  // answers as many as they wrote.
+  const qa = qw;
+  const totalSeconds = Math.max(1, Math.round(timerTotalMs / 1000));
 
   const HOW_IT_WORKS = [
     { n: 1, t: `write ${qw} q${qw !== 1 ? 's' : ''}` },
@@ -142,7 +145,7 @@ export default function TVQuestionSubmission({ state }: Props) {
             {submitted}/{total} submitted
           </div>
           {timerEnd > 0 && (
-            <CountdownRing timerEnd={timerEnd} totalSeconds={180} size={100} beep={playBeep} />
+            <CountdownRing timerEnd={timerEnd} totalSeconds={totalSeconds} size={100} beep={playBeep} />
           )}
         </div>
 

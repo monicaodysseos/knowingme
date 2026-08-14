@@ -335,14 +335,31 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
     entry.actor.send({ type: 'SKIP_INTRO' });
 
-    // For the short guess phase, restart the guess countdown so the full guess
-    // window begins now that the instructions are dismissed.
-    if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
+    // Dismissing the instructions starts the working window now, so re-arm the
+    // matching room timer to stay in sync with the machine's stamp.
+    const phase = entry.actor.getSnapshot().value;
+    const c = entry.actor.getSnapshot().context;
+    if (phase === 'GUESS_PHASE') {
       setRoomTimer(io, roomCode, 'guess', TIMER.GUESS, () => {
         const e = getRoom(roomCode);
         if (!e) return;
         e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
         startReveal(io, roomCode);
+      });
+    } else if (phase === 'QUESTION_SUBMISSION') {
+      setRoomTimer(io, roomCode, 'question-sub', writeMs(c.settings.questionsToWrite), () => {
+        const e = getRoom(roomCode);
+        if (!e) return;
+        e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+        if (e.actor.getSnapshot().value === 'ANSWER_PHASE') startAnswerPhase(io, roomCode);
+      });
+    } else if (phase === 'ANSWER_PHASE') {
+      const per = answersPerPlayer(c.questionAssignments.length, c.players.length);
+      setRoomTimer(io, roomCode, 'answer', answerMs(per), () => {
+        const e = getRoom(roomCode);
+        if (!e) return;
+        e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+        if (e.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
       });
     }
   });

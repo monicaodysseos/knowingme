@@ -28,8 +28,9 @@ function Heart({ size = 24, color = Y2K.pink, x = 0, y = 0, rotate = 0 }: { size
 }
 
 export default function TVGuessPhase({ state }: Props) {
-  const { currentTurn, players, timerEnd } = state;
+  const { currentTurn, players, timerEnd, timerTotalMs } = state;
   const { playBeep } = useGameSounds();
+  const totalSeconds = Math.max(1, Math.round(timerTotalMs / 1000));
 
   if (!currentTurn) return null;
 
@@ -166,7 +167,7 @@ export default function TVGuessPhase({ state }: Props) {
 
           {/* Timer */}
           {timerEnd > 0 && (
-            <CountdownRing timerEnd={timerEnd} totalSeconds={60} size={72} beep={playBeep} />
+            <CountdownRing timerEnd={timerEnd} totalSeconds={totalSeconds} size={72} beep={playBeep} />
           )}
 
           {/* Player avatar row */}

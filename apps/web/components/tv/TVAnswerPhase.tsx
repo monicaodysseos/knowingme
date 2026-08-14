@@ -34,8 +34,9 @@ function Sparkle({ size = 24, color = Y2K.cyan, x = 0, y = 0, rotate = 0 }: { si
 }
 
 export default function TVAnswerPhase({ state }: Props) {
-  const { players, timerEnd } = state;
+  const { players, timerEnd, timerTotalMs } = state;
   const { playBeep } = useGameSounds();
+  const totalSeconds = Math.max(1, Math.round(timerTotalMs / 1000));
 
   return (
     <div
@@ -68,7 +69,7 @@ export default function TVAnswerPhase({ state }: Props) {
       </motion.div>
 
       {timerEnd > 0 && (
-        <CountdownRing timerEnd={timerEnd} totalSeconds={300} size={130} strokeWidth={10} beep={playBeep} />
+        <CountdownRing timerEnd={timerEnd} totalSeconds={totalSeconds} size={130} strokeWidth={10} beep={playBeep} />
       )}
 
       {/* Players */}

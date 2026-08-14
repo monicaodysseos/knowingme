@@ -78,6 +78,11 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/** How many questions this game deals to each player (everyone gets the same). */
+function perPlayerAnswers(context: GameContext): number {
+  return answersPerPlayer(context.questionAssignments.length, context.players.length);
+}
+
 /** How many questions each player answers, given T submitted and N players.
  *  Ceil so every submitted question is used at least once — spare slots re-ask
  *  a question (a different player answers it) rather than dropping it. */
@@ -384,6 +389,7 @@ export function initialContext(roomCode: string, mode: GameMode, settings?: Game
     currentTurnIndex: 0,
     currentQuestionSlot: 0,
     timerEnd: 0,
+    timerTotalMs: 0,
     introEndsAt: 0,
     finalRevealAt: 0,
     scores: {},
@@ -623,6 +629,7 @@ export const gameMachine = setup({
 
     setTimer: assign({
       timerEnd: (_, params: { duration: number }) => Date.now() + params.duration,
+      timerTotalMs: (_, params: { duration: number }) => params.duration,
     }),
 
     // Round instructions: show for INTRO_MS, skippable by the host.
@@ -631,22 +638,32 @@ export const gameMachine = setup({
     }),
 
     // Writing/answering windows scale with the workload (see writeMs/answerMs).
-    // The intro is showing at the same time, so it's added on top.
+    // The instructions run first, so the working window starts when they end —
+    // that way the countdown ring is full the moment the task appears.
     enterWrite: assign({
       introEndsAt: () => Date.now() + INTRO_MS,
       timerEnd: ({ context }) => Date.now() + INTRO_MS + writeMs(context.settings.questionsToWrite),
+      timerTotalMs: ({ context }) => writeMs(context.settings.questionsToWrite),
     }),
 
     enterAnswer: assign({
       introEndsAt: () => Date.now() + INTRO_MS,
-      timerEnd: ({ context }) => {
-        const mine = context.questionAssignments.filter(
-          (a) => a.assignedToPlayerId === context.players[0]?.id,
-        ).length;
-        // Every player has the same count now, so any player's count works.
-        const perPlayer = mine || answersPerPlayer(context.questionAssignments.length, context.players.length);
-        return Date.now() + INTRO_MS + answerMs(perPlayer);
-      },
+      timerEnd: ({ context }) => Date.now() + INTRO_MS + answerMs(perPlayerAnswers(context)),
+      timerTotalMs: ({ context }) => answerMs(perPlayerAnswers(context)),
+    }),
+
+    // Skipping the instructions starts the working window right now, so players
+    // always get the full intended time (and the ring still starts full).
+    clearIntroStartWrite: assign({
+      introEndsAt: () => 0,
+      timerEnd: ({ context }) => Date.now() + writeMs(context.settings.questionsToWrite),
+      timerTotalMs: ({ context }) => writeMs(context.settings.questionsToWrite),
+    }),
+
+    clearIntroStartAnswer: assign({
+      introEndsAt: () => 0,
+      timerEnd: ({ context }) => Date.now() + answerMs(perPlayerAnswers(context)),
+      timerTotalMs: ({ context }) => answerMs(perPlayerAnswers(context)),
     }),
 
     clearIntro: assign({
@@ -658,6 +675,7 @@ export const gameMachine = setup({
     clearIntroResetGuess: assign({
       introEndsAt: () => 0,
       timerEnd: () => Date.now() + TIMER.GUESS,
+      timerTotalMs: () => TIMER.GUESS,
     }),
 
     // Entering a guess turn: only the very first turn gets the instructions
@@ -667,6 +685,7 @@ export const gameMachine = setup({
         context.currentTurnIndex === 0 ? Date.now() + INTRO_MS : 0,
       timerEnd: ({ context }) =>
         Date.now() + (context.currentTurnIndex === 0 ? INTRO_MS : 0) + TIMER.GUESS,
+      timerTotalMs: () => TIMER.GUESS,
     }),
 
     recordGuess: assign({
@@ -797,7 +816,7 @@ export const gameMachine = setup({
       on: {
         PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
-        SKIP_INTRO: { actions: 'clearIntro' },
+        SKIP_INTRO: { actions: 'clearIntroStartWrite' },
         SUBMIT_QUESTIONS: {
           actions: 'recordQuestions',
         },
@@ -818,7 +837,7 @@ export const gameMachine = setup({
       on: {
         PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
-        SKIP_INTRO: { actions: 'clearIntro' },
+        SKIP_INTRO: { actions: 'clearIntroStartAnswer' },
         SUBMIT_ANSWER: {
           actions: 'recordAnswer',
         },

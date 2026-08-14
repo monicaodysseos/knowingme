@@ -77,7 +77,14 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
   };
 
   const canAdvance = currentValue.trim().length > 0 && !submitted;
-  const isLast = step === count;
+  // Once every question has text you can send from wherever you are — handy
+  // after jumping back to reword one.
+  // The next one still needing text, ignoring the one being edited right now.
+  const nextEmpty = questions.findIndex((q, i) => i !== step - 1 && !q.trim());
+  // If every OTHER question is written, finishing this one completes the set —
+  // so the button sends instead of walking to the end. (The button is only
+  // enabled once the current one has text.)
+  const readyToSend = nextEmpty === -1;
 
   const surpriseMe = () => {
     const used = new Set(questions.map((q) => q.trim()));
@@ -88,14 +95,14 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
 
   const handleAction = () => {
     if (!canAdvance) return;
-    if (!isLast) {
-      setStep((s) => s + 1);
-    } else {
+    if (readyToSend) {
       setSubmitted(true);
       onSubmit(questions.map((q) => q.trim()), (ok, error) => {
         setServerOk(ok);
         setServerError(error ?? null);
       });
+    } else {
+      setStep(nextEmpty + 1); // the next one still needing text
     }
   };
 
@@ -184,29 +191,47 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
         </p>
       </div>
 
-      {/* Progress dots */}
+      {/* Progress dots — tap a filled one to jump back and edit that question */}
       <div className="flex justify-center gap-2">
-        {Array.from({ length: count }).map((_, i) => (
-          <div key={i} style={{
-            width: i + 1 === step ? 24 : 10,
-            height: 10,
-            borderRadius: 99,
-            background: i + 1 <= step ? Y2K.hotPink : '#E5E7EB',
-            border: `2px solid ${Y2K.dark}`,
-            opacity: i + 1 <= step ? 1 : 0.5,
-            transition: 'all 0.3s',
-          }} />
-        ))}
+        {Array.from({ length: count }).map((_, i) => {
+          const written = questions[i]?.trim().length > 0;
+          const reachable = written || i + 1 <= step;
+          return (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Go to question ${i + 1}`}
+              onClick={() => { if (reachable) setStep(i + 1); }}
+              style={{
+                width: i + 1 === step ? 24 : 10,
+                height: 10,
+                borderRadius: 99,
+                padding: 0,
+                background: i + 1 <= step || written ? Y2K.hotPink : '#E5E7EB',
+                border: `2px solid ${Y2K.dark}`,
+                opacity: i + 1 <= step || written ? 1 : 0.5,
+                transition: 'all 0.3s',
+                cursor: reachable ? 'pointer' : 'default',
+              }}
+            />
+          );
+        })}
       </div>
 
-      {/* Previous questions locked-in preview */}
-      {step > 1 && (
+      {/* Your other questions — tap one to edit it */}
+      {count > 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {questions.slice(0, step - 1).map((q, i) => (
-            q.trim() && (
-              <Sticker key={i} color={i % 2 === 0 ? Y2K.cyan : Y2K.yellow} r={14} rotate={i % 2 === 0 ? -1 : 1} style={{ padding: '8px 14px' }}>
-                <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: Y2K.dark, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2, opacity: 0.7 }}>Q{i + 1} locked in ✔</div>
-                <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: Y2K.dark, lineHeight: 1.3 }}>{q}</div>
+          {questions.map((q, i) => (
+            i + 1 !== step && q.trim() && (
+              <Sticker key={i} color={i % 2 === 0 ? Y2K.cyan : Y2K.yellow} r={14} rotate={i % 2 === 0 ? -1 : 1} style={{ padding: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setStep(i + 1)}
+                  style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 14px', cursor: 'pointer' }}
+                >
+                  <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: Y2K.dark, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2, opacity: 0.7 }}>Q{i + 1} · tap to edit ✎</div>
+                  <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: Y2K.dark, lineHeight: 1.3 }}>{q}</div>
+                </button>
               </Sticker>
             )
           ))}
@@ -251,7 +276,7 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
           letterSpacing: '0.05em',
         }}
       >
-        {isLast ? 'send it ✦' : `next → q${step + 1}`}
+        {readyToSend ? 'send it ✦' : `next → q${nextEmpty + 1}`}
       </button>
 
       {/* Generate a question (below, smaller) */}

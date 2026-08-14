@@ -346,6 +346,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
   }
 
   const { action, timerEnd, phase } = state;
+  const timerTotalSeconds = Math.max(1, Math.round(state.timerTotalMs / 1000));
   const introActive = introEndsAt > Date.now();
   const introSecondsLeft = Math.max(0, Math.ceil((introEndsAt - Date.now()) / 1000));
   // At the end of the game, hold the phones on a "look at the TV" curtain while
@@ -416,6 +417,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
               totalSlots={action.totalSlots}
               canSkip={action.canSkip}
               timerEnd={timerEnd}
+              timerTotalSeconds={timerTotalSeconds}
               onSubmit={(id, ans, skipped) => submitAnswer(id, ans, skipped)}
             />
           )}
@@ -426,6 +428,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
               subjectColor={action.subjectColor}
               questionText={action.questionText}
               timerEnd={timerEnd}
+              timerTotalSeconds={timerTotalSeconds}
               onSubmit={submitGuess}
             />
           )}
