@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TVState, AwardResult } from '@ksero-se/types';
 import ParticleBurst from './ParticleBurst';
 import Y2KAvatar from './Y2KAvatar';
+import BrandMark from '../BrandMark';
 import { Y2K } from '../../lib/y2k';
 import { useGameSounds, playMusic, stopMusic } from '../../lib/hooks/useGameSounds';
 
@@ -651,7 +652,10 @@ export default function TVFinalAwards({ state, onPlayAgain }: Props) {
           >
             {/* Title */}
             <div style={{ textAlign: 'center' }}>
-              <ChromeTitle text="ksero · se ✿" size={54} tilt={-2} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                <ChromeTitle text="ksero · se" size={54} tilt={-2} />
+                <BrandMark size={52} />
+              </div>
               <div style={{ marginTop: 4 }}>
                 <ChromeTitle text="the awards" size={36} tilt={0} />
               </div>

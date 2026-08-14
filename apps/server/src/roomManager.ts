@@ -132,6 +132,7 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
     const guessesRevealed = phase === 'REVEAL_PHASE' || phase === 'SCORE_PHASE'
       ? currentTurn.guesses.slice(0, ctx.revealIndex + 1).map((g) => ({
           id: g.id,
+          guesserPlayerId: g.guesserPlayerId,
           guesserName: g.guesserName,
           guesserColor: g.guesserColor,
           guesserAvatar: ctx.players.find((p) => p.id === g.guesserPlayerId)?.avatar ?? 'blob',
@@ -226,11 +227,12 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
 
   io.to(`tv:${roomCode}`).emit('tv:update', tvState);
 
-  // The host can advance the result/scoreboard once marking is done.
+  // Advancing the round: the player who did the marking owns "Next round"
+  // (host can also advance if they go AFK); the scoreboard stays host-paced.
   const revealMarked = !currentTurn
     || currentTurn.guesses.length === 0
     || currentTurn.guesses.every((g) => g.isCorrect !== undefined);
-  const hostCanContinue = (phase === 'REVEAL_PHASE' && revealMarked) || phase === 'SCORE_PHASE';
+  const revealDone = phase === 'REVEAL_PHASE' && revealMarked;
 
   // ── Per-player phone payloads ───────────────────────────────────────────
   for (const player of ctx.players) {
@@ -368,7 +370,9 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
       introEndsAt: ctx.introEndsAt || 0,
       phonesOnly: ctx.settings.phonesOnly ?? false,
       finalRevealAt: ctx.finalRevealAt || 0,
-      canContinue: player.isHost && hostCanContinue,
+      canContinue: revealDone
+        ? (player.id === currentTurn?.subjectPlayerId || player.isHost)
+        : (phase === 'SCORE_PHASE' && player.isHost),
     };
 
     io.to(`player:${player.socketId}`).emit('phone:update', phoneState);

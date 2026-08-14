@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Y2KAvatar from '../components/tv/Y2KAvatar';
+import BrandMark from '../components/BrandMark';
 
 const DARK = '#0b0429';
 const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)';
@@ -19,29 +20,6 @@ function Sparkle({ size = 24, color = '#FFE24A', x = 0, y = 0, rotate = 0, class
   );
 }
 
-function FlowerMascot({ size = 80 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" style={{ filter: `drop-shadow(3px 3px 0 ${DARK})`, flexShrink: 0 }}>
-      <defs>
-        <radialGradient id="flower-chrome" cx="35%" cy="30%" r="80%">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.4" stopColor="#d8e4f5" />
-          <stop offset="0.7" stopColor="#8aa2bf" />
-          <stop offset="1" stopColor="#eaf1fb" />
-        </radialGradient>
-      </defs>
-      <g stroke={DARK} strokeWidth="3" strokeLinejoin="round">
-        <circle cx="50" cy="22" r="18" fill="url(#flower-chrome)" />
-        <circle cx="78" cy="42" r="18" fill="url(#flower-chrome)" />
-        <circle cx="68" cy="76" r="18" fill="url(#flower-chrome)" />
-        <circle cx="32" cy="76" r="18" fill="url(#flower-chrome)" />
-        <circle cx="22" cy="42" r="18" fill="url(#flower-chrome)" />
-      </g>
-      <circle cx="50" cy="50" r="16" fill={DARK} stroke={DARK} strokeWidth="3" />
-      <circle cx="50" cy="50" r="10" fill="#FF1E8E" />
-    </svg>
-  );
-}
 
 // Desktop-only side peekers
 const PEEKERS: { id: string; x: number; y: number; rot: number }[] = [
@@ -150,7 +128,7 @@ export default function LandingPage() {
           }}>
             ksero<span style={{ WebkitTextFillColor: DARK, background: 'none', margin: '0 0.1em', fontSize: '0.72em', position: 'relative', top: '-0.06em' }}>·</span>se
           </h1>
-          <FlowerMascot size={Math.max(48, 92)} />
+          <BrandMark size={Math.max(48, 92)} />
         </motion.div>
 
         {/* Tagline */}

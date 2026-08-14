@@ -26,10 +26,16 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
 
     const handleDisconnect = () => setConnected(false);
     const handleUpdate = (data: TVState) => setState(data);
+    // Host restarted the game — drop the stored room and head home.
+    const handleClosed = () => {
+      try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
+      window.location.href = '/';
+    };
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('tv:update', handleUpdate);
+    socket.on('room:closed', handleClosed);
 
     if (socket.connected) handleConnect();
 
@@ -37,6 +43,7 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('tv:update', handleUpdate);
+      socket.off('room:closed', handleClosed);
     };
   }, [roomCode, onRoomExpired]);
 
@@ -136,11 +143,18 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     const handleUpdate = (data: PhoneState) => setPhoneState(data);
     // In no-TV mode the server also adds this socket to the broadcast room.
     const handleTvUpdate = (data: TVState) => setTvState(data);
+    // Host restarted the game — the room is gone, so head home.
+    const handleClosed = () => {
+      try { localStorage.removeItem(`ksero-${roomCode}-session`); } catch {}
+      try { localStorage.removeItem(`ksero-${roomCode}-qdraft`); } catch {}
+      window.location.href = '/';
+    };
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('phone:update', handleUpdate);
     socket.on('tv:update', handleTvUpdate);
+    socket.on('room:closed', handleClosed);
 
     // If socket is already connected when this effect runs (name changed),
     // call doJoin immediately — but joinedRef guards against a double-call
@@ -155,8 +169,9 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
       socket.off('disconnect', handleDisconnect);
       socket.off('phone:update', handleUpdate);
       socket.off('tv:update', handleTvUpdate);
+      socket.off('room:closed', handleClosed);
     };
-  }, [doJoin]); // re-runs only when roomCode or name change
+  }, [doJoin, roomCode]); // re-runs only when roomCode or name change
 
   // When the player returns to the tab (mobile browsers often drop the socket
   // while backgrounded), reconnect immediately so they're restored to their
@@ -214,6 +229,10 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     getSocket().emit('host:continue');
   }, []);
 
+  const hostRestart = useCallback(() => {
+    getSocket().emit('host:restart');
+  }, []);
+
   return {
     state,
     tvState,
@@ -228,5 +247,6 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     hostStart,
     skipIntro,
     hostContinue,
+    hostRestart,
   };
 }

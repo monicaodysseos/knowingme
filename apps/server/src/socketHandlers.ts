@@ -9,7 +9,7 @@ import {
   sendCurrentState,
 } from './roomManager';
 import { saveSession, resolveSession } from './redis';
-import { TIMER, INTRO_MS, RESULT_HOLD_MS, SCOREBOARD_HOLD_MS } from './machine';
+import { TIMER, INTRO_MS, RESULT_HOLD_MS, SCOREBOARD_HOLD_MS, MARKING_MS, writeMs, answerMs, answersPerPlayer } from './machine';
 import type { JoinPayload, JoinAck } from '@ksero-se/types';
 
 // ── Room creation endpoint (HTTP) ─ see index.ts ──────────────────────────
@@ -178,7 +178,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     // Only set timer if the transition succeeded
     if (entry.actor.getSnapshot().value === 'QUESTION_SUBMISSION') {
       ack?.({ ok: true });
-      setRoomTimer(io, roomCode, 'question-sub', TIMER.QUESTION_SUBMISSION, () => {
+      // Matches the machine's enterWrite stamp: intro + a window that scales
+      // with how many questions each player has to write.
+      const writeWindow = INTRO_MS + writeMs(ctx.settings.questionsToWrite);
+      setRoomTimer(io, roomCode, 'question-sub', writeWindow, () => {
         const e = getRoom(roomCode);
         if (e) {
           e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
@@ -301,9 +304,10 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       entry.actor.send({ type: 'MARK_GUESS', guessId: vote.guessId, isCorrect: vote.isCorrect });
     }
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
+    clearRoomTimer(roomCode, 'marking');
 
-    // Stay on the results (who guessed right + points) for RESULT_HOLD_MS, or
-    // until the host taps continue, then move on to the scoreboard.
+    // Stay on the results (who guessed right + points) until the marking player
+    // taps "Next round" — with RESULT_HOLD_MS as an AFK fallback.
     setRoomTimer(io, roomCode, 'reveal-hold', RESULT_HOLD_MS, () => {
       goToScore(io, roomCode);
     });
@@ -349,19 +353,41 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     const entry = getRoom(roomCode);
     if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
-    if (role !== 'tv' && ctx.hostId !== playerId) return;
 
     const phase = entry.actor.getSnapshot().value;
     if (phase === 'REVEAL_PHASE') {
-      // Only once the subject has finished marking (or there were no guesses).
+      // The player who marked owns "Next round"; the host can also advance in
+      // case they've wandered off.
       const turn = ctx.playerTurns[ctx.currentTurnIndex];
+      const isMarker = !!turn && playerId === turn.subjectPlayerId;
+      if (role !== 'tv' && ctx.hostId !== playerId && !isMarker) return;
+      // Only once the subject has finished marking (or there were no guesses).
       const marked = !turn || turn.guesses.length === 0 || turn.guesses.every((g) => g.isCorrect !== undefined);
       if (!marked) return;
       goToScore(io, roomCode);
     } else if (phase === 'SCORE_PHASE') {
+      if (role !== 'tv' && ctx.hostId !== playerId) return;
       clearRoomTimer(roomCode, 'score-hold');
       advanceToNextTurn(io, roomCode);
     }
+  });
+
+  // ── Host restarts: end the game for everyone (host only) ─────────────────
+  socket.on('host:restart', () => {
+    const { roomCode, playerId, role } = socket.data ?? {};
+    const entry = getRoom(roomCode);
+    if (!entry) return;
+    const ctx = entry.actor.getSnapshot().context;
+    if (role !== 'tv' && ctx.hostId !== playerId) return;
+
+    // Kill every pending timer first so nothing fires into a dead room.
+    for (const key of ['question-sub', 'answer', 'guess', 'marking', 'reveal-hold', 'score-hold']) {
+      clearRoomTimer(roomCode, key);
+    }
+    // Players and the TV are all in the `roomCode` room.
+    io.to(roomCode).emit('room:closed');
+    deleteRoom(roomCode);
+    console.log('[host:restart] room %s closed by host', roomCode);
   });
 
   // ── Disconnect ───────────────────────────────────────────────────────────
@@ -394,7 +420,11 @@ function startAnswerPhase(io: Server, roomCode: string): void {
   if (!entry) return;
   if (entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
 
-  setRoomTimer(io, roomCode, 'answer', TIMER.ANSWER_PHASE, () => {
+  // Matches the machine's enterAnswer stamp: intro + a window scaled to how
+  // many questions each player was dealt (everyone gets the same number).
+  const actx = entry.actor.getSnapshot().context;
+  const perPlayer = answersPerPlayer(actx.questionAssignments.length, actx.players.length);
+  setRoomTimer(io, roomCode, 'answer', INTRO_MS + answerMs(perPlayer), () => {
     const e = getRoom(roomCode);
     if (!e) return;
     e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
@@ -478,11 +508,30 @@ function startReveal(io: Server, roomCode: string): void {
     return;
   }
 
-  // Reveal all guesses immediately (TV handles the 5 s pre-drumroll delay client-side)
+  // Reveal all guesses immediately (the TV/phone play the drumroll client-side)
   for (let i = 0; i < total; i++) {
     entry.actor.send({ type: 'ADVANCE_REVEAL' });
   }
   // State is now broadcast via actor.subscribe — subject's phone will show VOTE_GUESSES
+
+  // Deadlock guard: if the subject never submits their marks, don't hang the
+  // room forever — count anything undecided as wrong and move on.
+  setRoomTimer(io, roomCode, 'marking', MARKING_MS, () => {
+    const e = getRoom(roomCode);
+    if (!e) return;
+    if (e.actor.getSnapshot().value !== 'REVEAL_PHASE') return;
+    const c = e.actor.getSnapshot().context;
+    const t = c.playerTurns[c.currentTurnIndex];
+    if (!t) return;
+    if (t.guesses.every((g) => g.isCorrect !== undefined)) return; // already marked
+    for (const g of t.guesses) {
+      if (g.isCorrect === undefined) {
+        e.actor.send({ type: 'MARK_GUESS', guessId: g.id, isCorrect: false });
+      }
+    }
+    e.actor.send({ type: 'ALL_GUESSES_MARKED' });
+    setRoomTimer(io, roomCode, 'reveal-hold', RESULT_HOLD_MS, () => goToScore(io, roomCode));
+  });
 }
 
 /** Move from the result hold to the scoreboard, then arm the scoreboard hold. */

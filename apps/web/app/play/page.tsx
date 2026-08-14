@@ -170,6 +170,57 @@ function PhoneIntroWait({ isHost, secondsLeft, phase, phonesOnly, onSkip }: { is
   );
 }
 
+// ── Host's restart control: discreet ⟲, then an "are you sure?" curtain ──────
+function RestartControl({ onRestart }: { onRestart: () => void }) {
+  const [asking, setAsking] = useState(false);
+
+  if (asking) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: Y2K.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22, padding: 28, textAlign: 'center' }}>
+        <div style={{ fontSize: 48 }}>⟲</div>
+        <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 26, color: '#fff', lineHeight: 1.2 }}>
+          restart the game?
+        </div>
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.75)', maxWidth: 300 }}>
+          this ends the game for everyone — all players go back to the home screen.
+        </p>
+        <div className="w-full flex flex-col gap-3" style={{ maxWidth: 320 }}>
+          <HostButton label="yes, restart" onClick={onRestart} />
+          <button
+            type="button"
+            onClick={() => setAsking(false)}
+            style={{
+              width: '100%', padding: '14px', borderRadius: 99,
+              fontFamily: Y2K.display, fontWeight: 800, fontSize: 16, color: '#fff',
+              background: 'transparent', border: '3px solid rgba(255,255,255,0.5)', cursor: 'pointer',
+            }}
+          >
+            cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setAsking(true)}
+      aria-label="Restart game"
+      style={{
+        position: 'fixed', top: 14, right: 12, zIndex: 30,
+        width: 38, height: 38, borderRadius: '50%',
+        background: 'rgba(255,255,255,0.9)', border: `2.5px solid ${Y2K.dark}`,
+        boxShadow: `0 2px 0 ${Y2K.dark}`, cursor: 'pointer',
+        fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark,
+        display: 'grid', placeItems: 'center', lineHeight: 1,
+      }}
+    >
+      ⟲
+    </button>
+  );
+}
+
 // ── End-of-game curtain: keep eyes on the TV (or build suspense) until the
 //    leaderboard + awards have played, then the results appear on the phone. ──
 function PhoneFinalWait({ phonesOnly }: { phonesOnly: boolean }) {
@@ -240,6 +291,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     hostStart,
     skipIntro,
     hostContinue,
+    hostRestart,
   } = usePhoneSocket({
     roomCode,
     name,
@@ -401,12 +453,16 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Host's "continue" control over the result/scoreboard holds. */}
+      {/* Advance control: the player who marked owns "Next round" on the
+          results; the scoreboard stays host-paced. */}
       {state.canContinue && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px 22px', background: `linear-gradient(180deg, transparent 0%, ${Y2K.cream} 35%)`, zIndex: 20 }}>
-          <HostButton label="continue ▶" onClick={hostContinue} />
+          <HostButton label={phase === 'REVEAL_PHASE' ? 'next round ▶' : 'continue ▶'} onClick={hostContinue} />
         </div>
       )}
+
+      {/* Host can bail out of the game at any point once it's underway. */}
+      {state.isHost && phase !== 'LOBBY' && <RestartControl onRestart={hostRestart} />}
     </PhoneLayout>
   );
 }

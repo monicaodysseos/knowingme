@@ -15,18 +15,24 @@ import { Y2K } from '../../lib/y2k';
  */
 export default function PhoneReveal({ state }: { state: TVState }) {
   const turn = state.currentTurn;
-  const [stage, setStage] = useState<'drumroll' | 'answer' | 'list'>('drumroll');
+  // Guesses first (time to read them), then the drumroll, then the answer —
+  // matching the TV so the reveal lands the same way in both modes.
+  const [stage, setStage] = useState<'guesses' | 'drumroll' | 'answer'>('guesses');
 
   useEffect(() => {
-    setStage('drumroll');
-    const t1 = setTimeout(() => setStage('answer'), 1800);
-    const t2 = setTimeout(() => setStage('list'), 1800 + 2000);
+    setStage('guesses');
+    const t1 = setTimeout(() => setStage('drumroll'), 5000);
+    const t2 = setTimeout(() => setStage('answer'), 5000 + 1800);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [turn?.questionText ?? '']);
 
   if (!turn) return null;
   const subject = turn.subjectPlayer;
   const guesses = turn.guessesRevealed ?? [];
+
+  const deltaFor = (playerId?: string) => state.scores.find((s) => s.playerId === playerId)?.delta ?? 0;
+  const subjectDelta = deltaFor(subject.id);
+  const marksIn = guesses.length > 0 && guesses.every((g) => g.isCorrect !== undefined);
 
   return (
     <div className="flex-1 flex flex-col gap-4 px-1 py-2">
@@ -41,7 +47,7 @@ export default function PhoneReveal({ state }: { state: TVState }) {
         <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: Y2K.dark }}>{turn.questionText}</div>
       </div>
 
-      {/* Drumroll → answer */}
+      {/* Answer: hidden while everyone reads the guesses, then drumroll → reveal */}
       <AnimatePresence mode="wait">
         {stage === 'drumroll' && (
           <motion.div key="dr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3 py-5">
@@ -53,7 +59,7 @@ export default function PhoneReveal({ state }: { state: TVState }) {
             </div>
           </motion.div>
         )}
-        {stage !== 'drumroll' && turn.answer && (
+        {stage === 'answer' && turn.answer && (
           <motion.div key="ans" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}
             style={{ position: 'relative', background: subject.color.hex, border: `3px solid ${Y2K.dark}`, borderRadius: 20, padding: 16, textAlign: 'center', boxShadow: `0 6px 0 ${Y2K.dark}`, overflow: 'visible' }}>
             <ParticleBurst trigger={stage === 'answer'} />
@@ -65,8 +71,8 @@ export default function PhoneReveal({ state }: { state: TVState }) {
         )}
       </AnimatePresence>
 
-      {/* Guesses */}
-      {stage === 'list' && (
+      {/* Guesses — on screen from the start so there's time to read them */}
+      {(
         <div className="flex flex-col gap-2">
           <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 12, color: Y2K.deepPink, textTransform: 'uppercase', letterSpacing: '0.05em' }}>the guesses</div>
           {guesses.length === 0 && (
@@ -96,7 +102,16 @@ export default function PhoneReveal({ state }: { state: TVState }) {
                 <span style={{ flex: 1, textAlign: 'right', fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: Y2K.dark, textDecoration: g.isCorrect === false ? 'line-through' : 'none' }}>
                   &ldquo;{g.text}&rdquo;
                 </span>
-                {g.isCorrect === true && <span style={{ color: '#19B06B', fontWeight: 900, fontSize: 18 }}>✔</span>}
+                {g.isCorrect === true && (
+                  <>
+                    {deltaFor(g.guesserPlayerId) > 0 && (
+                      <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 12, color: '#fff', background: '#19B06B', border: `2px solid ${Y2K.dark}`, borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>
+                        +{deltaFor(g.guesserPlayerId)}
+                      </span>
+                    )}
+                    <span style={{ color: '#19B06B', fontWeight: 900, fontSize: 18 }}>✔</span>
+                  </>
+                )}
                 {g.isCorrect === false && <span style={{ color: Y2K.hotPink, fontWeight: 900, fontSize: 18 }}>✘</span>}
               </motion.div>
             );
@@ -104,6 +119,16 @@ export default function PhoneReveal({ state }: { state: TVState }) {
           {guesses.length > 0 && guesses.every((g) => g.isCorrect === undefined) && (
             <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>
               {subject.name} is marking the guesses…
+            </div>
+          )}
+          {marksIn && subjectDelta > 0 && (
+            <div style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: subject.color.hex, textAlign: 'center', marginTop: 6 }}>
+              {subject.name} +{subjectDelta} for being guessed ✦
+            </div>
+          )}
+          {state.isLastRound && (
+            <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 11, color: '#fff', background: Y2K.hotPink, border: `2px solid ${Y2K.dark}`, borderRadius: 999, padding: '3px 12px', alignSelf: 'center', marginTop: 6, letterSpacing: '0.06em' }}>
+              ✦ FINAL ROUND · DOUBLE POINTS ✦
             </div>
           )}
         </div>

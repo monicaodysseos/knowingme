@@ -20,18 +20,31 @@ import { buildSeededPool } from './questions';
 // ── Constants ──────────────────────────────────────────────────────────────
 
 export const TIMER = {
-  QUESTION_SUBMISSION: 180_000, // 3 min
-  ANSWER_PHASE: 300_000,        // 5 min for the entire answer phase
+  QUESTION_SUBMISSION: 180_000, // fallback only — prefer writeMs()
+  ANSWER_PHASE: 300_000,        // fallback only — prefer answerMs()
   GUESS: 60_000,                // 60 s per guess turn
 };
+
+const clamp = (ms: number, lo = 90_000, hi = 360_000) => Math.min(hi, Math.max(lo, ms));
+
+/** Writing time scales with how many questions you have to write.
+ *  (The phase still ends the moment everyone submits, so being generous is free.) */
+export const writeMs = (questionsToWrite: number) => clamp(30_000 + 60_000 * questionsToWrite);
+
+/** Answering time scales with how many questions you were dealt. */
+export const answerMs = (questionsToAnswer: number) => clamp(30_000 + 45_000 * questionsToAnswer);
 
 // How long the round instructions show before the first turn of a phase.
 export const INTRO_MS = 60_000; // 1 min, skippable by the host
 
 // After voting, the result + scoreboard each hold this long unless the host
 // taps "continue" / "skip".
-export const RESULT_HOLD_MS = 60_000;   // reveal results (who guessed right + points)
+export const RESULT_HOLD_MS = 90_000;   // reveal results (who guessed right + points)
 export const SCOREBOARD_HOLD_MS = 60_000; // running scoreboard between rounds
+
+// Safety net: if the subject never submits their marks the room would hang
+// forever, so bound the whole reveal + marking window.
+export const MARKING_MS = 120_000;
 
 // Per-round scoring: a 100-point pool is split evenly among everyone who
 // guessed correctly, and the subject earns a "knowable" bonus for being guessed.
@@ -65,44 +78,131 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/** How many questions each player answers, given T submitted and N players.
+ *  Ceil so every submitted question is used at least once — spare slots re-ask
+ *  a question (a different player answers it) rather than dropping it. */
+export function answersPerPlayer(totalQuestions: number, playerCount: number): number {
+  if (playerCount <= 0) return 0;
+  return Math.ceil(totalQuestions / playerCount);
+}
+
 function assignQuestions(
   players: Player[],
   pool: Question[],
   _mode: GameMode,
   _questionsToAnswer: number,
 ): QuestionAssignment[] {
-  // Assign EVERY player-submitted question to exactly one player so they all
-  // get asked. Each question goes to a non-author, balanced as evenly as
-  // possible across players (the least-loaded eligible player answers it).
+  // EVERY player answers the SAME number of questions (K), and every submitted
+  // question gets asked. If the totals don't divide evenly (someone didn't
+  // finish writing), the spare slots re-ask a question instead of skipping it.
   const submitted = pool.filter((q) => q.submittedByPlayerId !== undefined);
-  if (submitted.length === 0 || players.length === 0) return [];
+  const n = players.length;
+  if (submitted.length === 0 || n === 0) return [];
 
-  const counts: Record<string, number> = {};
-  players.forEach((p) => { counts[p.id] = 0; });
+  const k = answersPerPlayer(submitted.length, n);
 
-  const assignments: QuestionAssignment[] = [];
-  // Shuffle the questions so the round order is random each game.
+  // ── Build the deal list: n*k questions, same-author entries spread apart ──
+  // Group by author, then repeatedly take from whichever author has the most
+  // remaining, so one player's questions never bunch together in the deal.
+  const byAuthor = new Map<string, Question[]>();
   for (const q of shuffle(submitted)) {
-    // Prefer players who didn't write this question; only fall back to the
-    // author if literally nobody else exists (e.g. a single-player edge case).
-    let eligible = players.filter((p) => p.id !== q.submittedByPlayerId);
-    if (eligible.length === 0) eligible = [...players];
-
-    // Pick the least-loaded eligible player, breaking ties randomly.
-    const minCount = Math.min(...eligible.map((p) => counts[p.id]));
-    const leastLoaded = shuffle(eligible.filter((p) => counts[p.id] === minCount));
-    const chosen = leastLoaded[0];
-
-    counts[chosen.id] += 1;
-    assignments.push({
-      id: uuidv4(),
-      questionId: q.id,
-      questionText: q.text,
-      assignedToPlayerId: chosen.id,
-    });
+    const author = q.submittedByPlayerId!;
+    if (!byAuthor.has(author)) byAuthor.set(author, []);
+    byAuthor.get(author)!.push(q);
+  }
+  const spread: Question[] = [];
+  while (spread.length < submitted.length) {
+    let biggest: string | null = null;
+    for (const [author, qs] of byAuthor) {
+      if (qs.length === 0) continue;
+      if (biggest === null || qs.length > byAuthor.get(biggest)!.length) biggest = author;
+    }
+    if (biggest === null) break;
+    spread.push(byAuthor.get(biggest)!.shift()!);
   }
 
-  return assignments;
+  // Pad up to n*k by re-asking questions, always picking the author with the
+  // fewest copies so far so duplicates spread instead of piling on one person.
+  const deal: Question[] = [...spread];
+  const copiesByAuthor: Record<string, number> = {};
+  const copiesByQ: Record<string, number> = {};
+  for (const q of spread) {
+    copiesByAuthor[q.submittedByPlayerId!] = (copiesByAuthor[q.submittedByPlayerId!] ?? 0) + 1;
+    copiesByQ[q.id] = (copiesByQ[q.id] ?? 0) + 1;
+  }
+  while (deal.length < n * k) {
+    let best = spread[0];
+    for (const q of spread) {
+      const ca = copiesByAuthor[q.submittedByPlayerId!], cb = copiesByAuthor[best.submittedByPlayerId!];
+      if (ca < cb || (ca === cb && copiesByQ[q.id] < copiesByQ[best.id])) best = q;
+    }
+    deal.push(best);
+    copiesByAuthor[best.submittedByPlayerId!]++;
+    copiesByQ[best.id]++;
+  }
+
+  // ── Assign with a hard per-player cap of k — this is what guarantees every
+  // player answers the same number. Hardest-to-place first: questions whose
+  // author owns the most copies have the fewest possible takers.
+  const order = shuffle(players);
+  const queue = shuffle(deal.map((q, i) => ({ q, i })))
+    .sort((a, b) => copiesByAuthor[b.q.submittedByPlayerId!] - copiesByAuthor[a.q.submittedByPlayerId!]);
+
+  const remaining = order.map(() => k);
+  const held = order.map(() => new Set<string>());
+  const owner: number[] = new Array(deal.length).fill(-1);
+
+  for (const { q, i } of queue) {
+    let best = -1;
+    for (let p = 0; p < n; p++) {
+      if (remaining[p] <= 0) continue;
+      if (order[p].id === q.submittedByPlayerId) continue; // never your own question
+      if (held[p].has(q.id)) continue;                     // never the same one twice
+      if (best === -1 || remaining[p] > remaining[best]) best = p;
+    }
+    if (best === -1) {
+      // Degenerate (e.g. only one player wrote anything): relax "not your own".
+      for (let p = 0; p < n; p++) {
+        if (remaining[p] <= 0 || held[p].has(q.id)) continue;
+        if (best === -1 || remaining[p] > remaining[best]) best = p;
+      }
+    }
+    if (best === -1) for (let p = 0; p < n; p++) if (remaining[p] > 0) { best = p; break; }
+    owner[i] = best;
+    remaining[best]--;
+    held[best].add(q.id);
+  }
+
+  // ── Repair leftovers by swapping ownership between two slots. A swap keeps
+  // both players' counts identical, so the equal-K guarantee always holds.
+  const conflicts = (slot: number, playerIdx: number): boolean => {
+    const q = deal[slot];
+    if (q.submittedByPlayerId === order[playerIdx].id) return true;
+    return deal.some((other, j) => j !== slot && owner[j] === playerIdx && other.id === q.id);
+  };
+  const slotIdx = deal.map((_, i) => i);
+  for (let attempt = 0; attempt < 2000; attempt++) {
+    const bad = slotIdx.filter((i) => conflicts(i, owner[i]));
+    if (bad.length === 0) break;
+    const i = bad[Math.floor(Math.random() * bad.length)];
+    let moved = false;
+    for (const j of shuffle(slotIdx)) {
+      if (j === i || owner[j] === owner[i]) continue;
+      const a = owner[i], b = owner[j];
+      const before = (conflicts(i, a) ? 1 : 0) + (conflicts(j, b) ? 1 : 0);
+      owner[i] = b; owner[j] = a;
+      if ((conflicts(i, b) ? 1 : 0) + (conflicts(j, a) ? 1 : 0) < before) { moved = true; break; }
+      owner[i] = a; owner[j] = b;
+    }
+    if (!moved) break; // impossible input (one author owns everything) — accept
+  }
+
+  return deal.map((q, i) => ({
+    id: uuidv4(),
+    questionId: q.id,
+    questionText: q.text,
+    assignedToPlayerId: order[owner[i]].id,
+  }));
 }
 
 function buildPlayerTurns(
@@ -472,6 +572,20 @@ export const gameMachine = setup({
         assignQuestions(context.players, context.questionPool, context.mode, context.settings.questionsToAnswer),
     }),
 
+    // Only hand the host role over when the current host has actually dropped.
+    // Runs in every phase — otherwise a mid-game host disconnect leaves nobody
+    // able to advance the round or restart.
+    promoteHostIfNeeded: assign(({ context }) => {
+      const host = context.players.find((p) => p.id === context.hostId);
+      if (host?.isConnected) return {};
+      const next = context.players.find((p) => p.isConnected);
+      if (!next) return {};
+      return {
+        hostId: next.id,
+        players: context.players.map((p) => ({ ...p, isHost: p.id === next.id })),
+      };
+    }),
+
     recordAnswer: assign({
       questionAssignments: ({ context, event }) => {
         if (event.type !== 'SUBMIT_ANSWER') return context.questionAssignments;
@@ -514,6 +628,25 @@ export const gameMachine = setup({
     // Round instructions: show for INTRO_MS, skippable by the host.
     startIntro: assign({
       introEndsAt: () => Date.now() + INTRO_MS,
+    }),
+
+    // Writing/answering windows scale with the workload (see writeMs/answerMs).
+    // The intro is showing at the same time, so it's added on top.
+    enterWrite: assign({
+      introEndsAt: () => Date.now() + INTRO_MS,
+      timerEnd: ({ context }) => Date.now() + INTRO_MS + writeMs(context.settings.questionsToWrite),
+    }),
+
+    enterAnswer: assign({
+      introEndsAt: () => Date.now() + INTRO_MS,
+      timerEnd: ({ context }) => {
+        const mine = context.questionAssignments.filter(
+          (a) => a.assignedToPlayerId === context.players[0]?.id,
+        ).length;
+        // Every player has the same count now, so any player's count works.
+        const perPlayer = mine || answersPerPlayer(context.questionAssignments.length, context.players.length);
+        return Date.now() + INTRO_MS + answerMs(perPlayer);
+      },
     }),
 
     clearIntro: assign({
@@ -601,6 +734,9 @@ export const gameMachine = setup({
     nextTurn: assign({
       currentTurnIndex: ({ context }) => context.currentTurnIndex + 1,
       revealIndex: () => -1,
+      // Clear last turn's points, otherwise the next round's results/leaderboard
+      // would still be showing "+N this turn" from the turn before.
+      roundDeltas: () => ({}),
     }),
 
     resetTurnIndex: assign({
@@ -646,10 +782,7 @@ export const gameMachine = setup({
       on: {
         PLAYER_JOIN: { actions: ['addPlayer', 'setHost'] },
         PLAYER_LEAVE: {
-          actions: [
-            'markPlayerDisconnected',
-            { type: 'promoteNextHost' },
-          ],
+          actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'],
         },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
         HOST_START: {
@@ -660,12 +793,9 @@ export const gameMachine = setup({
     },
 
     QUESTION_SUBMISSION: {
-      entry: [
-        { type: 'setTimer', params: { duration: TIMER.QUESTION_SUBMISSION } },
-        'startIntro',
-      ],
+      entry: 'enterWrite',
       on: {
-        PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
+        PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
         SKIP_INTRO: { actions: 'clearIntro' },
         SUBMIT_QUESTIONS: {
@@ -684,12 +814,9 @@ export const gameMachine = setup({
     },
 
     ANSWER_PHASE: {
-      entry: [
-        { type: 'setTimer', params: { duration: TIMER.ANSWER_PHASE } },
-        'startIntro',
-      ],
+      entry: 'enterAnswer',
       on: {
-        PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
+        PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
         SKIP_INTRO: { actions: 'clearIntro' },
         SUBMIT_ANSWER: {
@@ -709,7 +836,7 @@ export const gameMachine = setup({
     GUESS_PHASE: {
       entry: 'enterGuess',
       on: {
-        PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
+        PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
         SKIP_INTRO: { actions: 'clearIntroResetGuess' },
         SUBMIT_GUESS: {
@@ -723,7 +850,7 @@ export const gameMachine = setup({
     REVEAL_PHASE: {
       entry: assign({ revealIndex: () => -1 }),
       on: {
-        PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
+        PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
         ADVANCE_REVEAL: [
           {
@@ -748,7 +875,7 @@ export const gameMachine = setup({
         params: { duration: SCOREBOARD_HOLD_MS },
       },
       on: {
-        PLAYER_LEAVE: { actions: 'markPlayerDisconnected' },
+        PLAYER_LEAVE: { actions: ['markPlayerDisconnected', 'promoteHostIfNeeded'] },
         PLAYER_RECONNECT: { actions: 'reconnectPlayer' },
         NEXT_TURN: [
           {

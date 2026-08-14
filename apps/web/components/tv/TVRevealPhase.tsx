@@ -58,26 +58,35 @@ export default function TVRevealPhase({ state, onContinue }: Props) {
     return () => clearTimeout(t);
   }, [visibleCount, currentTurn?.guessesRevealed.length, stage, playBlink]);
 
-  // 2s after last guess → drumroll → answer
+  // Let everyone actually READ the guesses (5s), then drumroll → answer.
   useEffect(() => {
     if (stage !== 'guesses') return;
     const total = currentTurn?.guessesRevealed.length ?? 0;
     if (visibleCount < total || total === 0) return;
 
+    // All three timers are tracked here so the effect's own cleanup can clear
+    // them — returning a cleanup from inside a setTimeout callback does nothing.
+    let t2: ReturnType<typeof setTimeout> | undefined;
+    let t3: ReturnType<typeof setTimeout> | undefined;
+    let stopDrum: (() => void) | undefined;
+
     const t1 = setTimeout(() => {
       setStage('drumroll');
-      const stopDrum = playDrumroll(1800);
-      const t2 = setTimeout(() => {
-        stopDrum();
+      stopDrum = playDrumroll(1800);
+      t2 = setTimeout(() => {
+        stopDrum?.();
         setStage('answer');
         playReveal();
-        const t3 = setTimeout(() => setStage('marking'), 3000);
-        return () => clearTimeout(t3);
+        t3 = setTimeout(() => setStage('marking'), 4000);
       }, 1800);
-      return () => clearTimeout(t2);
-    }, 2000);
+    }, 5000);
 
-    return () => clearTimeout(t1);
+    return () => {
+      clearTimeout(t1);
+      if (t2) clearTimeout(t2);
+      if (t3) clearTimeout(t3);
+      stopDrum?.();
+    };
   }, [visibleCount, currentTurn?.guessesRevealed.length, stage, playDrumroll, playReveal]);
 
   if (!currentTurn) return null;
@@ -87,11 +96,39 @@ export default function TVRevealPhase({ state, onContinue }: Props) {
   // Subject has finished marking → results are final, show the continue control.
   const marksIn = guessesRevealed.length > 0 && guessesRevealed.every((g) => g.isCorrect !== undefined);
 
+  // Points won this round come from the broadcast deltas (set the moment
+  // marking completes), so each guesser's score shows right on the result.
+  const deltaFor = (playerId?: string) =>
+    state.scores.find((s) => s.playerId === playerId)?.delta ?? 0;
+  const pointsFor = (guessId: string) => {
+    const g = guessesRevealed.find((x) => x.id === guessId);
+    if (!g?.isCorrect) return 0;
+    return deltaFor(g.guesserPlayerId);
+  };
+  const subjectDelta = deltaFor(subjectPlayer.id);
+  const isFinalRound = state.isLastRound === true;
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
       style={{ background: Y2K.bg, padding: '4vh 6vw' }}
     >
+      {isFinalRound && (
+        <div style={{ position: 'absolute', top: '2vh', left: 0, right: 0, textAlign: 'center', zIndex: 55, pointerEvents: 'none' }}>
+          <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(12px, 1.4vw, 20px)', color: '#fff', background: Y2K.hotPink, border: `2.5px solid ${Y2K.dark}`, borderRadius: 999, padding: '4px 16px', boxShadow: `0 3px 0 ${Y2K.dark}`, letterSpacing: '0.08em' }}>
+            ✦ FINAL ROUND · DOUBLE POINTS ✦
+          </span>
+        </div>
+      )}
+
+      {marksIn && subjectDelta > 0 && (
+        <div style={{ position: 'absolute', bottom: '10vh', left: 0, right: 0, textAlign: 'center', zIndex: 55, pointerEvents: 'none' }}>
+          <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(13px, 1.5vw, 22px)', color: subjectPlayer.color.hex, WebkitTextStroke: `0.5px ${Y2K.dark}` }}>
+            {subjectPlayer.name} +{subjectDelta} for being guessed ✦
+          </span>
+        </div>
+      )}
+
       {marksIn && (
         <div style={{ position: 'absolute', bottom: '3vh', left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 60 }}>
           <ContinueBar timerEnd={state.timerEnd} onContinue={onContinue} label="next ▶" />
@@ -163,7 +200,14 @@ export default function TVRevealPhase({ state, onContinue }: Props) {
                 &ldquo;{g.text}&rdquo;
               </span>
               {g.isCorrect === true && (
-                <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(18px, 2vw, 28px)', color: '#19B06B' }}>✔</span>
+                <>
+                  {pointsFor(g.id) > 0 && (
+                    <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(13px, 1.4vw, 20px)', color: '#fff', background: '#19B06B', border: `2px solid ${Y2K.dark}`, borderRadius: 999, padding: '2px 10px', boxShadow: `0 2px 0 ${Y2K.dark}`, flexShrink: 0 }}>
+                      +{pointsFor(g.id)}
+                    </span>
+                  )}
+                  <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(18px, 2vw, 28px)', color: '#19B06B' }}>✔</span>
+                </>
               )}
               {g.isCorrect === false && (
                 <span style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 'clamp(18px, 2vw, 28px)', color: '#FF1E8E' }}>✘</span>

@@ -197,6 +197,7 @@ export interface TVState {
     guessCount: number; // how many guesses received (no text until reveal)
     guessesRevealed: Array<{
       id: string;
+      guesserPlayerId: string;
       guesserName: string;
       guesserColor: PlayerColor;
       guesserAvatar: PlayerCharacter;
@@ -270,12 +271,14 @@ export const SOCKET_EVENTS = {
   PLAY_AGAIN: 'play:again',
   SKIP_INTRO: 'skip:intro',
   HOST_CONTINUE: 'host:continue',
+  HOST_RESTART: 'host:restart',
 
   // server → client
   TV_UPDATE: 'tv:update',
   PHONE_UPDATE: 'phone:update',
   ERROR: 'error',
   KICKED: 'kicked',
+  ROOM_CLOSED: 'room:closed',
 } as const;
 
 // ── Join / Room API types ──────────────────────────────────────────────────
