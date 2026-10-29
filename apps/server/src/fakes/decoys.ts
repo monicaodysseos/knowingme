@@ -1,5 +1,5 @@
 import { CHARACTER_ROSTER } from '@ksero-se/types';
-import { cleanDecoyText, normalizeAnswer } from './text';
+import { cleanDecoyText, normalizeAnswer, tooCloseToAnswer } from './text';
 import { shuffle } from './sample';
 
 /** Small built in list used when Gemini is missing, slow, or wrong. */
@@ -122,7 +122,7 @@ export function pickDecoys(
     );
     for (const item of pool) {
       const key = normalizeAnswer(item);
-      if (!key || seen.has(key)) continue;
+      if (!key || seen.has(key) || tooCloseToAnswer(item, real)) continue;
       seen.add(key);
       out.push(item);
       if (out.length >= count) return out;

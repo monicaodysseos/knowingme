@@ -3,7 +3,7 @@ import { computeAwards, rankScores } from './awards';
 import { fallbackDecoys, geminiDecoys, parseDecoyList, pickDecoys } from './decoys';
 import { scoreTurn } from './scoring';
 import { assignQuestions, sampleSubjects } from './sample';
-import { normalizeAnswer } from './text';
+import { normalizeAnswer, tooCloseToAnswer } from './text';
 import { answerWindow, decoyCount, revealSlice, timersFor, writeWindow } from './timers';
 import { sanitizeFakesSettings, sanitizeSettings } from '../settings';
 
@@ -93,12 +93,26 @@ describe('sampling', () => {
 });
 
 describe('merging and scoring', () => {
-  it('treats case and punctuation as the same answer', () => {
+  it('folds case, accents, whitespace and punctuation', () => {
     expect(normalizeAnswer('Pizza!')).toBe(normalizeAnswer('pizza'));
     expect(normalizeAnswer('well known')).toBe(normalizeAnswer('well-known'));
+    expect(normalizeAnswer('  café  ')).toBe(normalizeAnswer('cafe'));
+    expect(normalizeAnswer('pizza   party')).toBe('pizza party');
   });
 
-  it('merges an identical fake into the real answer and does not pay it twice', () => {
+  it('rejects an identical fake and a small typo, and leaves a different answer', () => {
+    expect(tooCloseToAnswer('Pizza!', 'pizza')).toBe(true);
+    expect(tooCloseToAnswer('café', 'cafe')).toBe(true);
+    expect(tooCloseToAnswer('pizza   party', 'pizza party')).toBe(true);
+    expect(tooCloseToAnswer('piza', 'pizza')).toBe(true);
+    expect(tooCloseToAnswer('pizaz', 'pizza')).toBe(true);
+    expect(tooCloseToAnswer('pineaple', 'pineapple')).toBe(true);
+    expect(tooCloseToAnswer('recieve', 'receive')).toBe(true);
+    expect(tooCloseToAnswer('cat', 'dog')).toBe(false);
+    expect(tooCloseToAnswer('a pigeon with a grudge', 'pizza')).toBe(false);
+  });
+
+  it('does not pay 100 for a fake that matched the real answer', () => {
     const result = scoreTurn({
       subjectId: 'ada',
       doubled: false,
@@ -108,10 +122,11 @@ describe('merging and scoring', () => {
       ],
       votes: [{ playerId: 'cio', optionId: 'real' }],
     });
-    expect(result.deltas.bea).toBe(100);
+    expect(result.deltas.bea).toBeUndefined();
     expect(result.deltas.cio).toBe(100);
     expect(result.deltas.ada).toBe(50);
     expect(result.finders).toEqual(['cio']);
+    expect(result.subjectFound).toBe(true);
     expect(result.fooled).toEqual([]);
   });
 
