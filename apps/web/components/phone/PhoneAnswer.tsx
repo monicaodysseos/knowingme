@@ -163,7 +163,7 @@ export default function PhoneAnswer({
             resize: 'none',
           }}
         />
-        <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#374151', textAlign: 'right' }}>{answer.length}/120</span>
+        <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>{answer.length}/120</span>
       </div>
 
       {/* Submit */}
@@ -203,7 +203,7 @@ export default function PhoneAnswer({
             fontFamily: Y2K.body,
             fontWeight: 700,
             fontSize: 14,
-            color: '#374151',
+            color: '#9CA3AF',
             background: '#fff',
             border: `2px solid #e5e7eb`,
             cursor: 'pointer',

@@ -68,7 +68,7 @@ function getEl(key: MusicKey): HTMLAudioElement | null {
     el = new Audio(TRACK_SRC[key]);
     el.loop = true;
     el.volume = TRACK_VOLUME[key];
-    el.preload = 'none';
+    el.preload = 'auto';
     _elements[key] = el;
   }
   return el;
@@ -129,7 +129,7 @@ function getRoundStart(): HTMLAudioElement | null {
     _roundStartEl = new Audio('/RoundStartSounds.mp3');
     _roundStartEl.loop = false;
     _roundStartEl.volume = 0.7;
-    _roundStartEl.preload = 'none';
+    _roundStartEl.preload = 'auto';
   }
   return _roundStartEl;
 }
@@ -158,12 +158,22 @@ export function unlockAudio(): void {
 
   if (!_unlocked) {
     _unlocked = true;
-    // A tiny silent clip satisfies autoplay without downloading the songs.
-    // Each track is fetched only when that phase actually starts.
-    const primer = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-    primer.volume = 0;
-    primer.play().catch(() => {});
+    // Prime with the guess track (not the first track heard on the lobby
+    // screen), muted, so the unlock is inaudible and never collides with the
+    // first real track the phase effect plays.
+    const primer = getEl('guess');
+    if (primer) {
+      const vol = primer.volume;
+      primer.volume = 0;
+      primer.play()
+        .then(() => { primer.pause(); primer.currentTime = 0; primer.volume = vol; })
+        .catch(() => { primer.volume = vol; });
+    }
   }
+
+  // Warm buffers for instant start later.
+  (Object.keys(TRACK_SRC) as MusicKey[]).forEach((k) => getEl(k)?.load());
+  getRoundStart()?.load();
 }
 
 export function useGameSounds() {

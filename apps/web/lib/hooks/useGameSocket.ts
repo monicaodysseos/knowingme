@@ -217,25 +217,6 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     getSocket().emit('submit:vote', votes);
   }, []);
 
-  const submitFakesAnswers = useCallback((answers: Array<{ assignmentId: string; text: string }>) => {
-    getSocket().emit('submit:answer', { answers });
-  }, []);
-
-  const submitFake = useCallback((text: string, onAck?: (ok: boolean, error?: string) => void) => {
-    getSocket().emit('submit:fake', { text }, (res?: { ok: boolean; error?: string }) => {
-      onAck?.(res?.ok ?? false, res?.error);
-    });
-    try { navigator.vibrate?.(30); } catch {}
-  }, []);
-
-  const submitFakesVote = useCallback((optionId: string) => {
-    getSocket().emit('submit:vote', { optionId });
-  }, []);
-
-  const submitLiterally = useCallback((optionId: string | null) => {
-    getSocket().emit('submit:literally', { optionId });
-  }, []);
-
   const playAgain = useCallback(() => {
     getSocket().emit('play:again');
   }, []);
@@ -268,10 +249,6 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     submitAnswer,
     submitGuess,
     submitVote,
-    submitFakesAnswers,
-    submitFake,
-    submitFakesVote,
-    submitLiterally,
     playAgain,
     hostStart,
     skipIntro,

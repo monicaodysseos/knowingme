@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { GameSettings } from '@ksero-se/types';
-import { DEFAULT_SETTINGS, copy } from '@ksero-se/types';
+import { DEFAULT_SETTINGS } from '@ksero-se/types';
 import { Y2K } from '../../lib/y2k';
-import { fetchPublicConfig } from '../../lib/publicConfig';
 
 interface Props {
   onConfirm: (settings: GameSettings) => void;
-  error?: string | null;
 }
 
 function Sticker({ color, r = 20, rotate = 0, style = {}, children }: { color: string; r?: number; rotate?: number; style?: React.CSSProperties; children: React.ReactNode }) {
@@ -57,8 +55,6 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
         {/* Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <motion.button
-            type="button"
-            aria-label={`Decrease ${label}`}
             whileTap={{ scale: 0.88 }}
             onClick={() => onChange(Math.max(min, value - 1))}
             disabled={value <= min}
@@ -87,8 +83,6 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
           </div>
 
           <motion.button
-            type="button"
-            aria-label={`Increase ${label}`}
             whileTap={{ scale: 0.88 }}
             onClick={() => onChange(Math.min(max, value + 1))}
             disabled={value >= max}
@@ -110,39 +104,8 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
   );
 }
 
-export default function TVGameSetup({ onConfirm, error }: Props) {
+export default function TVGameSetup({ onConfirm }: Props) {
   const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_SETTINGS });
-  const [showHelp, setShowHelp] = useState(false);
-  const [fakes, setFakes] = useState(false);
-  const questionMax = fakes ? 3 : 5;
-
-  useEffect(() => {
-    let gone = false;
-    fetchPublicConfig().then((config) => {
-      if (gone) return;
-      if (config.rules !== 'fakes') return;
-      setFakes(true);
-      setSettings((current) => ({
-        ...current,
-        questionsToWrite: Math.min(3, current.questionsToWrite),
-        longGame: false,
-      }));
-    });
-    return () => { gone = true; };
-  }, []);
-
-  useEffect(() => {
-    try {
-      if (!localStorage.getItem('ksero-howto-seen')) setShowHelp(true);
-    } catch {
-      setShowHelp(true);
-    }
-  }, []);
-
-  const dismissHelp = () => {
-    try { localStorage.setItem('ksero-howto-seen', '1'); } catch { /* private mode */ }
-    setShowHelp(false);
-  };
 
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
     setSettings((s) => ({ ...s, [key]: value }));
@@ -190,28 +153,6 @@ export default function TVGameSetup({ onConfirm, error }: Props) {
           </p>
         </div>
 
-        {showHelp && (
-          <Sticker color="#fff" r={22} style={{ padding: '18px 22px' }}>
-            <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark, textTransform: 'uppercase' }}>
-              How to play
-            </div>
-            <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555', margin: '8px 0 14px', lineHeight: 1.45 }}>
-              Leave this screen on the TV. Friends join from their phones with the room code. You write questions, answer them, then guess what your friends said.
-            </p>
-            <button
-              type="button"
-              onClick={dismissHelp}
-              style={{
-                fontFamily: Y2K.display, fontWeight: 900, fontSize: 16, color: '#fff',
-                background: Y2K.dark, border: `2.5px solid ${Y2K.dark}`, borderRadius: 999,
-                padding: '8px 18px', cursor: 'pointer',
-              }}
-            >
-              Got it
-            </button>
-          </Sticker>
-        )}
-
         {/* Settings */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Stepper
@@ -224,87 +165,50 @@ export default function TVGameSetup({ onConfirm, error }: Props) {
             accentColor={Y2K.hotPink}
           />
           <Stepper
-            label={fakes ? copy.setupQuestions : 'questions each'}
-            sublabel={fakes ? copy.setupQuestionsHint : 'prompts every player writes (all get asked)'}
+            label="questions each"
+            sublabel="prompts every player writes (all get asked)"
             value={settings.questionsToWrite}
             min={1}
-            max={questionMax}
+            max={5}
             onChange={(v) => update('questionsToWrite', v)}
             accentColor={Y2K.cyan}
           />
-          {fakes && (
-            <Sticker color="#fff" r={22} style={{ padding: '16px 20px' }}>
-              <button
-                type="button"
-                aria-pressed={settings.longGame === true}
-                onClick={() => update('longGame', settings.longGame !== true)}
-                style={{
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontFamily: Y2K.body,
-                  color: Y2K.dark,
-                }}
-              >
-                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, textTransform: 'uppercase' }}>
-                  {copy.setupLong} {settings.longGame ? 'on' : 'off'}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>
-                  {settings.longGame ? copy.setupLongHint : copy.setupShort}
-                </div>
-              </button>
-            </Sticker>
-          )}
         </div>
 
         {/* Estimated time badge */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <Sticker color={Y2K.dark} r={999} rotate={-1} style={{ padding: '7px 18px' }}>
             <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: 0.5 }}>
-              {fakes
-                ? (settings.longGame ? copy.setupLongHint : copy.setupShort)
-                : `≈ ${estimatedMins} min · up to ${totalRounds} rounds`}
+              ≈ {estimatedMins} min · up to {totalRounds} rounds
             </span>
           </Sticker>
         </div>
 
-        {error && (
-          <p role="alert" style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#7f1d1d', background: '#fff', border: `3px solid ${Y2K.dark}`, borderRadius: 16, padding: '12px 14px', margin: 0, textAlign: 'center' }}>
-            {error}
-          </p>
-        )}
-
-        {/* The whole pink bar is the button, so a tap on the padding still creates the room. */}
-        <motion.div whileHover={{ scale: 1.025 }} whileTap={{ scale: 0.975 }} style={{ width: '100%' }}>
-          <button
-            type="button"
-            onClick={() => onConfirm(settings)}
-            style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        {/* Create button */}
+        <motion.div whileHover={{ scale: 1.025 }} whileTap={{ scale: 0.975 }}>
+          <Sticker
+            color={Y2K.hotPink}
+            r={20}
+            rotate={-0.5}
+            style={{
+              padding: '18px 24px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
           >
-            <Sticker
-              color={Y2K.hotPink}
-              r={20}
-              rotate={-0.5}
+            <button
+              onClick={() => onConfirm(settings)}
               style={{
-                padding: '18px 24px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '100%',
+                fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff',
+                background: 'none', border: 'none', cursor: 'pointer',
+                WebkitTextStroke: `1px ${Y2K.dark}`,
+                textShadow: `2px 2px 0 ${Y2K.dark}`,
+                textTransform: 'uppercase', letterSpacing: '0.04em',
               }}
             >
-              <span
-                style={{
-                  fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff',
-                  WebkitTextStroke: `1px ${Y2K.dark}`,
-                  textShadow: `2px 2px 0 ${Y2K.dark}`,
-                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-              >
-                create game ▶︎
-              </span>
-            </Sticker>
-          </button>
+              create game ▶︎
+            </button>
+          </Sticker>
         </motion.div>
       </motion.div>
     </div>

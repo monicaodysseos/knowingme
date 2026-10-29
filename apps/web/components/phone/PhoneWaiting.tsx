@@ -23,10 +23,9 @@ const TV_ICON = (
 );
 
 const LOOK_AT_TV_MESSAGE = 'Look at the TV for instructions you fool!';
-const EYES_ON_THE_TELLY = 'eyes on the telly';
 
 export default function PhoneWaiting({ message }: Props) {
-  const isLookAtTV = message === LOOK_AT_TV_MESSAGE || message === EYES_ON_THE_TELLY;
+  const isLookAtTV = message === LOOK_AT_TV_MESSAGE;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center px-4">

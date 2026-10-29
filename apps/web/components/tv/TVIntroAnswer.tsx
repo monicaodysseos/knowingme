@@ -139,7 +139,7 @@ export default function TVIntroAnswer({ state }: Props) {
           transition={{ delay: 0.35 }}
           style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 18, color: '#fff', maxWidth: 680, lineHeight: 1.3, textShadow: '2px 2px 0 rgba(11,4,41,0.5)' }}
         >
-          you&apos;re about to get <b style={{ color: Y2K.yellow }}>{qa} random question{qa !== 1 ? 's' : ''}</b> from the group. answer honestly. Everyone else will try to guess what you said ✦
+          you&apos;re about to get <b style={{ color: Y2K.yellow }}>{qa} random question{qa !== 1 ? 's' : ''}</b> from the group. answer honestly — everyone else will try to guess what you said ✦
         </motion.div>
 
         {/* Bottom */}

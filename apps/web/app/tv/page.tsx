@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
-import { disconnectSocket, getSocket } from '../../lib/socket';
+import { disconnectSocket } from '../../lib/socket';
 import type { GameSettings } from '@ksero-se/types';
 import { unlockAudio, playMusic, stopMusic, playRoundStartSting, stopRoundStartSting, type MusicKey } from '../../lib/hooks/useGameSounds';
 import FitScreen from '../../components/tv/FitScreen';
@@ -20,9 +20,7 @@ import TVIntroWrite from '../../components/tv/TVIntroWrite';
 import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
 import TVIntroGuess from '../../components/tv/TVIntroGuess';
 import TVRoundAnnouncement from '../../components/tv/TVRoundAnnouncement';
-import PhaseAnnouncer from '../../components/PhaseAnnouncer';
 import { requestRoom } from '../../lib/createRoom';
-import FakesStage from '../../components/fakes/FakesStage';
 
 // The single source of truth for which looping track plays in each phase.
 // Phases not listed here are intentionally silent (REVEAL/SCORE), or manage
@@ -34,13 +32,14 @@ const MUSIC_BY_PHASE: Record<string, MusicKey> = {
   GUESS_PHASE: 'guess',
 };
 
-async function createRoom(settings: GameSettings): Promise<{ code: string; hostSecret: string }> {
-  const created = await requestRoom(settings);
-  try {
-    sessionStorage.setItem('ksero-tv-room', created.roomCode);
-    sessionStorage.setItem('ksero-tv-secret', created.hostSecret);
-  } catch { /* private mode */ }
-  return { code: created.roomCode, hostSecret: created.hostSecret };
+function createRoom(settings: GameSettings): Promise<{ code: string; hostSecret: string }> {
+  return requestRoom(settings).then((created) => {
+    try {
+      sessionStorage.setItem('ksero-tv-room', created.roomCode);
+      sessionStorage.setItem('ksero-tv-secret', created.hostSecret);
+    } catch { /* private mode */ }
+    return { code: created.roomCode, hostSecret: created.hostSecret };
+  });
 }
 
 export default function TVPage() {
@@ -62,8 +61,6 @@ export default function TVPage() {
     setRoomCode(null);
     setHostSecret(null);
     setSetupDone(false);
-    setLoading(false);
-    setError('The game server dropped this room. Please create a new one.');
   }, []);
 
   const handleConfirmSetup = useCallback((settings: GameSettings) => {
@@ -76,10 +73,7 @@ export default function TVPage() {
         setSetupDone(true);
         setLoading(false);
       })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Could not reach the game server.');
-        setLoading(false);
-      });
+      .catch(() => { setError('Could not connect to server.'); setLoading(false); });
   }, []);
 
   useEffect(() => {
@@ -117,6 +111,11 @@ export default function TVPage() {
     };
   }, []);
 
+  // Show setup screen first (unless restoring session or loading/error)
+  if (!setupDone && !roomCode && !loading && !error) {
+    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} /></FitScreen>;
+  }
+
   if (loading) {
     return (
       <FitScreen>
@@ -127,9 +126,21 @@ export default function TVPage() {
     );
   }
 
-  // Stay on setup, with the reason, until a room and its host secret both exist.
-  if (!setupDone || !roomCode || !hostSecret) {
-    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} error={error} /></FitScreen>;
+  if (error || !roomCode || !hostSecret) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <div className="text-center">
+          <p className="text-red-400 font-bold text-2xl mb-4">{error ?? 'Unknown error'}</p>
+          <button
+            onClick={() => { setError(null); setSetupDone(false); }}
+            className="px-6 py-3 rounded-xl font-bold text-white"
+            style={{ background: '#FF4FB4' }}
+          >
+            Back to Setup
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return <TVScreen roomCode={roomCode} hostSecret={hostSecret} onRoomExpired={handleRoomExpired} audioUnlocked={audioUnlocked} />;
@@ -182,15 +193,9 @@ function TVScreen({ roomCode, hostSecret, onRoomExpired, audioUnlocked }: { room
   // While the instructions show we stay silent (the round sting covers it);
   // otherwise the current phase decides the track. `playMusic` is idempotent,
   // so frequent state updates within a phase never restart or double the song.
-  const fakesPhase = state?.rules === 'fakes' ? state.fakes?.phase : undefined;
-  const desiredMusic: MusicKey | null = fakesPhase
-    ? (fakesPhase === 'WRITE' || fakesPhase === 'HOW_IT_WORKS' ? 'questions'
-      : fakesPhase === 'ANSWER' ? 'answer'
-      : fakesPhase === 'FAKE' || fakesPhase === 'VOTE' ? 'guess'
-      : null)
-    : introActive
-      ? null
-      : (state ? MUSIC_BY_PHASE[state.phase] ?? null : null);
+  const desiredMusic: MusicKey | null = introActive
+    ? null
+    : (state ? MUSIC_BY_PHASE[state.phase] ?? null : null);
 
   useEffect(() => {
     if (!audioUnlocked) return;
@@ -210,20 +215,6 @@ function TVScreen({ roomCode, hostSecret, onRoomExpired, audioUnlocked }: { room
     return () => { lock?.release().catch(() => {}); };
   }, []);
 
-  if (state?.rules === 'fakes' && state.fakes) {
-    return (
-      <FitScreen>
-        <PhaseAnnouncer phase={state.fakes.phase} timerEnd={state.fakes.timerEnd} />
-        <FakesStage
-          view={state.fakes}
-          role="tv"
-          isHost
-          handlers={{ onStart: hostStart, onPlayAgain: playAgain, onGotIt: () => getSocket().emit('skip:intro') }}
-        />
-      </FitScreen>
-    );
-  }
-
   if (!state) {
     return (
       <FitScreen>
@@ -240,7 +231,6 @@ function TVScreen({ roomCode, hostSecret, onRoomExpired, audioUnlocked }: { room
 
   return (
     <FitScreen>
-    <PhaseAnnouncer phase={state.phase} timerEnd={state.timerEnd} />
     <AnimatePresence mode="wait">
       <motion.div
         key={displayKey}

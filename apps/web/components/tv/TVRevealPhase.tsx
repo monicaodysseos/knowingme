@@ -184,7 +184,7 @@ export default function TVRevealPhase({ state, onContinue }: Props) {
               {g.isCorrect === undefined ? (
                 <>
                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E5E7EB', border: `2px solid ${Y2K.dark}`, display: 'grid', placeItems: 'center', fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark, flexShrink: 0 }}>?</div>
-                  <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(14px, 1.5vw, 22px)', color: '#374151', minWidth: '8vw', WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
+                  <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 'clamp(14px, 1.5vw, 22px)', color: '#9CA3AF', minWidth: '8vw', WebkitTextStroke: `0.3px ${Y2K.dark}` }}>
                     guess #{i + 1}
                   </span>
                 </>
