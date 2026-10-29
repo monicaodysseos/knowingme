@@ -1,4 +1,4 @@
-import type { Request } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import type { Socket } from 'socket.io';
 
 const DEFAULT_ORIGINS = [
@@ -16,9 +16,33 @@ export function allowedOrigins(): string[] {
   return list.length > 0 ? list : DEFAULT_ORIGINS;
 }
 
+export function requestOrigin(headers: { origin?: string | string[] | undefined }): string {
+  return headerString(headers.origin);
+}
+
+/**
+ * A browser always sends Origin on a cross site request. A missing Origin is a
+ * non browser client (curl, a platform probe). Those stay allowed. A present
+ * Origin must be on the list.
+ */
 export function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   return allowedOrigins().includes(origin);
+}
+
+const STATE_CHANGING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export function rejectUnlistedOrigin(req: Request, res: Response, next: NextFunction): void {
+  if (!STATE_CHANGING.has(req.method)) {
+    next();
+    return;
+  }
+  const origin = requestOrigin(req.headers);
+  if (isAllowedOrigin(origin)) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: 'Origin not allowed' });
 }
 
 /**

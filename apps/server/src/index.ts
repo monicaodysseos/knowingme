@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import { createRoom, getRoom, restoreRoom, setRoomHooks, sweepRooms } from './roomManager';
 import { registerSocketHandlers, armRestoredTimers } from './socketHandlers';
 import { forgetPersistedRoom, loadRoom, persistRoom, restoreAllRooms, schedulePersist } from './persistence';
-import { allowedOrigins, clientIp, isAllowedOrigin } from './origins';
+import { allowedOrigins, clientIp, isAllowedOrigin, rejectUnlistedOrigin, requestOrigin } from './origins';
 import { rateLimit, pruneRateLimits } from './rateLimit';
 import { RATE, sanitizeMode, sanitizeSettings } from './settings';
 import { isRoomCode } from './codes';
@@ -30,6 +30,11 @@ const app = express();
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
+  allowRequest: (req, callback) => {
+    const origin = requestOrigin(req.headers);
+    if (isAllowedOrigin(origin)) callback(null, true);
+    else callback('Origin not allowed', false);
+  },
   cors: {
     origin: (origin, callback) => {
       if (isAllowedOrigin(origin)) callback(null, true);
@@ -61,6 +66,7 @@ app.use((_req, res, next) => {
 });
 app.use(cookieParser());
 app.use(express.json({ limit: '16kb' }));
+app.use(rejectUnlistedOrigin);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
