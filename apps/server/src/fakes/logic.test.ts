@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { computeAwards, rankScores } from './awards';
-import { fallbackDecoys, geminiDecoys, parseDecoyList, pickDecoys } from './decoys';
+import { GEMINI_DEFAULT_MODEL, fallbackDecoys, geminiDecoys, parseDecoyList, pickDecoys } from './decoys';
 import { scoreTurn } from './scoring';
 import { assignQuestions, sampleSubjects } from './sample';
 import { normalizeAnswer, tooCloseToAnswer } from './text';
@@ -236,28 +236,94 @@ describe('decoy fallback', () => {
   });
 
   it('returns null when the key is missing and when the call fails', async () => {
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map((item) => String(item)).join(' '));
+    });
     expect(await geminiDecoys({ question: 'q', subjectName: 'ada', count: 1, avoid: [] }, {})).toBeNull();
+    expect(errors).toEqual([]);
     const fetchImpl = (async () => {
-      throw new Error('slow');
+      throw new Error('slow key=super-secret-key');
     }) as unknown as typeof fetch;
+    expect(await geminiDecoys(
+      { question: 'q', subjectName: 'ada', count: 1, avoid: [] },
+      { GEMINI_API_KEY: 'super-secret-key' },
+      fetchImpl,
+    )).toBeNull();
+    expect(errors.join('\n')).toContain('gemini network');
+    expect(errors.join('\n')).not.toContain('super-secret-key');
+    spy.mockRestore();
+  });
+
+  it('logs the status and a short body, never the key', async () => {
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map((item) => String(item)).join(' '));
+    });
+    const secret = 'super-secret-key';
+    const fetchImpl = (async (url: string) => {
+      expect(url).toContain(`models/${GEMINI_DEFAULT_MODEL}:`);
+      expect(url).toContain(secret);
+      return {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: async () => `{"error":{"message":"models/${GEMINI_DEFAULT_MODEL} is not found","key":"${secret}"}}`,
+      };
+    }) as unknown as typeof fetch;
+    expect(await geminiDecoys(
+      { question: 'q', subjectName: 'ada', count: 1, avoid: [] },
+      { GEMINI_API_KEY: secret },
+      fetchImpl,
+    )).toBeNull();
+    const logged = errors.join('\n');
+    expect(logged).toContain('gemini 404');
+    expect(logged).toContain('is not found');
+    expect(logged).not.toContain(secret);
+    spy.mockRestore();
+  });
+
+  it('logs unparsable text with the status', async () => {
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map((item) => String(item)).join(' '));
+    });
+    const fetchImpl = (async () => ({
+      ok: true,
+      status: 200,
+      text: async () => '{"promptFeedback":{"blockReason":"SAFETY"}}',
+    })) as unknown as typeof fetch;
     expect(await geminiDecoys(
       { question: 'q', subjectName: 'ada', count: 1, avoid: [] },
       { GEMINI_API_KEY: 'test-key' },
       fetchImpl,
     )).toBeNull();
+    expect(errors.join('\n')).toContain('gemini 200');
+    expect(errors.join('\n')).toContain('unparsable');
+    expect(errors.join('\n')).toContain('SAFETY');
+    spy.mockRestore();
   });
 
-  it('reads a flash response', async () => {
-    const fetchImpl = (async () => ({
-      ok: true,
-      json: async () => ({ candidates: [{ content: { parts: [{ text: '["a pigeon", "the-last biscuit"]' }] } }] }),
-    })) as unknown as typeof fetch;
+  it('reads a flash response from the default model', async () => {
+    let requested = '';
+    const fetchImpl = (async (url: string) => {
+      requested = url;
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          candidates: [{ content: { parts: [{ text: '["a pigeon", "the-last biscuit"]' }] } }],
+        }),
+      };
+    }) as unknown as typeof fetch;
     const lines = await geminiDecoys(
       { question: 'what do you fear', subjectName: 'ada', count: 2, avoid: [] },
       { GEMINI_API_KEY: 'test-key' },
       fetchImpl,
     );
     expect(lines).toEqual(['a pigeon', 'the last biscuit']);
+    expect(requested).toContain(`models/${GEMINI_DEFAULT_MODEL}:`);
+    expect(GEMINI_DEFAULT_MODEL).toBe('gemini-2.5-flash');
   });
 });
 
