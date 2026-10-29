@@ -3,7 +3,7 @@ import type { Server } from 'socket.io';
 import { gameMachine } from './machine';
 import type { GameContext, GameMode, GameSettings, Player, TVState, PhoneState, ScoreEntry } from '@ksero-se/types';
 import { EXAMPLE_PROMPTS } from '@ksero-se/types';
-import { allocateCode, codeInUse, newHostSecret, totalRoomCount, watchCodes, watchRoomCount } from './codes';
+import { allocateCode, newHostSecret } from './codes';
 import { ROOM_CAPS, sanitizeSettings } from './settings';
 
 type MachineActor = Actor<typeof gameMachine>;
@@ -28,9 +28,6 @@ export interface SavedRoom {
 
 const rooms = new Map<string, RoomEntry>();
 
-watchCodes((code) => rooms.has(code));
-watchRoomCount(() => rooms.size);
-
 let onRoomChanged: (code: string) => void = () => {};
 let onRoomDeleted: (code: string) => void = () => {};
 
@@ -51,8 +48,8 @@ export interface CreatedRoom {
 
 export function createRoom(io: Server, mode: GameMode = 'social', settings?: GameSettings): CreatedRoom | null {
   sweepRooms();
-  if (totalRoomCount() >= ROOM_CAPS.maxRooms) return null;
-  const roomCode = allocateCode((code) => codeInUse(code));
+  if (rooms.size >= ROOM_CAPS.maxRooms) return null;
+  const roomCode = allocateCode((code) => rooms.has(code));
   if (!roomCode) return null;
 
   const safeSettings = sanitizeSettings(settings);

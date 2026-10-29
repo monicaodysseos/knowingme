@@ -24,8 +24,6 @@ import Loader from '../../components/Loader';
 import { Y2K } from '../../lib/y2k';
 import PhaseAnnouncer from '../../components/PhaseAnnouncer';
 import { requestRoom } from '../../lib/createRoom';
-import FakesStage from '../../components/fakes/FakesStage';
-import { fetchPublicConfig } from '../../lib/publicConfig';
 
 // ── Big chunky Y2K action button (host controls) ──────────────────────────────
 function HostButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
@@ -250,15 +248,6 @@ interface PreJoinProps {
 
 function PreJoin({ roomCode, onReady }: PreJoinProps) {
   const [error] = useState<string | null>(null);
-  const [fakesJoin, setFakesJoin] = useState(false);
-
-  useEffect(() => {
-    let gone = false;
-    fetchPublicConfig().then((config) => {
-      if (!gone) setFakesJoin(config.rules === 'fakes');
-    });
-    return () => { gone = true; };
-  }, []);
 
   useEffect(() => {
     try {
@@ -272,7 +261,6 @@ function PreJoin({ roomCode, onReady }: PreJoinProps) {
   return (
     <PhoneJoin
       roomCode={roomCode}
-      fakes={fakesJoin}
       onJoin={(name, avatar) => onReady(name, avatar, null)}
       error={error}
     />
@@ -299,10 +287,6 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
     submitAnswer,
     submitGuess,
     submitVote,
-    submitFakesAnswers,
-    submitFake,
-    submitFakesVote,
-    submitLiterally,
     playAgain,
     hostStart,
     skipIntro,
@@ -378,30 +362,6 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
             <Loader dark label={`connecting to ${roomCode}…`} />
           )}
         </div>
-      </PhoneLayout>
-    );
-  }
-
-  if (state.rules === 'fakes' && state.fakes) {
-    return (
-      <PhoneLayout accent={accentColor}>
-        <PhaseAnnouncer phase={state.fakes.phase} timerEnd={state.fakes.timerEnd} />
-        <FakesStage
-          view={state.fakes}
-          role="phone"
-          isHost={state.isHost}
-          handlers={{
-            onStart: hostStart,
-            onPlayAgain: playAgain,
-            onGotIt: skipIntro,
-            onQuestions: (questions) => submitQuestions(questions),
-            onAnswers: submitFakesAnswers,
-            onFake: submitFake,
-            onVote: submitFakesVote,
-            onLiterally: submitLiterally,
-          }}
-        />
-        {state.isHost && state.fakes.phase !== 'LOBBY' && <RestartControl onRestart={hostRestart} />}
       </PhoneLayout>
     );
   }

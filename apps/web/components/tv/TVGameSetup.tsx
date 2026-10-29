@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { GameSettings } from '@ksero-se/types';
-import { DEFAULT_SETTINGS, copy } from '@ksero-se/types';
+import { DEFAULT_SETTINGS } from '@ksero-se/types';
 import { Y2K } from '../../lib/y2k';
-import { fetchPublicConfig } from '../../lib/publicConfig';
 
 interface Props {
   onConfirm: (settings: GameSettings) => void;
@@ -113,23 +112,6 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
 export default function TVGameSetup({ onConfirm, error }: Props) {
   const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_SETTINGS });
   const [showHelp, setShowHelp] = useState(false);
-  const [fakes, setFakes] = useState(false);
-  const questionMax = fakes ? 3 : 5;
-
-  useEffect(() => {
-    let gone = false;
-    fetchPublicConfig().then((config) => {
-      if (gone) return;
-      if (config.rules !== 'fakes') return;
-      setFakes(true);
-      setSettings((current) => ({
-        ...current,
-        questionsToWrite: Math.min(3, current.questionsToWrite),
-        longGame: false,
-      }));
-    });
-    return () => { gone = true; };
-  }, []);
 
   useEffect(() => {
     try {
@@ -224,48 +206,21 @@ export default function TVGameSetup({ onConfirm, error }: Props) {
             accentColor={Y2K.hotPink}
           />
           <Stepper
-            label={fakes ? copy.setupQuestions : 'questions each'}
-            sublabel={fakes ? copy.setupQuestionsHint : 'prompts every player writes (all get asked)'}
+            label="questions each"
+            sublabel="prompts every player writes (all get asked)"
             value={settings.questionsToWrite}
             min={1}
-            max={questionMax}
+            max={5}
             onChange={(v) => update('questionsToWrite', v)}
             accentColor={Y2K.cyan}
           />
-          {fakes && (
-            <Sticker color="#fff" r={22} style={{ padding: '16px 20px' }}>
-              <button
-                type="button"
-                aria-pressed={settings.longGame === true}
-                onClick={() => update('longGame', settings.longGame !== true)}
-                style={{
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontFamily: Y2K.body,
-                  color: Y2K.dark,
-                }}
-              >
-                <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 20, textTransform: 'uppercase' }}>
-                  {copy.setupLong} {settings.longGame ? 'on' : 'off'}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>
-                  {settings.longGame ? copy.setupLongHint : copy.setupShort}
-                </div>
-              </button>
-            </Sticker>
-          )}
         </div>
 
         {/* Estimated time badge */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <Sticker color={Y2K.dark} r={999} rotate={-1} style={{ padding: '7px 18px' }}>
             <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: 0.5 }}>
-              {fakes
-                ? (settings.longGame ? copy.setupLongHint : copy.setupShort)
-                : `≈ ${estimatedMins} min · up to ${totalRounds} rounds`}
+              ≈ {estimatedMins} min · up to {totalRounds} rounds
             </span>
           </Sticker>
         </div>

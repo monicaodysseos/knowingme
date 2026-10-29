@@ -31,24 +31,10 @@ import { parseAnswer, parseGuess, parseJoin, parseQuestions, parseVotes } from '
 import { rateLimit } from './rateLimit';
 import { RATE, TEXT_LIMITS } from './settings';
 import { socketIp } from './origins';
-import { handleFakesEvent, isFakesRoom, joinFakes, restoreFakesRoom, touchFakesRoom } from './fakesRooms';
 
-function on(io: Server, socket: Socket, event: string, handler: (...args: unknown[]) => void | Promise<void>): void {
+function on(socket: Socket, event: string, handler: (...args: unknown[]) => void | Promise<void>): void {
   socket.on(event, (...args: unknown[]) => {
     const roomCode = socket.data?.roomCode as string | undefined;
-    if (event !== 'join' && roomCode && isFakesRoom(roomCode)) {
-      touchFakesRoom(roomCode);
-      Promise.resolve()
-        .then(() => handleFakesEvent(io, socket, event, args))
-        .catch((err) => {
-          console.error(`[socket] ${event} failed`, roomCode, err instanceof Error ? err.message : err);
-          const ack = [...args].reverse().find((item) => typeof item === 'function') as
-            | ((res: { ok: boolean; error?: string }) => void)
-            | undefined;
-          try { ack?.({ ok: false, error: 'Something went wrong. Please try again.' }); } catch { /* client gone */ }
-        });
-      return;
-    }
     if (roomCode) touchRoom(roomCode);
     Promise.resolve()
       .then(() => handler(...args))
@@ -76,7 +62,7 @@ function canHost(socket: Socket, hostId: string): boolean {
 }
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
-  on(io, socket, 'join', async (...args) => {
+  on(socket, 'join', async (...args) => {
     const ack = args[1] as ((res: JoinAck) => void) | undefined;
     const reply = (res: JoinAck) => {
       try { ack?.(res); } catch { /* client gone */ }
@@ -93,21 +79,11 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
     const { roomCode, name, sessionToken, role, avatar, hostSecret } = parsed.value;
 
-    if (isFakesRoom(roomCode)) {
-      joinFakes(io, socket, parsed.value, reply);
-      return;
-    }
-
     let entry = getRoom(roomCode);
     let restored = false;
     if (!entry) {
       const saved = await loadRoom(roomCode);
-      if (saved?.v === 2) {
-        if (restoreFakesRoom(io, saved)) {
-          joinFakes(io, socket, parsed.value, reply);
-          return;
-        }
-      } else if (saved?.v === 1 && restoreRoom(io, saved)) {
+      if (saved && restoreRoom(io, saved)) {
         entry = getRoom(roomCode);
         restored = !!entry;
       }
@@ -208,7 +184,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     });
   });
 
-  on(io, socket, 'host:start', (...args) => {
+  on(socket, 'host:start', (...args) => {
     const ack = args[0] as ((res: { ok: boolean; error?: string }) => void) | undefined;
     const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
@@ -242,7 +218,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  on(io, socket, 'submit:questions', (...args) => {
+  on(socket, 'submit:questions', (...args) => {
     const ack = args[1] as ((res: { ok: boolean; error?: string }) => void) | undefined;
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
@@ -280,7 +256,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  on(io, socket, 'submit:answer', (...args) => {
+  on(socket, 'submit:answer', (...args) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
@@ -298,15 +274,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     checkAnswerPhaseComplete(io, roomCode);
   });
 
-  on(io, socket, 'submit:fake', () => {
-    /* Fakes rooms are handled before this. Classic ignores the event. */
-  });
-
-  on(io, socket, 'submit:literally', () => {
-    /* Fakes rooms are handled before this. Classic ignores the event. */
-  });
-
-  on(io, socket, 'submit:guess', (...args) => {
+  on(socket, 'submit:guess', (...args) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
@@ -317,7 +285,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     maybeCompleteGuesses(io, roomCode);
   });
 
-  on(io, socket, 'submit:vote', (...args) => {
+  on(socket, 'submit:vote', (...args) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
@@ -339,7 +307,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     });
   });
 
-  on(io, socket, 'play:again', () => {
+  on(socket, 'play:again', () => {
     const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
@@ -348,7 +316,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     entry.actor.send({ type: 'PLAY_AGAIN' });
   });
 
-  on(io, socket, 'skip:intro', () => {
+  on(socket, 'skip:intro', () => {
     const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
@@ -384,7 +352,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  on(io, socket, 'host:continue', () => {
+  on(socket, 'host:continue', () => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
@@ -404,7 +372,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  on(io, socket, 'host:restart', () => {
+  on(socket, 'host:restart', () => {
     const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
@@ -417,7 +385,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     deleteRoom(roomCode);
   });
 
-  on(io, socket, 'disconnect', () => {
+  on(socket, 'disconnect', () => {
     const { roomCode, playerId, role } = socket.data ?? {};
     if (!roomCode) return;
     if (role === 'tv') {

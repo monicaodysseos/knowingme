@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PLAYER_CHARACTERS, characterName, copy, type PlayerCharacter } from '@ksero-se/types';
+import { PLAYER_CHARACTERS, type PlayerCharacter } from '@ksero-se/types';
 import Y2KAvatar from '../tv/Y2KAvatar';
 import { Y2K } from '../../lib/y2k';
 
@@ -10,11 +10,14 @@ interface Props {
   roomCode: string;
   onJoin: (name: string, avatar: PlayerCharacter) => void;
   error?: string | null;
-  /** Fakes rules use the spec lobby lines. Classic keeps its own wording. */
-  fakes?: boolean;
 }
 
-export default function PhoneJoin({ roomCode, onJoin, error, fakes }: Props) {
+const CHAR_LABELS: Record<PlayerCharacter, string> = {
+  star: 'ghost', blob: 'alien', diamond: 'frog', cloud: 'bunny',
+  hex: 'shroom', drop: 'robot', shield: 'melt', crown: 'tamago',
+};
+
+export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
   const [step, setStep] = useState<'avatar' | 'name'>('avatar');
   const [selectedAvatar, setSelectedAvatar] = useState<PlayerCharacter | null>(null);
   const [name, setName] = useState('');
@@ -43,9 +46,7 @@ export default function PhoneJoin({ roomCode, onJoin, error, fakes }: Props) {
             ROOM {roomCode}
           </div>
           <h1 style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 22, color: Y2K.dark, letterSpacing: '-0.5px' }}>
-            {step === 'avatar'
-              ? (fakes ? copy.pickCharacter : 'pick ur character')
-              : (fakes ? copy.yourName : "what's ur name?")}
+            {step === 'avatar' ? 'pick ur character' : "what's ur name?"}
           </h1>
           <p style={{ fontFamily: Y2K.body, fontSize: 13, color: '#3a1555', marginTop: 4 }}>
             {step === 'avatar' ? 'choose who u\'ll be this round' : 'up to 16 chars'}
@@ -109,7 +110,7 @@ export default function PhoneJoin({ roomCode, onJoin, error, fakes }: Props) {
                         letterSpacing: '0.05em',
                         textTransform: 'uppercase',
                       }}>
-                        {characterName(char)}
+                        {CHAR_LABELS[char]}
                       </span>
                     </button>
                   );
@@ -178,7 +179,7 @@ export default function PhoneJoin({ roomCode, onJoin, error, fakes }: Props) {
                   className="y2k-input"
                   value={name}
                   onChange={(e) => setName(e.target.value.slice(0, 16))}
-                  placeholder={fakes ? copy.yourName : 'ur name'}
+                  placeholder="ur name"
                   autoFocus
                   autoComplete="off"
                   maxLength={16}
@@ -238,7 +239,7 @@ export default function PhoneJoin({ roomCode, onJoin, error, fakes }: Props) {
                   letterSpacing: '0.05em',
                 }}
               >
-                {fakes ? 'join' : 'let me in ✦'}
+                let me in ✦
               </button>
             </motion.div>
           )}

@@ -218,9 +218,7 @@ describe('room lifetime', () => {
 
     const saved = await loadRoom(created.roomCode);
     expect(saved?.hostSecret).toBe(created.hostSecret);
-    expect(saved?.v).toBe(1);
-    if (!saved || saved.v !== 1) throw new Error('expected a classic snapshot');
-    expect(restoreRoom(io, saved)).toBe(true);
+    expect(restoreRoom(io, saved!)).toBe(true);
     const restored = getRoom(created.roomCode)!;
     expect(restored.actor.getSnapshot().value).toBe('LOBBY');
     expect(restored.actor.getSnapshot().context.players).toHaveLength(1);

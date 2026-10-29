@@ -1,6 +1,7 @@
 'use client';
 
-import { CHARACTER_ROSTER, type CharacterArt, type PlayerCharacter } from '@ksero-se/types';
+import type { PlayerCharacter } from '@ksero-se/types';
+import { AVATAR_MAP } from '../../lib/y2k';
 
 interface Props {
   avatar?: PlayerCharacter | string;
@@ -11,7 +12,7 @@ interface Props {
 const OUT = '#0b0429';
 const SW = 3;
 
-type PresetKey = CharacterArt;
+type PresetKey = 'ghost' | 'frog' | 'alien' | 'bunny' | 'tamago' | 'mushroom' | 'melt' | 'robot';
 
 const presets: Record<PresetKey, { defs?: () => React.ReactNode; render: () => React.ReactNode }> = {
   ghost: {
@@ -237,19 +238,9 @@ const presets: Record<PresetKey, { defs?: () => React.ReactNode; render: () => R
   },
 };
 
-/** Name plus the current drawing. Swap `preset` when branded art arrives. */
-export const CHARACTER_SLOTS = CHARACTER_ROSTER.map((slot) => ({
-  id: slot.id,
-  name: slot.name,
-  art: slot.art,
-  preset: presets[slot.art],
-}));
-
 export default function Y2KAvatar({ avatar, size = 48, style = {} }: Props) {
-  const slot = CHARACTER_SLOTS.find((item) => item.id === avatar)
-    ?? CHARACTER_SLOTS.find((item) => item.name === avatar || item.art === avatar)
-    ?? CHARACTER_SLOTS[0];
-  const preset = slot.preset;
+  const creatureId = (avatar ? (AVATAR_MAP[avatar] ?? avatar) : 'ghost') as PresetKey;
+  const preset = presets[creatureId] ?? presets.ghost;
 
   return (
     <svg

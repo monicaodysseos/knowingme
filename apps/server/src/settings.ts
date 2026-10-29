@@ -53,24 +53,6 @@ export function sanitizeSettings(input: unknown): GameSettings {
   return settings;
 }
 
-export interface FakesSettingsInput {
-  maxPlayers: number;
-  questionsToWrite: number;
-  phonesOnly: boolean;
-  longGame: boolean;
-}
-
-/** Fakes rules do not use questionsToAnswer. Questions each player writes are 1 to 3. */
-export function sanitizeFakesSettings(input: unknown): FakesSettingsInput {
-  const src = input && typeof input === 'object' ? (input as Partial<GameSettings>) : {};
-  return {
-    maxPlayers: clampInt(src.maxPlayers, SETTINGS_LIMITS.maxPlayers.min, SETTINGS_LIMITS.maxPlayers.max, SETTINGS_LIMITS.maxPlayers.default),
-    questionsToWrite: clampInt(src.questionsToWrite, 1, 3, 2),
-    phonesOnly: src.phonesOnly === true,
-    longGame: src.longGame === true,
-  };
-}
-
 export function sanitizeMode(mode: unknown): GameMode {
   return mode === 'corporate' || mode === 'social' ? mode : 'social';
 }
