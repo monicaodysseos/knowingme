@@ -6,19 +6,22 @@ import type { TVState, PhoneState, JoinPayload, JoinAck, PlayerCharacter } from 
 
 // ── TV hook ────────────────────────────────────────────────────────────────
 
-export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
+export function useTVSocket(roomCode: string, hostSecret: string, onRoomExpired?: () => void) {
   const [state, setState] = useState<TVState | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    if (!hostSecret) {
+      onRoomExpired?.();
+      return;
+    }
     const socket = connectSocket();
 
     const handleConnect = () => {
       setConnected(true);
-      const payload: JoinPayload = { roomCode, name: '', role: 'tv' };
+      const payload: JoinPayload = { roomCode, name: '', role: 'tv', hostSecret };
       socket.emit('join', payload, (ack: JoinAck) => {
         if (!ack.ok) {
-          // Room gone (server restarted) — let parent create a new one.
           onRoomExpired?.();
         }
       });
@@ -28,7 +31,10 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
     const handleUpdate = (data: TVState) => setState(data);
     // Host restarted the game — drop the stored room and head home.
     const handleClosed = () => {
-      try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
+      try {
+        sessionStorage.removeItem('ksero-tv-room');
+        sessionStorage.removeItem('ksero-tv-secret');
+      } catch {}
       window.location.href = '/';
     };
 
@@ -45,7 +51,7 @@ export function useTVSocket(roomCode: string, onRoomExpired?: () => void) {
       socket.off('tv:update', handleUpdate);
       socket.off('room:closed', handleClosed);
     };
-  }, [roomCode, onRoomExpired]);
+  }, [roomCode, hostSecret, onRoomExpired]);
 
   const hostStart = useCallback(() => {
     getSocket().emit('host:start', (res?: { ok: boolean; error?: string }) => {

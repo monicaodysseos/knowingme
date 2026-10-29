@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Y2KAvatar from '../components/tv/Y2KAvatar';
 import BrandMark from '../components/BrandMark';
+import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@ksero-se/types';
 
 const DARK = '#0b0429';
 const CHROME = 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 20%, #e0e0e0 50%, #ffffff 75%, #eeeeee 100%)';
@@ -50,15 +51,15 @@ export default function LandingPage() {
 
   const handleJoin = () => {
     const trimmed = code.trim().toUpperCase();
-    if (trimmed.length < 4) {
+    if (trimmed.length < ROOM_CODE_LENGTH) {
       setError(true);
       inputRef.current?.focus();
       return;
     }
-    router.push(`/play?room=${trimmed.slice(0, 4)}`);
+    router.push(`/play?room=${trimmed.slice(0, ROOM_CODE_LENGTH)}`);
   };
 
-  const letters = code.padEnd(4, '').split('').slice(0, 4);
+  const letters = code.padEnd(ROOM_CODE_LENGTH, '').split('').slice(0, ROOM_CODE_LENGTH);
 
   return (
     <div className="landing-page" style={{ background: '#170A3B', fontFamily: BODY, minHeight: '100dvh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -272,6 +273,7 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.93 }}
+              aria-label="Join with this code"
               onClick={(e) => { e.stopPropagation(); handleJoin(); }}
               style={{
                 background: '#00D5FF', border: `2.5px solid ${DARK}`, borderRadius: 999,
@@ -290,10 +292,11 @@ export default function LandingPage() {
             value={code}
             onChange={(e) => {
               setError(false);
-              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+              const next = e.target.value.toUpperCase().split('').filter((ch) => ROOM_CODE_ALPHABET.includes(ch)).join('').slice(0, ROOM_CODE_LENGTH);
+              setCode(next);
             }}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-            maxLength={4}
+            maxLength={ROOM_CODE_LENGTH}
             inputMode="text"
             autoCapitalize="characters"
             style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1 }}
@@ -318,7 +321,7 @@ export default function LandingPage() {
         >
           {[
             { k: '3', l: 'phases' },
-            { k: '3+', l: 'players' },
+            { k: '2+', l: 'players' },
             { k: '~10', l: 'min' },
             { k: '✦', l: 'shade' },
           ].map((s, i) => (

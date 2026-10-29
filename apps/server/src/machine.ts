@@ -14,8 +14,9 @@ import type {
   AwardResult,
   DuoMatrix,
 } from '@ksero-se/types';
-import { PLAYER_COLORS, PLAYER_CHARACTERS, DEFAULT_SETTINGS } from '@ksero-se/types';
+import { PLAYER_COLORS, PLAYER_CHARACTERS } from '@ksero-se/types';
 import { buildSeededPool } from './questions';
+import { sanitizeSettings } from './settings';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -45,6 +46,10 @@ export const SCOREBOARD_HOLD_MS = 60_000; // running scoreboard between rounds
 // Safety net: if the subject never submits their marks the room would hang
 // forever, so bound the whole reveal + marking window.
 export const MARKING_MS = 120_000;
+
+// A guesser who drops mid turn is still waited on for this long, so a brief
+// phone disconnect does not end the guess step for everyone else.
+export const RECONNECT_GRACE_MS = 15_000;
 
 // Per-round scoring: a 100-point pool is split evenly among everyone who
 // guessed correctly, and the subject earns a "knowable" bonus for being guessed.
@@ -89,6 +94,19 @@ function perPlayerAnswers(context: GameContext): number {
 export function answersPerPlayer(totalQuestions: number, playerCount: number): number {
   if (playerCount <= 0) return 0;
   return Math.ceil(totalQuestions / playerCount);
+}
+
+/** True when someone who should guess has not done so yet, including a recent drop. */
+export function guessersOutstanding(ctx: GameContext, now = Date.now()): boolean {
+  const turn = ctx.playerTurns[ctx.currentTurnIndex];
+  if (!turn) return false;
+  return ctx.players.some((player) => {
+    if (player.id === turn.subjectPlayerId) return false;
+    if (turn.guesses.some((guess) => guess.guesserPlayerId === player.id)) return false;
+    if (player.isConnected) return true;
+    const goneAt = player.disconnectedAt ?? now;
+    return now - goneAt < RECONNECT_GRACE_MS;
+  });
 }
 
 function assignQuestions(
@@ -323,7 +341,7 @@ function computeAwards(
       type: 'best-duo',
       emoji: '💞',
       title: 'The Best Duo',
-      description: 'Highest bidirectional correct-guess connection',
+      description: 'Strongest two way correct guess connection',
       winners: winnerNames,
       stat: `${bestDuoScore} mutual correct guess${bestDuoScore !== 1 ? 'es' : ''} between each other`,
     });
@@ -380,7 +398,7 @@ export function initialContext(roomCode: string, mode: GameMode, settings?: Game
   return {
     roomCode,
     mode,
-    settings: settings ?? { ...DEFAULT_SETTINGS },
+    settings: sanitizeSettings(settings),
     players: [],
     hostId: '',
     questionPool: buildSeededPool(),
@@ -442,12 +460,7 @@ export const gameMachine = setup({
     allGuessesIn: ({ context }) => {
       const turn = context.playerTurns[context.currentTurnIndex];
       if (!turn) return false;
-      const eligibleGuessers = context.players.filter(
-        (p) => p.id !== turn.subjectPlayerId && p.isConnected,
-      );
-      return eligibleGuessers.every((p) =>
-        turn.guesses.some((g) => g.guesserPlayerId === p.id),
-      );
+      return !guessersOutstanding(context);
     },
 
     allGuessesMark: ({ context }) => {
@@ -518,8 +531,11 @@ export const gameMachine = setup({
     markPlayerDisconnected: assign({
       players: ({ context, event }) => {
         if (event.type !== 'PLAYER_LEAVE') return context.players;
+        const now = Date.now();
         return context.players.map((p) =>
-          p.socketId === event.socketId ? { ...p, isConnected: false } : p,
+          p.socketId === event.socketId
+            ? { ...p, isConnected: false, disconnectedAt: now }
+            : p,
         );
       },
     }),
@@ -529,7 +545,7 @@ export const gameMachine = setup({
         if (event.type !== 'PLAYER_RECONNECT') return context.players;
         return context.players.map((p) =>
           p.sessionToken === event.sessionToken
-            ? { ...p, socketId: event.newSocketId, isConnected: true }
+            ? { ...p, socketId: event.newSocketId, isConnected: true, disconnectedAt: undefined }
             : p,
         );
       },
@@ -861,7 +877,7 @@ export const gameMachine = setup({
         SUBMIT_GUESS: {
           actions: 'recordGuess',
         },
-        ALL_GUESSES_IN: { target: 'REVEAL_PHASE' },
+        ALL_GUESSES_IN: { guard: 'allGuessesIn', target: 'REVEAL_PHASE' },
         GUESS_TIMER_EXPIRED: { target: 'REVEAL_PHASE' },
       },
     },

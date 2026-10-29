@@ -106,7 +106,7 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                         fontFamily: Y2K.display,
                         fontWeight: 800,
                         fontSize: 9,
-                        color: isSelected ? Y2K.dark : '#9CA3AF',
+                        color: isSelected ? Y2K.dark : '#374151',
                         letterSpacing: '0.05em',
                         textTransform: 'uppercase',
                       }}>
@@ -166,7 +166,7 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                   <button
                     type="button"
                     onClick={() => setStep('avatar')}
-                    style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#9CA3AF', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
+                    style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#374151', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
                     change character
                   </button>
@@ -198,7 +198,7 @@ export default function PhoneJoin({ roomCode, onJoin, error }: Props) {
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && canJoin) onJoin(name.trim(), selectedAvatar!); }}
                 />
-                <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>{name.length}/16</span>
+                <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#374151', textAlign: 'right' }}>{name.length}/16</span>
               </div>
 
               {error && (

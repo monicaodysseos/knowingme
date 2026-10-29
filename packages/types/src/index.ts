@@ -8,11 +8,16 @@ export type QuestionTier = 'T1' | 'T2';
 // ── Game settings (chosen by host before room creation) ───────────────────
 
 export interface GameSettings {
-  maxPlayers: number;         // 2–12, default 8
-  questionsToWrite: number;   // 1–5,  default 2
-  questionsToAnswer: number;  // 2–10, default 5
+  maxPlayers: number;         // 2 to 12, default 8
+  questionsToWrite: number;   // 1 to 5, default 2
+  questionsToAnswer: number;  // 2 to 10, default 5
   phonesOnly?: boolean;       // true = no TV; every phone shows the synced game
 }
+
+// Room codes stay four characters so the TV sticker and the join boxes
+// keep their shape. They are drawn from this alphabet with a CSPRNG.
+export const ROOM_CODE_LENGTH = 4;
+export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
 export const DEFAULT_SETTINGS: GameSettings = {
   maxPlayers: 8,
@@ -67,6 +72,7 @@ export interface Player {
   hasSkipped: boolean;
   sessionToken: string; // uuid stored in localStorage + cookie
   fastestSubmitMs: number; // for tie-breaking
+  disconnectedAt?: number; // unix ms, set when the socket drops
 }
 
 export interface Question {
@@ -292,6 +298,7 @@ export interface JoinPayload {
   sessionToken?: string; // set if reconnecting
   role: 'tv' | 'player';
   avatar?: PlayerCharacter;
+  hostSecret?: string; // required when role is tv; issued only to the room creator
 }
 
 export interface JoinAck {

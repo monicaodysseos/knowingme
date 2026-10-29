@@ -1,78 +1,251 @@
 import { createActor, type Actor } from 'xstate';
-import type { Server, Socket } from 'socket.io';
-import { gameMachine, TIMER, initialContext } from './machine';
-import type { GameContext, GameMode, GameSettings, TVState, PhoneState, ScoreEntry } from '@ksero-se/types';
+import type { Server } from 'socket.io';
+import { gameMachine } from './machine';
+import type { GameContext, GameMode, GameSettings, Player, TVState, PhoneState, ScoreEntry } from '@ksero-se/types';
 import { EXAMPLE_PROMPTS } from '@ksero-se/types';
+import { allocateCode, newHostSecret } from './codes';
+import { ROOM_CAPS, sanitizeSettings } from './settings';
 
 type MachineActor = Actor<typeof gameMachine>;
 
 interface RoomEntry {
   actor: MachineActor;
   timers: Map<string, ReturnType<typeof setTimeout>>;
+  hostSecret: string;
+  createdAt: number;
+  lastActivityAt: number;
+  tvSockets: Set<string>;
+}
+
+export interface SavedRoom {
+  v: 1;
+  roomCode: string;
+  hostSecret: string;
+  createdAt: number;
+  lastActivityAt: number;
+  snapshot: unknown;
 }
 
 const rooms = new Map<string, RoomEntry>();
 
-// ── Room code generation ───────────────────────────────────────────────────
+let onRoomChanged: (code: string) => void = () => {};
+let onRoomDeleted: (code: string) => void = () => {};
 
-const ALLOWED_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no O/0/I/1/l
-
-export function generateRoomCode(): string {
-  let code = '';
-  for (let i = 0; i < 4; i++) {
-    code += ALLOWED_CHARS[Math.floor(Math.random() * ALLOWED_CHARS.length)];
-  }
-  return code;
-}
-
-function freshCode(): string {
-  let code = generateRoomCode();
-  while (rooms.has(code)) code = generateRoomCode();
-  return code;
+export function setRoomHooks(hooks: {
+  onChanged?: (code: string) => void;
+  onDeleted?: (code: string) => void;
+}): void {
+  if (hooks.onChanged) onRoomChanged = hooks.onChanged;
+  if (hooks.onDeleted) onRoomDeleted = hooks.onDeleted;
 }
 
 // ── Room lifecycle ─────────────────────────────────────────────────────────
 
-export function createRoom(io: Server, mode: GameMode = 'social', settings?: GameSettings): string {
-  const roomCode = freshCode();
+export interface CreatedRoom {
+  roomCode: string;
+  hostSecret: string;
+}
 
+export function createRoom(io: Server, mode: GameMode = 'social', settings?: GameSettings): CreatedRoom | null {
+  sweepRooms();
+  if (rooms.size >= ROOM_CAPS.maxRooms) return null;
+  const roomCode = allocateCode((code) => rooms.has(code));
+  if (!roomCode) return null;
+
+  const safeSettings = sanitizeSettings(settings);
   const actor = createActor(gameMachine, {
-    input: { roomCode, mode, settings },
+    input: { roomCode, mode, settings: safeSettings },
   });
 
-  const entry: RoomEntry = { actor, timers: new Map() };
+  const now = Date.now();
+  const entry: RoomEntry = {
+    actor,
+    timers: new Map(),
+    hostSecret: newHostSecret(),
+    createdAt: now,
+    lastActivityAt: now,
+    tvSockets: new Set(),
+  };
   rooms.set(roomCode, entry);
-
-  actor.subscribe((snapshot) => {
-    broadcastState(io, roomCode, snapshot.context, snapshot.value as string);
-  });
-
+  watchRoom(io, roomCode, entry);
   actor.start();
-  return roomCode;
+  return { roomCode, hostSecret: entry.hostSecret };
+}
+
+function watchRoom(io: Server, roomCode: string, entry: RoomEntry): void {
+  entry.actor.subscribe((snapshot) => {
+    entry.lastActivityAt = Date.now();
+    try {
+      broadcastState(io, roomCode, snapshot.context, snapshot.value as string);
+    } catch (err) {
+      console.error(`[room ${roomCode}] broadcast failed:`, err instanceof Error ? err.message : err);
+    }
+    try {
+      onRoomChanged(roomCode);
+    } catch (err) {
+      console.error(`[room ${roomCode}] persist failed:`, err instanceof Error ? err.message : err);
+    }
+  });
 }
 
 export function getRoom(roomCode: string): RoomEntry | undefined {
   return rooms.get(roomCode);
 }
 
-/** Send the current game state to a single socket (e.g. TV on connect). */
+/** Send the current game state to one socket, not the rest of the room. */
 export function sendCurrentState(io: Server, roomCode: string, socketId: string): void {
   const entry = rooms.get(roomCode);
   if (!entry) return;
   const snap = entry.actor.getSnapshot();
-  const ctx = snap.context;
-  const phase = snap.value as string;
-  // Temporarily store io reference to re-use broadcastState with a targeted emit
-  // We just re-broadcast — the socket is in tv:${roomCode} room already
-  broadcastState(io, roomCode, ctx, phase);
+  broadcastState(io, roomCode, snap.context, snap.value as string, socketId);
+}
+
+export function touchRoom(roomCode: string): void {
+  const entry = rooms.get(roomCode);
+  if (entry) entry.lastActivityAt = Date.now();
+}
+
+export function attachTv(roomCode: string, socketId: string): void {
+  const entry = rooms.get(roomCode);
+  if (!entry) return;
+  entry.tvSockets.add(socketId);
+  entry.lastActivityAt = Date.now();
+}
+
+export function detachTv(roomCode: string, socketId: string): void {
+  const entry = rooms.get(roomCode);
+  if (!entry) return;
+  entry.tvSockets.delete(socketId);
+  entry.lastActivityAt = Date.now();
+}
+
+export function roomCount(): number {
+  return rooms.size;
+}
+
+export function exportRoomState(roomCode: string): SavedRoom | null {
+  const entry = rooms.get(roomCode);
+  if (!entry) return null;
+  const persisted = entry.actor.getPersistedSnapshot();
+  if (!persisted) return null;
+  return {
+    v: 1,
+    roomCode,
+    hostSecret: entry.hostSecret,
+    createdAt: entry.createdAt,
+    lastActivityAt: entry.lastActivityAt,
+    snapshot: JSON.parse(JSON.stringify(persisted)),
+  };
+}
+
+export function restoreRoom(io: Server, saved: SavedRoom): boolean {
+  if (rooms.has(saved.roomCode)) return true;
+  if (!saved.hostSecret || !saved.snapshot || typeof saved.snapshot !== 'object') return false;
+  if (rooms.size >= ROOM_CAPS.maxRooms) return false;
+
+  let snapshot: { context?: { players?: Player[] } };
+  try {
+    snapshot = JSON.parse(JSON.stringify(saved.snapshot));
+  } catch {
+    return false;
+  }
+  const now = Date.now();
+  if (Array.isArray(snapshot.context?.players)) {
+    snapshot.context.players = snapshot.context.players.map((player) => ({
+      ...player,
+      isConnected: false,
+      disconnectedAt: typeof player.disconnectedAt === 'number' ? player.disconnectedAt : now,
+    }));
+  }
+
+  let actor: MachineActor;
+  try {
+    const savedContext = snapshot.context as { mode?: GameMode; settings?: GameSettings } | undefined;
+    actor = createActor(gameMachine, {
+      input: {
+        roomCode: saved.roomCode,
+        mode: savedContext?.mode === 'corporate' ? 'corporate' : 'social',
+        settings: savedContext?.settings,
+      },
+      snapshot: snapshot as never,
+    });
+  } catch (err) {
+    console.error(`[restore] ${saved.roomCode} rejected snapshot:`, err instanceof Error ? err.message : err);
+    return false;
+  }
+
+  const entry: RoomEntry = {
+    actor,
+    timers: new Map(),
+    hostSecret: saved.hostSecret,
+    createdAt: saved.createdAt || now,
+    lastActivityAt: saved.lastActivityAt || now,
+    tvSockets: new Set(),
+  };
+  rooms.set(saved.roomCode, entry);
+  watchRoom(io, saved.roomCode, entry);
+  try {
+    actor.start();
+  } catch (err) {
+    console.error(`[restore] ${saved.roomCode} failed to start:`, err instanceof Error ? err.message : err);
+    rooms.delete(saved.roomCode);
+    return false;
+  }
+  return true;
+}
+
+/** Drop the in memory actor without deleting the saved copy. Used after a restart test. */
+export function evictLocalRoom(roomCode: string): void {
+  const entry = rooms.get(roomCode);
+  if (!entry) return;
+  try { entry.actor.stop(); } catch { /* already stopped */ }
+  for (const timer of entry.timers.values()) clearTimeout(timer);
+  rooms.delete(roomCode);
+}
+
+export function resetAllRooms(): void {
+  for (const code of [...rooms.keys()]) evictLocalRoom(code);
+}
+
+/**
+ * Remove rooms nobody is using. A connected TV or player keeps the room,
+ * unless nothing has happened for the stale window.
+ */
+export function sweepRooms(now = Date.now()): string[] {
+  const removed: string[] = [];
+  for (const [code, entry] of rooms) {
+    const snap = entry.actor.getSnapshot();
+    const phase = String(snap.value);
+    const players = snap.context.players;
+    const anyone = players.some((player) => player.isConnected) || entry.tvSockets.size > 0;
+    const idle = now - entry.lastActivityAt;
+    const age = now - entry.createdAt;
+    let drop = false;
+    if (idle >= ROOM_CAPS.staleMs) drop = true;
+    else if (!anyone && players.length === 0 && age >= ROOM_CAPS.emptyLobbyMs) drop = true;
+    else if (!anyone && phase === 'LOBBY' && idle >= ROOM_CAPS.idleLobbyMs) drop = true;
+    else if (!anyone && phase !== 'LOBBY' && idle >= ROOM_CAPS.abandonedGameMs) drop = true;
+    if (drop) {
+      deleteRoom(code);
+      removed.push(code);
+    }
+  }
+  return removed;
 }
 
 export function deleteRoom(roomCode: string): void {
   const entry = rooms.get(roomCode);
   if (!entry) return;
-  entry.actor.stop();
-  for (const t of entry.timers.values()) clearTimeout(t);
+  try { entry.actor.stop(); } catch { /* already stopped */ }
+  for (const timer of entry.timers.values()) clearTimeout(timer);
   rooms.delete(roomCode);
+  try { onRoomDeleted(roomCode); } catch (err) {
+    console.error(`[room ${roomCode}] delete hook failed:`, err instanceof Error ? err.message : err);
+  }
+}
+
+export function hostSecretFor(roomCode: string): string | undefined {
+  return rooms.get(roomCode)?.hostSecret;
 }
 
 // ── Timer management ───────────────────────────────────────────────────────
@@ -100,7 +273,11 @@ export function setRoomTimer(
 
   const t = setTimeout(() => {
     entry.timers.delete(key);
-    onExpire();
+    try {
+      onExpire();
+    } catch (err) {
+      console.error(`[room ${roomCode}] timer ${key} failed:`, err instanceof Error ? err.message : err);
+    }
   }, durationMs);
 
   entry.timers.set(key, t);
@@ -120,7 +297,13 @@ function buildScores(ctx: GameContext): ScoreEntry[] {
     .sort((a, b) => b.score - a.score);
 }
 
-function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: string): void {
+function broadcastState(
+  io: Server,
+  roomCode: string,
+  ctx: GameContext,
+  phase: string,
+  onlySocketId?: string,
+): void {
   const scores = buildScores(ctx);
 
   // ── TV payload ─────────────────────────────────────────────────────────
@@ -226,7 +409,12 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
     introEndsAt: ctx.introEndsAt || undefined,
   };
 
-  io.to(`tv:${roomCode}`).emit('tv:update', tvState);
+  const onlySocket = onlySocketId ? io.sockets.sockets.get(onlySocketId) : undefined;
+  if (!onlySocketId) {
+    io.to(`tv:${roomCode}`).emit('tv:update', tvState);
+  } else if (onlySocket?.rooms.has(`tv:${roomCode}`)) {
+    onlySocket.emit('tv:update', tvState);
+  }
 
   // Advancing the round: the player who did the marking owns "Next round"
   // (host can also advance if they go AFK); the scoreboard stays host-paced.
@@ -377,6 +565,10 @@ function broadcastState(io: Server, roomCode: string, ctx: GameContext, phase: s
         : (phase === 'SCORE_PHASE' && player.isHost),
     };
 
-    io.to(`player:${player.socketId}`).emit('phone:update', phoneState);
+    if (onlySocketId) {
+      if (player.socketId === onlySocketId) onlySocket?.emit('phone:update', phoneState);
+    } else {
+      io.to(`player:${player.socketId}`).emit('phone:update', phoneState);
+    }
   }
 }

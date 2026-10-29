@@ -5,11 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { usePhoneSocket } from '../../lib/hooks/useGameSocket';
-import type { PlayerCharacter, GameSettings, TVState } from '@ksero-se/types';
+import { ROOM_CODE_LENGTH, type PlayerCharacter, type GameSettings, type TVState } from '@ksero-se/types';
 import TVGameSetup from '../../components/tv/TVGameSetup';
 import Y2KAvatar from '../../components/tv/Y2KAvatar';
-
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
 import PhoneJoin from '../../components/phone/PhoneJoin';
 import PhoneWaiting from '../../components/phone/PhoneWaiting';
@@ -24,6 +22,8 @@ import PhoneBroadcastStatus from '../../components/phone/PhoneBroadcastStatus';
 import PhoneLayout from '../../components/phone/PhoneLayout';
 import Loader from '../../components/Loader';
 import { Y2K } from '../../lib/y2k';
+import PhaseAnnouncer from '../../components/PhaseAnnouncer';
+import { requestRoom } from '../../lib/createRoom';
 
 // ── Big chunky Y2K action button (host controls) ──────────────────────────────
 function HostButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
@@ -94,7 +94,7 @@ function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, playe
             <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.15em' }}>ROOM</div>
             <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 30, color: '#fff', letterSpacing: 3, WebkitTextStroke: `1px ${Y2K.dark}` }}>{roomCode}</div>
           </div>
-          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 11, color: '#9CA3AF' }}>others scan or enter this code at kserose.com</p>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 11, color: '#374151' }}>others scan or enter this code at kserose.com</p>
         </div>
       )}
 
@@ -111,7 +111,7 @@ function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, playe
           </div>
         </div>
       ) : (
-        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#6B7280' }}>
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#374151' }}>
           {playerCount} player{playerCount === 1 ? '' : 's'} in the lobby
         </p>
       )}
@@ -125,7 +125,7 @@ function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, playe
           />
         </div>
       ) : (
-        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#9CA3AF' }}>
+        <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#374151' }}>
           waiting for the host to start…
         </p>
       )}
@@ -136,7 +136,7 @@ function PhoneLobby({ isHost, canStart, playerCount, roomCode, phonesOnly, playe
 // ── Round instructions (host can skip) ─────────────────────────────────────────
 const INTRO_COPY: Record<string, { round: number; title: string; blurb: string }> = {
   QUESTION_SUBMISSION: { round: 1, title: 'write questions ✍️', blurb: "write questions for others to answer about themselves. weirder = better!" },
-  ANSWER_PHASE: { round: 2, title: 'answer time ✿', blurb: 'answer the questions you got — honestly! others will try to guess what you said.' },
+  ANSWER_PHASE: { round: 2, title: 'answer time ✿', blurb: 'answer the questions you got, honestly. Others will try to guess what you said.' },
   GUESS_PHASE: { round: 3, title: 'time to guess 🔮', blurb: 'guess what each person answered. 100 pts split between everyone who gets it right.' },
 };
 
@@ -182,7 +182,7 @@ function RestartControl({ onRestart }: { onRestart: () => void }) {
           restart the game?
         </div>
         <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.75)', maxWidth: 300 }}>
-          this ends the game for everyone — all players go back to the home screen.
+          This ends the game for everyone. All players go back to the home screen.
         </p>
         <div className="w-full flex flex-col gap-3" style={{ maxWidth: 320 }}>
           <HostButton label="yes, restart" onClick={onRestart} />
@@ -232,8 +232,8 @@ function PhoneFinalWait({ phonesOnly }: { phonesOnly: boolean }) {
       <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 26, color: Y2K.dark, lineHeight: 1.15 }}>
         {phonesOnly ? (<>final scores<br />incoming…</>) : (<>look up!<br />final scores on the TV</>)}
       </div>
-      <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#6B7280', maxWidth: 300 }}>
-        {phonesOnly ? 'drumroll please… 🥁' : 'watch the big screen — your results pop up here in a moment'}
+      <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#374151', maxWidth: 300 }}>
+        {phonesOnly ? 'drumroll please… 🥁' : 'Watch the big screen. Your results pop up here in a moment.'}
       </p>
     </div>
   );
@@ -321,22 +321,43 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
       <PhoneLayout>
         <div className="flex-1 flex flex-col items-center justify-center gap-5 px-4 text-center">
           {joinError ? (
-            <>
+            <div role="alert" className="flex flex-col items-center gap-4" style={{ maxWidth: 340 }}>
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-2xl"
-                style={{ background: '#EF4444' }}
+                style={{ background: '#B42318' }}
               >
                 !
               </div>
-              <p className="font-bold text-gray-800 text-xl">{joinError}</p>
+              <h1 style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: Y2K.dark, margin: 0 }}>
+                Could not join
+              </h1>
+              <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 16, color: '#374151', margin: 0 }}>
+                {joinError}
+              </p>
               <button
+                type="button"
                 onClick={() => { window.location.reload(); }}
-                className="px-8 py-4 rounded-full font-bold text-white text-lg shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #F97316, #FF6B6B)' }}
+                style={{
+                  width: '100%', padding: '16px', borderRadius: 99,
+                  fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: '#fff',
+                  background: Y2K.hotPink, border: `3px solid ${Y2K.dark}`,
+                  boxShadow: `0 5px 0 ${Y2K.dark}`, cursor: 'pointer',
+                }}
               >
-                Try Again
+                Try again
               </button>
-            </>
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/'; }}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: 99,
+                  fontFamily: Y2K.display, fontWeight: 800, fontSize: 16, color: Y2K.dark,
+                  background: '#fff', border: `3px solid ${Y2K.dark}`, cursor: 'pointer',
+                }}
+              >
+                Back to the start
+              </button>
+            </div>
           ) : (
             <Loader dark label={`connecting to ${roomCode}…`} />
           )}
@@ -361,6 +382,7 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 
   return (
     <PhoneLayout accent={accentColor}>
+      <PhaseAnnouncer phase={phase} timerEnd={timerEnd} />
       <AnimatePresence mode="wait">
         <motion.div
           key={`${phase}-${screen}-${state.turnIndex}`}
@@ -473,17 +495,17 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 // ── Phones-only host setup → creates the room, then joins as first player ──────
 function PhonesOnlyCreate({ onCreated }: { onCreated: (code: string) => void }) {
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const handleConfirm = async (settings: GameSettings) => {
     setCreating(true);
+    setError(null);
     try {
-      const res = await fetch(`${SERVER_URL}/api/rooms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'social', settings: { ...settings, phonesOnly: true } }),
-      });
-      const data = await res.json();
-      if (data?.roomCode) { onCreated(data.roomCode); return; }
-    } catch {}
+      const created = await requestRoom({ ...settings, phonesOnly: true });
+      onCreated(created.roomCode);
+      return;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reach the game server.');
+    }
     setCreating(false);
   };
 
@@ -496,7 +518,7 @@ function PhonesOnlyCreate({ onCreated }: { onCreated: (code: string) => void }) 
       </PhoneLayout>
     );
   }
-  return <TVGameSetup onConfirm={handleConfirm} />;
+  return <TVGameSetup onConfirm={handleConfirm} error={error} />;
 }
 
 // ── Root page component ───────────────────────────────────────────────────────
@@ -504,7 +526,7 @@ function PhonesOnlyCreate({ onCreated }: { onCreated: (code: string) => void }) 
 function PhoneApp() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, 4);
+  const roomCode = (searchParams.get('room') ?? '').toUpperCase().slice(0, ROOM_CODE_LENGTH);
   const wantHost = searchParams.get('host') === '1';
 
   const [ready, setReady] = useState<{
@@ -522,6 +544,33 @@ function PhoneApp() {
   // No room yet + asked to host a phones-only game → pick settings, create, then join.
   if (!roomCode && wantHost) {
     return <PhonesOnlyCreate onCreated={(code) => router.replace(`/play?room=${code}`)} />;
+  }
+
+  if (!roomCode) {
+    return (
+      <PhoneLayout>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center" role="alert">
+          <h1 style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: Y2K.dark, margin: 0 }}>
+            No room code
+          </h1>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 16, color: '#374151', margin: 0 }}>
+            Enter a code on the home screen to join a game.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            style={{
+              width: '100%', maxWidth: 320, padding: '16px', borderRadius: 99,
+              fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: '#fff',
+              background: Y2K.hotPink, border: `3px solid ${Y2K.dark}`,
+              boxShadow: `0 5px 0 ${Y2K.dark}`, cursor: 'pointer',
+            }}
+          >
+            Back to the start
+          </button>
+        </div>
+      </PhoneLayout>
+    );
   }
 
   if (!ready) {
