@@ -96,6 +96,53 @@ describe('settings', () => {
 });
 
 describe('game machine', () => {
+  it('plays a full turn with exactly two players and ignores a guess from the subject', () => {
+    const created = createRoom(testIo(), 'social', {
+      maxPlayers: 2,
+      questionsToWrite: 1,
+      questionsToAnswer: 2,
+    })!;
+    const actor = getRoom(created.roomCode)!.actor;
+    actor.send({ type: 'PLAYER_JOIN', name: 'Ada', socketId: 's1', sessionToken: 't1', avatar: 'blob' });
+    actor.send({ type: 'PLAYER_JOIN', name: 'Bea', socketId: 's2', sessionToken: 't2', avatar: 'star' });
+    actor.send({ type: 'HOST_START' });
+    expect(actor.getSnapshot().value).toBe('QUESTION_SUBMISSION');
+
+    for (const player of actor.getSnapshot().context.players) {
+      actor.send({ type: 'SUBMIT_QUESTIONS', playerId: player.id, questions: [`Prompt from ${player.name}`] });
+    }
+    actor.send({ type: 'ALL_QUESTIONS_SUBMITTED' });
+
+    const assignments = actor.getSnapshot().context.questionAssignments;
+    expect(assignments.length).toBeGreaterThan(0);
+    for (const assignment of assignments) {
+      const authorId = actor.getSnapshot().context.questionPool.find((q) => q.id === assignment.questionId)?.submittedByPlayerId;
+      expect(assignment.assignedToPlayerId).not.toBe(authorId);
+      actor.send({
+        type: 'SUBMIT_ANSWER',
+        playerId: assignment.assignedToPlayerId,
+        assignmentId: assignment.id,
+        answer: 'toast',
+      });
+    }
+    actor.send({ type: 'ALL_ANSWERS_IN' });
+    expect(actor.getSnapshot().value).toBe('GUESS_PHASE');
+
+    const turn = actor.getSnapshot().context.playerTurns[0];
+    actor.send({ type: 'SUBMIT_GUESS', playerId: turn.subjectPlayerId, text: 'my own answer' });
+    expect(actor.getSnapshot().context.playerTurns[0].guesses).toHaveLength(0);
+
+    const guesser = actor.getSnapshot().context.players.find((player) => player.id !== turn.subjectPlayerId)!;
+    actor.send({ type: 'SUBMIT_GUESS', playerId: guesser.id, text: 'toast' });
+    expect(actor.getSnapshot().context.playerTurns[0].guesses).toHaveLength(1);
+    expect(actor.getSnapshot().context.playerTurns[0].guesses[0].guesserPlayerId).toBe(guesser.id);
+
+    actor.send({ type: 'ALL_GUESSES_IN' });
+    expect(actor.getSnapshot().value).toBe('REVEAL_PHASE');
+    actor.send({ type: 'MARK_GUESS', guessId: actor.getSnapshot().context.playerTurns[0].guesses[0].id, isCorrect: true });
+    expect(actor.getSnapshot().context.playerTurns[0].guesses[0].isCorrect).toBe(true);
+  });
+
   it('does not start with a single player', () => {
     const created = createRoom(testIo(), 'social')!;
     const actor = getRoom(created.roomCode)!.actor;

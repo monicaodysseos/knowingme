@@ -21,8 +21,7 @@ import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
 import TVIntroGuess from '../../components/tv/TVIntroGuess';
 import TVRoundAnnouncement from '../../components/tv/TVRoundAnnouncement';
 import PhaseAnnouncer from '../../components/PhaseAnnouncer';
-
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
+import { requestRoom } from '../../lib/createRoom';
 
 // The single source of truth for which looping track plays in each phase.
 // Phases not listed here are intentionally silent (REVEAL/SCORE), or manage
@@ -34,23 +33,13 @@ const MUSIC_BY_PHASE: Record<string, MusicKey> = {
   GUESS_PHASE: 'guess',
 };
 
-function createRoom(settings: GameSettings): Promise<{ code: string; hostSecret: string }> {
-  return fetch(`${SERVER_URL}/api/rooms`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'social', settings }),
-  })
-    .then(async (r) => {
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok || !data.roomCode || !data.hostSecret) {
-        throw new Error(typeof data.error === 'string' ? data.error : 'Could not create a room.');
-      }
-      try {
-        sessionStorage.setItem('ksero-tv-room', data.roomCode);
-        sessionStorage.setItem('ksero-tv-secret', data.hostSecret);
-      } catch {}
-      return { code: data.roomCode as string, hostSecret: data.hostSecret as string };
-    });
+async function createRoom(settings: GameSettings): Promise<{ code: string; hostSecret: string }> {
+  const created = await requestRoom(settings);
+  try {
+    sessionStorage.setItem('ksero-tv-room', created.roomCode);
+    sessionStorage.setItem('ksero-tv-secret', created.hostSecret);
+  } catch { /* private mode */ }
+  return { code: created.roomCode, hostSecret: created.hostSecret };
 }
 
 export default function TVPage() {
@@ -68,10 +57,12 @@ export default function TVPage() {
     try {
       sessionStorage.removeItem('ksero-tv-room');
       sessionStorage.removeItem('ksero-tv-secret');
-    } catch {}
+    } catch { /* private mode */ }
     setRoomCode(null);
     setHostSecret(null);
     setSetupDone(false);
+    setLoading(false);
+    setError('The game server dropped this room. Please create a new one.');
   }, []);
 
   const handleConfirmSetup = useCallback((settings: GameSettings) => {
@@ -85,7 +76,7 @@ export default function TVPage() {
         setLoading(false);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Could not connect to server.');
+        setError(err instanceof Error ? err.message : 'Could not reach the game server.');
         setLoading(false);
       });
   }, []);
@@ -125,11 +116,6 @@ export default function TVPage() {
     };
   }, []);
 
-  // Show setup screen first (unless restoring session or loading/error)
-  if (!setupDone && !roomCode && !loading && !error) {
-    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} /></FitScreen>;
-  }
-
   if (loading) {
     return (
       <FitScreen>
@@ -140,25 +126,9 @@ export default function TVPage() {
     );
   }
 
-  if (error || !roomCode) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <div className="text-center">
-          <p className="text-red-400 font-bold text-2xl mb-4">{error ?? 'Unknown error'}</p>
-          <button
-            onClick={() => { setError(null); setSetupDone(false); }}
-            className="px-6 py-3 rounded-xl font-bold text-white"
-            style={{ background: '#FF4FB4' }}
-          >
-            Back to Setup
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!hostSecret) {
-    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} /></FitScreen>;
+  // Stay on setup, with the reason, until a room and its host secret both exist.
+  if (!setupDone || !roomCode || !hostSecret) {
+    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} error={error} /></FitScreen>;
   }
 
   return <TVScreen roomCode={roomCode} hostSecret={hostSecret} onRoomExpired={handleRoomExpired} audioUnlocked={audioUnlocked} />;

@@ -321,7 +321,7 @@ export default function LandingPage() {
         >
           {[
             { k: '3', l: 'phases' },
-            { k: '3+', l: 'players' },
+            { k: '2+', l: 'players' },
             { k: '~10', l: 'min' },
             { k: '✦', l: 'shade' },
           ].map((s, i) => (

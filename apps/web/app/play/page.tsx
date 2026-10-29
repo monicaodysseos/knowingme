@@ -9,8 +9,6 @@ import { ROOM_CODE_LENGTH, type PlayerCharacter, type GameSettings, type TVState
 import TVGameSetup from '../../components/tv/TVGameSetup';
 import Y2KAvatar from '../../components/tv/Y2KAvatar';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
-
 import PhoneJoin from '../../components/phone/PhoneJoin';
 import PhoneWaiting from '../../components/phone/PhoneWaiting';
 import PhoneQuestionSubmit from '../../components/phone/PhoneQuestionSubmit';
@@ -25,6 +23,7 @@ import PhoneLayout from '../../components/phone/PhoneLayout';
 import Loader from '../../components/Loader';
 import { Y2K } from '../../lib/y2k';
 import PhaseAnnouncer from '../../components/PhaseAnnouncer';
+import { requestRoom } from '../../lib/createRoom';
 
 // ── Big chunky Y2K action button (host controls) ──────────────────────────────
 function HostButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
@@ -496,17 +495,17 @@ function PhoneGame({ roomCode, name, avatar, sessionToken }: PhoneGameProps) {
 // ── Phones-only host setup → creates the room, then joins as first player ──────
 function PhonesOnlyCreate({ onCreated }: { onCreated: (code: string) => void }) {
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const handleConfirm = async (settings: GameSettings) => {
     setCreating(true);
+    setError(null);
     try {
-      const res = await fetch(`${SERVER_URL}/api/rooms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'social', settings: { ...settings, phonesOnly: true } }),
-      });
-      const data = await res.json();
-      if (data?.roomCode) { onCreated(data.roomCode); return; }
-    } catch {}
+      const created = await requestRoom({ ...settings, phonesOnly: true });
+      onCreated(created.roomCode);
+      return;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reach the game server.');
+    }
     setCreating(false);
   };
 
@@ -519,7 +518,7 @@ function PhonesOnlyCreate({ onCreated }: { onCreated: (code: string) => void }) 
       </PhoneLayout>
     );
   }
-  return <TVGameSetup onConfirm={handleConfirm} />;
+  return <TVGameSetup onConfirm={handleConfirm} error={error} />;
 }
 
 // ── Root page component ───────────────────────────────────────────────────────

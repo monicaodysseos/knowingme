@@ -8,6 +8,7 @@ import { Y2K } from '../../lib/y2k';
 
 interface Props {
   onConfirm: (settings: GameSettings) => void;
+  error?: string | null;
 }
 
 function Sticker({ color, r = 20, rotate = 0, style = {}, children }: { color: string; r?: number; rotate?: number; style?: React.CSSProperties; children: React.ReactNode }) {
@@ -108,7 +109,7 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
   );
 }
 
-export default function TVGameSetup({ onConfirm }: Props) {
+export default function TVGameSetup({ onConfirm, error }: Props) {
   const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_SETTINGS });
   const [showHelp, setShowHelp] = useState(false);
 
@@ -224,32 +225,41 @@ export default function TVGameSetup({ onConfirm }: Props) {
           </Sticker>
         </div>
 
-        {/* Create button */}
-        <motion.div whileHover={{ scale: 1.025 }} whileTap={{ scale: 0.975 }}>
-          <Sticker
-            color={Y2K.hotPink}
-            r={20}
-            rotate={-0.5}
-            style={{
-              padding: '18px 24px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-            }}
+        {error && (
+          <p role="alert" style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 15, color: '#7f1d1d', background: '#fff', border: `3px solid ${Y2K.dark}`, borderRadius: 16, padding: '12px 14px', margin: 0, textAlign: 'center' }}>
+            {error}
+          </p>
+        )}
+
+        {/* The whole pink bar is the button, so a tap on the padding still creates the room. */}
+        <motion.div whileHover={{ scale: 1.025 }} whileTap={{ scale: 0.975 }} style={{ width: '100%' }}>
+          <button
+            type="button"
+            onClick={() => onConfirm(settings)}
+            style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
           >
-            <button
-              type="button"
-              onClick={() => onConfirm(settings)}
+            <Sticker
+              color={Y2K.hotPink}
+              r={20}
+              rotate={-0.5}
               style={{
-                fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff',
-                background: 'none', border: 'none', cursor: 'pointer',
-                WebkitTextStroke: `1px ${Y2K.dark}`,
-                textShadow: `2px 2px 0 ${Y2K.dark}`,
-                textTransform: 'uppercase', letterSpacing: '0.04em',
+                padding: '18px 24px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '100%',
               }}
             >
-              create game ▶︎
-            </button>
-          </Sticker>
+              <span
+                style={{
+                  fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff',
+                  WebkitTextStroke: `1px ${Y2K.dark}`,
+                  textShadow: `2px 2px 0 ${Y2K.dark}`,
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}
+              >
+                create game ▶︎
+              </span>
+            </Sticker>
+          </button>
         </motion.div>
       </motion.div>
     </div>
