@@ -22,10 +22,8 @@ import {
   writeMs,
   answerMs,
   answersPerPlayer,
-  guessersOutstanding,
-  RECONNECT_GRACE_MS,
 } from './machine';
-import type { JoinAck } from '@ksero-se/types';
+import type { GameContext, JoinAck } from '@ksero-se/types';
 import { secretsMatch } from './codes';
 import { parseAnswer, parseGuess, parseJoin, parseQuestions, parseVotes } from './validate';
 import { rateLimit } from './rateLimit';
@@ -49,6 +47,16 @@ function on(socket: Socket, event: string, handler: (...args: unknown[]) => void
           /* the client has gone */
         }
       });
+  });
+}
+
+/** Pre change behaviour: only people still connected have to guess. */
+function connectedGuessersOutstanding(ctx: GameContext): boolean {
+  const turn = ctx.playerTurns[ctx.currentTurnIndex];
+  if (!turn) return false;
+  return ctx.players.some((player) => {
+    if (player.id === turn.subjectPlayerId || !player.isConnected) return false;
+    return !turn.guesses.some((guess) => guess.guesserPlayerId === player.id);
   });
 }
 
@@ -378,7 +386,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
     if (!canHost(socket, ctx.hostId)) return;
-    for (const key of ['question-sub', 'answer', 'guess', 'guess-grace', 'marking', 'reveal-hold', 'score-hold']) {
+    for (const key of ['question-sub', 'answer', 'guess', 'marking', 'reveal-hold', 'score-hold']) {
       clearRoomTimer(roomCode, key);
     }
     io.to(roomCode).emit('room:closed');
@@ -396,14 +404,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (!entry || !playerId) return;
     entry.actor.send({ type: 'PLAYER_LEAVE', socketId: socket.id });
     if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
-      const ctx = entry.actor.getSnapshot().context;
-      if (guessersOutstanding(ctx)) {
-        setRoomTimer(io, roomCode, 'guess-grace', RECONNECT_GRACE_MS, () => {
-          maybeCompleteGuesses(io, roomCode);
-        });
-      } else {
-        maybeCompleteGuesses(io, roomCode);
-      }
+      maybeCompleteGuesses(io, roomCode);
     }
   });
 }
@@ -453,9 +454,8 @@ function maybeCompleteGuesses(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry || entry.actor.getSnapshot().value !== 'GUESS_PHASE') return;
   const ctx = entry.actor.getSnapshot().context;
-  if (guessersOutstanding(ctx)) return;
+  if (connectedGuessersOutstanding(ctx)) return;
   clearRoomTimer(roomCode, 'guess');
-  clearRoomTimer(roomCode, 'guess-grace');
   entry.actor.send({ type: 'ALL_GUESSES_IN' });
   if (entry.actor.getSnapshot().value === 'REVEAL_PHASE') startReveal(io, roomCode);
 }

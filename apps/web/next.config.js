@@ -40,6 +40,7 @@ const csp = [
   "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com",
   `connect-src ${connectSrc}`,
   "font-src 'self' data:",
+  "media-src 'self' blob: data:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

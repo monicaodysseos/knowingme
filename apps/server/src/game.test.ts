@@ -5,7 +5,6 @@ import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import type { Server as IoServer } from 'socket.io';
 import type { JoinAck } from '@ksero-se/types';
 import { allocateCode, generateRoomCode, secretsMatch } from './codes';
-import { guessersOutstanding, RECONNECT_GRACE_MS } from './machine';
 import { persistRoom, loadRoom } from './persistence';
 import { rateLimit, resetRateLimits } from './rateLimit';
 import { clearMemoryStore } from './redis';
@@ -21,7 +20,6 @@ import {
 import { registerSocketHandlers } from './socketHandlers';
 import { sanitizeSettings } from './settings';
 import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from '@ksero-se/types';
-import type { GameContext } from '@ksero-se/types';
 
 function testIo(): IoServer {
   return {
@@ -151,7 +149,7 @@ describe('game machine', () => {
     expect(actor.getSnapshot().value).toBe('LOBBY');
   });
 
-  it('waits out a reconnect grace period before the guess step can end', () => {
+  it('does not hold the guess step for a player who has left', () => {
     const created = createRoom(testIo(), 'social', {
       maxPlayers: 4,
       questionsToWrite: 1,
@@ -183,17 +181,10 @@ describe('game machine', () => {
     const turn = actor.getSnapshot().context.playerTurns[0];
     const guesser = actor.getSnapshot().context.players.find((player) => player.id !== turn.subjectPlayerId)!;
     actor.send({ type: 'PLAYER_LEAVE', socketId: guesser.socketId });
+    const left = actor.getSnapshot().context.players.find((player) => player.id === guesser.id);
+    expect(left?.isConnected).toBe(false);
     actor.send({ type: 'ALL_GUESSES_IN' });
-    expect(actor.getSnapshot().value).toBe('GUESS_PHASE');
-    expect(guessersOutstanding(actor.getSnapshot().context)).toBe(true);
-
-    const later = actor.getSnapshot().context.players.map((player) => (
-      player.id === guesser.id
-        ? { ...player, disconnectedAt: Date.now() - RECONNECT_GRACE_MS - 1000 }
-        : player
-    ));
-    const aged = { ...actor.getSnapshot().context, players: later } as GameContext;
-    expect(guessersOutstanding(aged)).toBe(false);
+    expect(actor.getSnapshot().value).toBe('REVEAL_PHASE');
   });
 });
 

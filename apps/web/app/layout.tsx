@@ -15,11 +15,11 @@ const fontVars = `${rubik.variable} ${spaceGrotesk.variable} ${fredoka.variable}
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://kserose.com'),
-  title: 'KseroSe: how well do you know each other?',
-  description: 'A party guessing game. Host it on a TV and play on your phone. Join with a room code.',
+  title: 'KseroSe — How well do you know each other?',
+  description: 'A Jackbox-style social guessing game. Join via QR code on your phone.',
   openGraph: {
-    title: 'KseroSe: how well do you know each other?',
-    description: 'A party guessing game. Host it on a TV and play on your phone.',
+    title: 'KseroSe — How well do you know each other?',
+    description: 'A Jackbox-style social guessing game. Join via QR code on your phone.',
     url: 'https://kserose.com',
     siteName: 'KseroSe',
     locale: 'en_GB',
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KseroSe: how well do you know each other?',
-    description: 'A party guessing game. Host it on a TV and play on your phone.',
+    title: 'KseroSe — How well do you know each other?',
+    description: 'A Jackbox-style social guessing game. Join via QR code on your phone.',
     images: ['/og.png'],
   },
 };

@@ -77,7 +77,7 @@ export default function PhoneResults({ scores, awards, onPlayAgain, isHost, play
 
       {/* ── Leaderboard ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 11, color: '#374151', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 11, color: '#9CA3AF', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           final standings ✦
         </div>
         {scores.map((entry, rank) => (
@@ -120,7 +120,7 @@ export default function PhoneResults({ scores, awards, onPlayAgain, isHost, play
       {/* ── Awards ── */}
       {awards && awards.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 11, color: '#374151', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 11, color: '#9CA3AF', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             ur awards ✿
           </div>
           {awards.map((award) => (
@@ -131,7 +131,7 @@ export default function PhoneResults({ scores, awards, onPlayAgain, isHost, play
               <div>
                 <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 14, color: '#fff', WebkitTextStroke: `0.5px ${Y2K.dark}` }}>{award.title}</div>
                 <div style={{ fontFamily: Y2K.body, fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>
-                  {award.winners.join(' + ')}: {award.stat}
+                  {award.winners.join(' + ')} — {award.stat}
                 </div>
               </div>
             </Sticker>
@@ -166,7 +166,7 @@ export default function PhoneResults({ scores, awards, onPlayAgain, isHost, play
 
       {!isHost && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px 24px', background: `linear-gradient(180deg, transparent 0%, ${Y2K.cream} 30%)`, zIndex: 10, textAlign: 'center' }}>
-          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#374151' }}>
+          <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#9CA3AF' }}>
             waiting for the host to start a new game…
           </p>
         </div>

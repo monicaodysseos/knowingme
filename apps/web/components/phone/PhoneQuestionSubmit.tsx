@@ -173,7 +173,7 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
         textAlign: 'center',
       }}>
         <p style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: Y2K.dark, lineHeight: 1.4, letterSpacing: '-0.2px' }}>
-          Write your own questions. Someone else will answer them about themselves
+          Write your own questions — someone else will answer them for themselves
         </p>
       </div>
 
@@ -184,7 +184,7 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
         </h2>
         <p style={{ fontFamily: Y2K.body, fontSize: 13, color: '#3a1555', marginTop: 4 }}>
           {step === count
-            ? 'Last one. Make it a good one!'
+            ? 'last one — make it a good one!'
             : step === 1
               ? 'write a personal prompt for others to answer about u'
               : 'keep them coming!'}
@@ -255,7 +255,7 @@ export default function PhoneQuestionSubmit({ roomCode, count, onSubmit }: Props
             boxShadow: `0 3px 0 ${Y2K.dark}`, outline: 'none', resize: 'none',
           }}
         />
-        <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#374151', textAlign: 'right' }}>{currentValue.length}/80</span>
+        <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF', textAlign: 'right' }}>{currentValue.length}/80</span>
       </div>
 
       {/* Next / Submit */}
