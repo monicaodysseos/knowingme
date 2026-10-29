@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTVSocket } from '../../lib/hooks/useGameSocket';
-import { disconnectSocket } from '../../lib/socket';
+import { disconnectSocket, getSocket } from '../../lib/socket';
 import type { GameSettings } from '@ksero-se/types';
 import { unlockAudio, playMusic, stopMusic, playRoundStartSting, stopRoundStartSting, type MusicKey } from '../../lib/hooks/useGameSounds';
 import FitScreen from '../../components/tv/FitScreen';
@@ -22,6 +22,7 @@ import TVIntroGuess from '../../components/tv/TVIntroGuess';
 import TVRoundAnnouncement from '../../components/tv/TVRoundAnnouncement';
 import PhaseAnnouncer from '../../components/PhaseAnnouncer';
 import { requestRoom } from '../../lib/createRoom';
+import FakesStage from '../../components/fakes/FakesStage';
 
 // The single source of truth for which looping track plays in each phase.
 // Phases not listed here are intentionally silent (REVEAL/SCORE), or manage
@@ -181,9 +182,15 @@ function TVScreen({ roomCode, hostSecret, onRoomExpired, audioUnlocked }: { room
   // While the instructions show we stay silent (the round sting covers it);
   // otherwise the current phase decides the track. `playMusic` is idempotent,
   // so frequent state updates within a phase never restart or double the song.
-  const desiredMusic: MusicKey | null = introActive
-    ? null
-    : (state ? MUSIC_BY_PHASE[state.phase] ?? null : null);
+  const fakesPhase = state?.rules === 'fakes' ? state.fakes?.phase : undefined;
+  const desiredMusic: MusicKey | null = fakesPhase
+    ? (fakesPhase === 'WRITE' || fakesPhase === 'HOW_IT_WORKS' ? 'questions'
+      : fakesPhase === 'ANSWER' ? 'answer'
+      : fakesPhase === 'FAKE' || fakesPhase === 'VOTE' ? 'guess'
+      : null)
+    : introActive
+      ? null
+      : (state ? MUSIC_BY_PHASE[state.phase] ?? null : null);
 
   useEffect(() => {
     if (!audioUnlocked) return;
@@ -202,6 +209,20 @@ function TVScreen({ roomCode, hostSecret, onRoomExpired, audioUnlocked }: { room
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') acquire(); });
     return () => { lock?.release().catch(() => {}); };
   }, []);
+
+  if (state?.rules === 'fakes' && state.fakes) {
+    return (
+      <FitScreen>
+        <PhaseAnnouncer phase={state.fakes.phase} timerEnd={state.fakes.timerEnd} />
+        <FakesStage
+          view={state.fakes}
+          role="tv"
+          isHost
+          handlers={{ onStart: hostStart, onPlayAgain: playAgain, onGotIt: () => getSocket().emit('skip:intro') }}
+        />
+      </FitScreen>
+    );
+  }
 
   if (!state) {
     return (

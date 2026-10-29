@@ -1,3 +1,5 @@
+import { CHARACTER_ROSTER } from '@ksero-se/types';
+
 // Y2K Design System tokens
 
 export const Y2K = {
@@ -14,14 +16,7 @@ export const Y2K = {
   body:     "var(--font-space-grotesk), 'Space Grotesk', 'Nunito', sans-serif",
 } as const;
 
-// Map PlayerCharacter ids → Y2K creature ids
-export const AVATAR_MAP: Record<string, string> = {
-  star:    'ghost',
-  blob:    'alien',
-  diamond: 'frog',
-  cloud:   'bunny',
-  hex:     'mushroom',
-  drop:    'robot',
-  shield:  'melt',
-  crown:   'tamago',
-};
+// Kept so older imports still resolve. The live slots live on Y2KAvatar.
+export const AVATAR_MAP: Record<string, string> = Object.fromEntries(
+  CHARACTER_ROSTER.map((slot) => [slot.id, slot.art]),
+);

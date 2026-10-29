@@ -1,5 +1,6 @@
 import type { Server } from 'socket.io';
 import { kvDel, kvGet, kvList, kvSet } from './redis';
+import { exportFakesState, isFakesRoom, restoreFakesRoom, type SavedFakesRoom } from './fakesRooms';
 import { exportRoomState, getRoom, restoreRoom, type SavedRoom } from './roomManager';
 
 const ROOM_TTL_SEC = 4 * 60 * 60;
@@ -11,8 +12,10 @@ function roomKey(code: string): string {
   return `${ROOM_PREFIX}${code}`;
 }
 
+export type AnySavedRoom = SavedRoom | SavedFakesRoom;
+
 export async function persistRoom(code: string): Promise<void> {
-  const data = exportRoomState(code);
+  const data = exportRoomState(code) ?? exportFakesState(code);
   if (!data) return;
   await kvSet(roomKey(code), ROOM_TTL_SEC, JSON.stringify(data));
 }
@@ -38,15 +41,15 @@ export function forgetPersistedRoom(code: string): void {
   tails.set(code, next);
 }
 
-export async function loadRoom(code: string): Promise<SavedRoom | null> {
+export async function loadRoom(code: string): Promise<AnySavedRoom | null> {
   const raw = await kvGet(roomKey(code));
   if (!raw) return null;
   return parseSaved(raw);
 }
 
-export async function loadAllRooms(): Promise<SavedRoom[]> {
+export async function loadAllRooms(): Promise<AnySavedRoom[]> {
   const keys = await kvList(ROOM_PREFIX);
-  const rooms: SavedRoom[] = [];
+  const rooms: AnySavedRoom[] = [];
   for (const key of keys) {
     const raw = await kvGet(key);
     if (!raw) continue;
@@ -60,12 +63,17 @@ export async function restoreAllRooms(io: Server): Promise<string[]> {
   const saved = await loadAllRooms();
   const restored: string[] = [];
   for (const room of saved) {
-    if (getRoom(room.roomCode)) {
+    if (room.v === 1 && getRoom(room.roomCode)) {
+      restored.push(room.roomCode);
+      continue;
+    }
+    if (room.v === 2 && isFakesRoom(room.roomCode)) {
       restored.push(room.roomCode);
       continue;
     }
     try {
-      if (restoreRoom(io, room)) restored.push(room.roomCode);
+      const ok = room.v === 2 ? restoreFakesRoom(io, room) : restoreRoom(io, room);
+      if (ok) restored.push(room.roomCode);
     } catch (err) {
       console.error('[restore]', room.roomCode, err instanceof Error ? err.message : err);
     }
@@ -73,18 +81,42 @@ export async function restoreAllRooms(io: Server): Promise<string[]> {
   return restored;
 }
 
-function parseSaved(raw: string): SavedRoom | null {
+function parseSaved(raw: string): AnySavedRoom | null {
   try {
-    const parsed = JSON.parse(raw) as Partial<SavedRoom>;
-    if (!parsed || parsed.v !== 1) return null;
+    const parsed = JSON.parse(raw) as {
+      v?: number;
+      rules?: string;
+      roomCode?: string;
+      hostSecret?: string;
+      createdAt?: number;
+      lastActivityAt?: number;
+      introSeen?: unknown[];
+      snapshot?: unknown;
+    };
+    if (!parsed || (parsed.v !== 1 && parsed.v !== 2)) return null;
     if (typeof parsed.roomCode !== 'string' || typeof parsed.hostSecret !== 'string') return null;
     if (!parsed.snapshot || typeof parsed.snapshot !== 'object') return null;
+    const createdAt = typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now();
+    const lastActivityAt = typeof parsed.lastActivityAt === 'number' ? parsed.lastActivityAt : Date.now();
+    if (parsed.v === 2 && parsed.rules === 'fakes') {
+      return {
+        v: 2,
+        rules: 'fakes',
+        roomCode: parsed.roomCode,
+        hostSecret: parsed.hostSecret,
+        createdAt,
+        lastActivityAt,
+        introSeen: Array.isArray(parsed.introSeen) ? parsed.introSeen.filter((item) => typeof item === 'string') : [],
+        snapshot: parsed.snapshot as SavedFakesRoom['snapshot'],
+      };
+    }
+    if (parsed.v !== 1) return null;
     return {
       v: 1,
       roomCode: parsed.roomCode,
       hostSecret: parsed.hostSecret,
-      createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
-      lastActivityAt: typeof parsed.lastActivityAt === 'number' ? parsed.lastActivityAt : Date.now(),
+      createdAt,
+      lastActivityAt,
       snapshot: parsed.snapshot,
     };
   } catch {

@@ -11,6 +11,16 @@ const PHASE_LABEL: Record<string, string> = {
   SCORE_PHASE: 'Scores',
   FINAL_AWARDS: 'Final awards',
   GAME_OVER: 'Game over',
+  HOW_IT_WORKS: 'how kserose works',
+  WRITE: 'write',
+  ANSWER: 'answer',
+  DOUBLE: 'final pass',
+  FAKE: 'fake',
+  VOTE: 'vote',
+  REVEAL: 'reveal',
+  SCOREBOARD: 'scores',
+  CROWN: 'crown',
+  AWARDS: 'awards',
 };
 
 /** Screen reader updates when the phase changes, and at a few timer marks. */
