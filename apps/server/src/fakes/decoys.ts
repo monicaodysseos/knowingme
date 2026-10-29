@@ -1,5 +1,5 @@
 import { CHARACTER_ROSTER } from '@ksero-se/types';
-import { cleanDecoyText, normalizeAnswer } from './text';
+import { cleanDecoyText, normalizeAnswer, tooCloseToAnswer } from './text';
 import { shuffle } from './sample';
 
 /** Small built in list used when Gemini is missing, slow, or wrong. */
@@ -23,8 +23,21 @@ export interface DecoyRequest {
 
 export type DecoyGenerator = (request: DecoyRequest) => Promise<string[] | null>;
 
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+export const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
 const TIMEOUT_MS = 4_000;
+const LOG_LIMIT = 240;
+
+/** Keep logs useful and never print the API key, even if a URL or body echoes it. */
+function clipForLog(text: string, key: string): string {
+  let out = text;
+  if (key) out = out.split(key).join('[redacted]');
+  out = out.replace(/([?&]key=)[^&\s]+/gi, '$1[redacted]');
+  return out.replace(/\s+/g, ' ').trim().slice(0, LOG_LIMIT);
+}
+
+function logDecoyFailure(status: number | 'network', detail: string, key: string): void {
+  console.error(`[decoys] gemini ${status}: ${clipForLog(detail, key)}`);
+}
 
 /**
  * Ask Gemini flash for a few plausible answers. Returns null on any
@@ -37,7 +50,7 @@ export async function geminiDecoys(
 ): Promise<string[] | null> {
   const key = env.GEMINI_API_KEY?.trim();
   if (!key || request.count <= 0) return null;
-  const model = env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  const model = env.GEMINI_MODEL?.trim() || GEMINI_DEFAULT_MODEL;
   const prompt = [
     `Write ${request.count} short answers a friend might give.`,
     `Question: ${request.question}`,
@@ -48,8 +61,9 @@ export async function geminiDecoys(
   ].join(' ');
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+  let response: Response;
   try {
-    const response = await fetchImpl(url, {
+    response = await fetchImpl(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -58,17 +72,41 @@ export async function geminiDecoys(
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!response.ok) return null;
-    const body = await response.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('\n') ?? '';
-    const parsed = parseDecoyList(text);
-    return parsed.length > 0 ? parsed : null;
   } catch (err) {
-    console.error('[decoys] gemini failed:', err instanceof Error ? err.message : err);
+    const message = err instanceof Error ? err.message : String(err);
+    logDecoyFailure('network', message, key);
     return null;
   }
+
+  let raw = '';
+  try {
+    raw = await response.text();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logDecoyFailure(response.status, message, key);
+    return null;
+  }
+
+  if (!response.ok) {
+    logDecoyFailure(response.status, raw || response.statusText, key);
+    return null;
+  }
+
+  let body: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  try {
+    body = JSON.parse(raw) as typeof body;
+  } catch {
+    logDecoyFailure(response.status, `unparsable ${raw}`, key);
+    return null;
+  }
+
+  const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('\n') ?? '';
+  const parsed = parseDecoyList(text);
+  if (parsed.length === 0) {
+    logDecoyFailure(response.status, `unparsable ${text || raw}`, key);
+    return null;
+  }
+  return parsed;
 }
 
 export function parseDecoyList(text: string): string[] {
@@ -122,7 +160,7 @@ export function pickDecoys(
     );
     for (const item of pool) {
       const key = normalizeAnswer(item);
-      if (!key || seen.has(key)) continue;
+      if (!key || seen.has(key) || tooCloseToAnswer(item, real)) continue;
       seen.add(key);
       out.push(item);
       if (out.length >= count) return out;

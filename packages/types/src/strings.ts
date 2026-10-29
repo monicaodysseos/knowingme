@@ -23,6 +23,7 @@ export const copy = {
   aboutYou: 'about you',
   realPlaceholder: 'the real answer…',
   lockedIn: 'locked in',
+  tooClose: 'too close. write a different one',
   subjectWait: "your mates are faking you. let's see who knows you",
   yours: 'yours',
   literallyMe: "that's literally me",

@@ -7,7 +7,8 @@ import type { RulesMode } from '@ksero-se/types';
  * GET /api/config, so the switch does not need a new web build.
  *
  * Optional: GEMINI_API_KEY for decoys, and GEMINI_MODEL (default
- * gemini-2.0-flash). A missing or slow key never stops a game.
+ * gemini-2.5-flash). A missing or slow key never stops a game. A failed
+ * call logs the HTTP status and a short body, with the key removed.
  */
 export function rulesMode(env: NodeJS.ProcessEnv = process.env): RulesMode {
   return env.KSEROSE_RULES === 'fakes' ? 'fakes' : 'classic';
