@@ -23,7 +23,7 @@ interface Handlers {
   onGotIt?: () => void;
   onQuestions?: (questions: string[]) => void;
   onAnswers?: (answers: Array<{ assignmentId: string; text: string }>) => void;
-  onFake?: (text: string, onAck?: (ok: boolean, error?: string) => void) => void;
+  onFake?: (text: string) => void;
   onVote?: (optionId: string) => void;
   onLiterally?: (optionId: string | null) => void;
 }
@@ -266,21 +266,16 @@ function AnswerPhone({ view, now, onAnswers }: { view: FakesView; now: number; o
   );
 }
 
-function FakePhone({ view, now, onFake }: { view: FakesView; now: number; onFake?: (text: string, onAck?: (ok: boolean, error?: string) => void) => void }) {
+function FakePhone({ view, now, onFake }: { view: FakesView; now: number; onFake?: (text: string) => void }) {
   const [text, setText] = useState('');
   const [sent, setSent] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [autoTried, setAutoTried] = useState(false);
   useEffect(() => {
-    if (view.isSubject || sent || view.submitted || autoTried || view.phase !== 'FAKE') return;
+    if (view.isSubject || sent || view.submitted || view.phase !== 'FAKE') return;
     if (view.timerEnd && now >= view.timerEnd && text.trim()) {
-      setAutoTried(true);
-      onFake?.(text.trim(), (ok, error) => {
-        if (ok) setSent(true);
-        else setNotice(error || copy.tooClose);
-      });
+      setSent(true);
+      onFake?.(text.trim());
     }
-  }, [now, view.timerEnd, view.phase, view.isSubject, view.submitted, sent, autoTried, text, onFake]);
+  }, [now, view.timerEnd, view.phase, view.isSubject, view.submitted, sent, text, onFake]);
   if (view.isSubject) return <p style={{ fontWeight: 800, fontSize: 22 }}>{copy.subjectWait}</p>;
   if (sent || view.submitted) return <p style={{ fontWeight: 800, fontSize: 22 }}>{copy.lockedIn}</p>;
   return (
@@ -292,21 +287,10 @@ function FakePhone({ view, now, onFake }: { view: FakesView; now: number; onFake
         value={text}
         placeholder={soundLike(view.subjectName ?? '')}
         maxLength={120}
-        onChange={(event) => { setText(event.target.value); setNotice(''); }}
+        onChange={(event) => setText(event.target.value)}
         style={fieldStyle}
       />
-      {notice && <p role="alert" style={{ fontWeight: 800, margin: 0 }}>{notice}</p>}
-      <BigButton
-        testId="fakes-send"
-        label={copy.lockedIn}
-        disabled={!text.trim()}
-        onClick={() => {
-          onFake?.(text.trim(), (ok, error) => {
-            if (ok) setSent(true);
-            else setNotice(error || copy.tooClose);
-          });
-        }}
-      />
+      <BigButton testId="fakes-send" label={copy.lockedIn} disabled={!text.trim()} onClick={() => { setSent(true); onFake?.(text.trim()); }} />
     </div>
   );
 }

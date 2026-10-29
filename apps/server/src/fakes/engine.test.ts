@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER_CHARACTERS, type PlayerCharacter } from '@ksero-se/types';
 import { FakesGame } from './engine';
-import { copy } from '@ksero-se/types';
+import { normalizeAnswer } from './text';
 import { decoyCount, timersFor } from './timers';
 
 function gameWith(players: number, hooks: ConstructorParameters<typeof FakesGame>[2] = {}) {
@@ -88,7 +88,7 @@ describe('fakes engine', () => {
     expect(scores.every((score) => score >= 0)).toBe(true);
   });
 
-  it('rejects a fake that matches or nearly matches the real answer', () => {
+  it('merges a fake that matches the real answer and flags the writer', () => {
     const { game, ids } = gameWith(2);
     const start = 5_000;
     game.start(start);
@@ -103,19 +103,18 @@ describe('fakes engine', () => {
     expect(game.phase).toBe('FAKE');
     const subject = ids.find((id) => game.viewPhone(id).isSubject)!;
     const other = ids.find((id) => id !== subject)!;
-    expect(game.submitFake(other, 'pizza', start)).toBe(copy.tooClose);
-    expect(game.submitFake(other, 'piza', start)).toBe(copy.tooClose);
-    expect(game.submitFake(other, 'café bread', start)).toBeNull();
-    expect(game.phase).not.toBe('FAKE');
+    game.submitFake(other, 'pizza', start);
     const inspect = game.inspect()!;
-    expect(inspect.options.some((option) => option.kind === 'fake' && option.text.toLowerCase().includes('pizza'))).toBe(false);
-    expect(inspect.options.find((option) => option.kind === 'real')?.mergedAuthors).toEqual([]);
+    expect(inspect.options.some((option) => option.kind === 'fake')).toBe(false);
     const real = inspect.options.find((option) => option.kind === 'real')!;
+    expect(real.mergedAuthors).toEqual([other]);
+    expect(normalizeAnswer(real.text)).toBe('pizza');
+    expect(inspect.options.filter((option) => option.kind === 'decoy')).toHaveLength(decoyCount(2));
+    expect(game.viewPhone(other).options?.find((option) => option.yours)).toBeUndefined();
     game.submitVote(other, real.id, start);
     game.submitLiterally(subject, null, start);
     const lines = game.inspect()!.cards.flat();
-    expect(lines.some((line) => line.startsWith('literally '))).toBe(false);
-    expect(game.viewTv().players.find((player) => player.playerId === other)?.score ?? 0).toBe(100);
+    expect(lines.some((line) => line.startsWith('literally '))).toBe(true);
   });
 
   it('falls back when decoys are not ready and uses them when they are', async () => {

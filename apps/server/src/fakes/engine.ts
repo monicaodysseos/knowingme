@@ -7,6 +7,7 @@ import {
   everyoneElse,
   fakeBy,
   fooledLine,
+  literallyFlag,
   nameList,
   realSaid,
   saysLiterally,
@@ -30,7 +31,7 @@ import {
 } from './decoys';
 import { assignQuestions, sampleSubjects, shuffle, type WrittenQuestion } from './sample';
 import { scoreTurn, type ScoreOption } from './scoring';
-import { normalizeAnswer, tooCloseToAnswer } from './text';
+import { normalizeAnswer } from './text';
 import { answerWindow, decoyCount, revealSlice, timersFor, writeWindow, type TimerSet } from './timers';
 
 export interface FakesSettings {
@@ -300,7 +301,6 @@ export class FakesGame {
     if (this.submitted.has(playerId)) return null;
     const text = raw.trim().slice(0, TEXT_LIMITS.answer);
     if (!text) return 'Write something first.';
-    if (tooCloseToAnswer(text, turn.answer)) return copy.tooClose;
     turn.fakes.push({ playerId, text });
     this.submitted.add(playerId);
     this.maybeFinishEarly(now);
@@ -805,6 +805,7 @@ export class FakesGame {
   }
 
   private buildOptions(turn: Turn): VoteOption[] {
+    const realKey = normalizeAnswer(turn.answer);
     const real: VoteOption = {
       id: this.nextId(),
       text: turn.answer,
@@ -815,7 +816,11 @@ export class FakesGame {
     const fakes: VoteOption[] = [];
     for (const fake of turn.fakes) {
       const key = normalizeAnswer(fake.text);
-      if (!key || tooCloseToAnswer(fake.text, turn.answer)) continue;
+      if (!key) continue;
+      if (key === realKey) {
+        if (!real.mergedAuthors.includes(fake.playerId)) real.mergedAuthors.push(fake.playerId);
+        continue;
+      }
       const existing = fakes.find((option) => normalizeAnswer(option.text) === key);
       if (existing) {
         if (!existing.authorIds.includes(fake.playerId)) existing.authorIds.push(fake.playerId);
@@ -832,7 +837,7 @@ export class FakesGame {
     const decoys: VoteOption[] = [];
     for (const decoy of turn.decoys) {
       const key = normalizeAnswer(decoy.text);
-      if (!key || tooCloseToAnswer(decoy.text, turn.answer)) continue;
+      if (!key || key === realKey) continue;
       if (fakes.some((option) => normalizeAnswer(option.text) === key)) continue;
       if (decoys.some((option) => normalizeAnswer(option.text) === key)) continue;
       decoys.push({
@@ -923,6 +928,11 @@ export class FakesGame {
       turn.answer,
       know.length ? theyKnow(nameList(know)) : copy.nobodyKnows,
     ];
+    if (real && real.mergedAuthors.length > 0) {
+      realLines.push(literallyFlag(subjectName));
+      const writers = nameList(real.mergedAuthors.map((id) => nameById.get(id) ?? '').filter(Boolean));
+      if (writers) realLines.push(fakeBy(writers));
+    }
     cards.push(realLines);
     return cards;
   }

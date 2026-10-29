@@ -221,10 +221,8 @@ export function usePhoneSocket({ roomCode, name, avatar, sessionToken }: UsePhon
     getSocket().emit('submit:answer', { answers });
   }, []);
 
-  const submitFake = useCallback((text: string, onAck?: (ok: boolean, error?: string) => void) => {
-    getSocket().emit('submit:fake', { text }, (res?: { ok: boolean; error?: string }) => {
-      onAck?.(res?.ok ?? false, res?.error);
-    });
+  const submitFake = useCallback((text: string) => {
+    getSocket().emit('submit:fake', { text });
     try { navigator.vibrate?.(30); } catch {}
   }, []);
 
