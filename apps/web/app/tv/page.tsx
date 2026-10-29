@@ -20,6 +20,7 @@ import TVIntroWrite from '../../components/tv/TVIntroWrite';
 import TVIntroAnswer from '../../components/tv/TVIntroAnswer';
 import TVIntroGuess from '../../components/tv/TVIntroGuess';
 import TVRoundAnnouncement from '../../components/tv/TVRoundAnnouncement';
+import PhaseAnnouncer from '../../components/PhaseAnnouncer';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
 
@@ -33,22 +34,28 @@ const MUSIC_BY_PHASE: Record<string, MusicKey> = {
   GUESS_PHASE: 'guess',
 };
 
-function createRoom(settings: GameSettings): Promise<string> {
+function createRoom(settings: GameSettings): Promise<{ code: string; hostSecret: string }> {
   return fetch(`${SERVER_URL}/api/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mode: 'social', settings }),
   })
-    .then((r) => r.json())
-    .then((data) => {
-      const code: string = data.roomCode;
-      try { sessionStorage.setItem('ksero-tv-room', code); } catch {}
-      return code;
+    .then(async (r) => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.roomCode || !data.hostSecret) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Could not create a room.');
+      }
+      try {
+        sessionStorage.setItem('ksero-tv-room', data.roomCode);
+        sessionStorage.setItem('ksero-tv-secret', data.hostSecret);
+      } catch {}
+      return { code: data.roomCode as string, hostSecret: data.hostSecret as string };
     });
 }
 
 export default function TVPage() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [hostSecret, setHostSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Show setup screen unless we're restoring an existing session
@@ -58,8 +65,12 @@ export default function TVPage() {
 
   const handleRoomExpired = useCallback(() => {
     disconnectSocket();
-    try { sessionStorage.removeItem('ksero-tv-room'); } catch {}
+    try {
+      sessionStorage.removeItem('ksero-tv-room');
+      sessionStorage.removeItem('ksero-tv-secret');
+    } catch {}
     setRoomCode(null);
+    setHostSecret(null);
     setSetupDone(false);
   }, []);
 
@@ -67,17 +78,26 @@ export default function TVPage() {
     setLoading(true);
     setError(null);
     createRoom(settings)
-      .then((code) => { setRoomCode(code); setSetupDone(true); setLoading(false); })
-      .catch(() => { setError('Could not connect to server.'); setLoading(false); });
+      .then(({ code, hostSecret: secret }) => {
+        setRoomCode(code);
+        setHostSecret(secret);
+        setSetupDone(true);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Could not connect to server.');
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
     // If there's an existing session, skip setup and reconnect directly
     const stored = sessionStorage.getItem('ksero-tv-room');
-    if (stored) {
+    const secret = sessionStorage.getItem('ksero-tv-secret');
+    if (stored && secret) {
       setRoomCode(stored);
+      setHostSecret(secret);
       setSetupDone(true);
-      return;
     }
   }, []);
 
@@ -137,12 +157,16 @@ export default function TVPage() {
     );
   }
 
-  return <TVScreen roomCode={roomCode} onRoomExpired={handleRoomExpired} audioUnlocked={audioUnlocked} />;
+  if (!hostSecret) {
+    return <FitScreen><TVGameSetup onConfirm={handleConfirmSetup} /></FitScreen>;
+  }
+
+  return <TVScreen roomCode={roomCode} hostSecret={hostSecret} onRoomExpired={handleRoomExpired} audioUnlocked={audioUnlocked} />;
 }
 
 
-function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string; onRoomExpired: () => void; audioUnlocked: boolean }) {
-  const { state, connected, hostStart, playAgain, hostContinue } = useTVSocket(roomCode, onRoomExpired);
+function TVScreen({ roomCode, hostSecret, onRoomExpired, audioUnlocked }: { roomCode: string; hostSecret: string; onRoomExpired: () => void; audioUnlocked: boolean }) {
+  const { state, connected, hostStart, playAgain, hostContinue } = useTVSocket(roomCode, hostSecret, onRoomExpired);
 
   const ROUND_MAP: Record<string, 1 | 2 | 3> = {
     QUESTION_SUBMISSION: 1,
@@ -225,6 +249,7 @@ function TVScreen({ roomCode, onRoomExpired, audioUnlocked }: { roomCode: string
 
   return (
     <FitScreen>
+    <PhaseAnnouncer phase={state.phase} timerEnd={state.timerEnd} />
     <AnimatePresence mode="wait">
       <motion.div
         key={displayKey}

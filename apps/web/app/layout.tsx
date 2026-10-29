@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Rubik, Space_Grotesk, Fredoka, Nunito } from 'next/font/google';
-import { GoogleAnalytics } from '@next/third-parties/google';
+import AnalyticsConsent from '../components/AnalyticsConsent';
 import './globals.css';
 
 // Self-hosted, non-render-blocking fonts (swap so text paints immediately).
@@ -14,8 +14,24 @@ const nunito = Nunito({ subsets: ['latin'], weight: ['400', '600', '700', '800',
 const fontVars = `${rubik.variable} ${spaceGrotesk.variable} ${fredoka.variable} ${nunito.variable}`;
 
 export const metadata: Metadata = {
-  title: 'KseroSe — How well do you know each other?',
-  description: 'A Jackbox-style social guessing game. Join via QR code on your phone.',
+  metadataBase: new URL('https://kserose.com'),
+  title: 'KseroSe: how well do you know each other?',
+  description: 'A party guessing game. Host it on a TV and play on your phone. Join with a room code.',
+  openGraph: {
+    title: 'KseroSe: how well do you know each other?',
+    description: 'A party guessing game. Host it on a TV and play on your phone.',
+    url: 'https://kserose.com',
+    siteName: 'KseroSe',
+    locale: 'en_GB',
+    type: 'website',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'KseroSe party game' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KseroSe: how well do you know each other?',
+    description: 'A party guessing game. Host it on a TV and play on your phone.',
+    images: ['/og.png'],
+  },
 };
 
 export const viewport: Viewport = {
@@ -27,15 +43,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={fontVars}>
+    <html lang="en-GB" className={fontVars}>
       <body className="min-h-screen bg-bg text-white font-display">
-        {children}
-        <Script src="https://cdn.cookiehub.eu/c2/0cd5ea0b.js" strategy="afterInteractive" />
-        <Script id="cookiehub-init" strategy="afterInteractive">
-          {`var cpm = {}; if (window.cookiehub) window.cookiehub.load(cpm);`}
+        <Script id="consent-default" strategy="beforeInteractive">
+          {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});`}
         </Script>
+        {children}
+        <AnalyticsConsent />
       </body>
-      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID!} />
     </html>
   );
 }

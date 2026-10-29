@@ -1,58 +1,121 @@
 import type { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  createRoom,
   getRoom,
   deleteRoom,
   setRoomTimer,
   clearRoomTimer,
   sendCurrentState,
+  touchRoom,
+  attachTv,
+  detachTv,
+  restoreRoom,
 } from './roomManager';
-import { saveSession, resolveSession } from './redis';
-import { TIMER, INTRO_MS, RESULT_HOLD_MS, SCOREBOARD_HOLD_MS, MARKING_MS, writeMs, answerMs, answersPerPlayer } from './machine';
-import type { JoinPayload, JoinAck } from '@ksero-se/types';
+import { loadRoom } from './persistence';
+import { resolveSession, saveSession } from './redis';
+import {
+  TIMER,
+  INTRO_MS,
+  RESULT_HOLD_MS,
+  SCOREBOARD_HOLD_MS,
+  MARKING_MS,
+  writeMs,
+  answerMs,
+  answersPerPlayer,
+  guessersOutstanding,
+  RECONNECT_GRACE_MS,
+} from './machine';
+import type { JoinAck } from '@ksero-se/types';
+import { secretsMatch } from './codes';
+import { parseAnswer, parseGuess, parseJoin, parseQuestions, parseVotes } from './validate';
+import { rateLimit } from './rateLimit';
+import { RATE, TEXT_LIMITS } from './settings';
+import { socketIp } from './origins';
 
-// ── Room creation endpoint (HTTP) ─ see index.ts ──────────────────────────
+function on(socket: Socket, event: string, handler: (...args: unknown[]) => void | Promise<void>): void {
+  socket.on(event, (...args: unknown[]) => {
+    const roomCode = socket.data?.roomCode as string | undefined;
+    if (roomCode) touchRoom(roomCode);
+    Promise.resolve()
+      .then(() => handler(...args))
+      .catch((err) => {
+        console.error(`[socket] ${event} failed`, roomCode ?? '', err instanceof Error ? err.message : err);
+        const ack = [...args].reverse().find((item) => typeof item === 'function') as
+          | ((res: { ok: boolean; error?: string }) => void)
+          | undefined;
+        try {
+          ack?.({ ok: false, error: 'Something went wrong. Please try again.' });
+        } catch {
+          /* the client has gone */
+        }
+      });
+  });
+}
 
-// ── Socket handlers ────────────────────────────────────────────────────────
+function isTvHost(socket: Socket): boolean {
+  return socket.data?.role === 'tv' && socket.data?.hostAuthed === true;
+}
+
+function canHost(socket: Socket, hostId: string): boolean {
+  if (isTvHost(socket)) return true;
+  return !!socket.data?.playerId && socket.data.playerId === hostId;
+}
 
 export function registerSocketHandlers(io: Server, socket: Socket): void {
-  // ── Join room ────────────────────────────────────────────────────────────
-  socket.on('join', async (payload: JoinPayload, ack: (res: JoinAck) => void) => {
-    const { roomCode, name, sessionToken, role } = payload;
-    const entry = getRoom(roomCode);
-
-    if (!entry) {
-      return ack({ ok: false, error: 'Room not found' });
+  on(socket, 'join', async (...args) => {
+    const ack = args[1] as ((res: JoinAck) => void) | undefined;
+    const reply = (res: JoinAck) => {
+      try { ack?.(res); } catch { /* client gone */ }
+    };
+    if (!rateLimit(`join:${socketIp(socket)}`, RATE.join.limit, RATE.join.windowMs)) {
+      reply({ ok: false, error: 'Too many attempts. Wait a moment and try again.' });
+      return;
     }
+
+    const parsed = parseJoin(args[0]);
+    if (!parsed.ok) {
+      reply({ ok: false, error: parsed.error });
+      return;
+    }
+    const { roomCode, name, sessionToken, role, avatar, hostSecret } = parsed.value;
+
+    let entry = getRoom(roomCode);
+    let restored = false;
+    if (!entry) {
+      const saved = await loadRoom(roomCode);
+      if (saved && restoreRoom(io, saved)) {
+        entry = getRoom(roomCode);
+        restored = !!entry;
+      }
+    }
+    if (!entry) {
+      reply({ ok: false, error: 'That room does not exist. Check the code and try again.' });
+      return;
+    }
+    if (restored) armRestoredTimers(io, roomCode);
 
     const snapshot = entry.actor.getSnapshot();
     const ctx = snapshot.context;
 
     if (role === 'tv') {
-      if (!entry) {
-        // Room was lost (server restart) — tell TV so it can create a fresh one
-        return ack({ ok: false, error: 'Room not found' });
+      if (!hostSecret || !secretsMatch(hostSecret, entry.hostSecret)) {
+        reply({ ok: false, error: 'Not allowed to host this room.' });
+        return;
       }
       socket.join(`tv:${roomCode}`);
       socket.join(roomCode);
-      socket.data = { roomCode, role: 'tv' };
-      // Immediately push current state to this TV socket
+      socket.data = { roomCode, role: 'tv', hostAuthed: true };
+      attachTv(roomCode, socket.id);
       sendCurrentState(io, roomCode, socket.id);
-      return ack({ ok: true });
+      reply({ ok: true });
+      return;
     }
 
-    // Player role — try reconnect first (works in any phase including LOBBY)
     if (sessionToken) {
-      // ── In-memory reconnect (no Redis needed) ──────────────────────────────
-      // The sessionToken is stored on each Player in the actor context.
-      // Checking here first means reconnect always works within the same
-      // server process, even when Redis is unavailable.
-      const existing = ctx.players.find((p) => p.sessionToken === sessionToken);
+      const existing = ctx.players.find((player) => player.sessionToken === sessionToken);
       if (existing) {
         socket.join(roomCode);
         socket.join(`player:${socket.id}`);
-        // No-TV mode: phones also receive the shared broadcast.
         if (ctx.settings.phonesOnly) socket.join(`tv:${roomCode}`);
         socket.data = { roomCode, playerId: existing.id, role: 'player', sessionToken };
         entry.actor.send({
@@ -61,42 +124,41 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
           socketId: existing.socketId,
           newSocketId: socket.id,
         });
-        console.log('[join] reconnected player=%s name=%s', existing.id, existing.name);
         sendCurrentState(io, roomCode, socket.id);
-        return ack({ ok: true, playerId: existing.id, sessionToken, color: existing.color });
+        saveSession(sessionToken, existing.id, roomCode).catch((err) => {
+          console.error('[join] saveSession failed:', err instanceof Error ? err.message : err);
+        });
+        reply({ ok: true, playerId: existing.id, sessionToken, color: existing.color });
+        return;
       }
 
-      // ── Redis fallback (cross-server / post-restart) ────────────────────────
-      // Only relevant if the room was freshly recreated after a server restart
-      // and the player's data isn't in the new actor context.
-      try {
+      if (snapshot.value !== 'LOBBY') {
         const session = await resolveSession(sessionToken);
         if (session && session.roomCode === roomCode) {
-          // Room exists but player not in context — can't reconnect to a
-          // restarted room (state is gone). Fall through to fresh join.
+          reply({ ok: false, error: 'Could not rejoin this game. Ask the host to start a new one.' });
+          return;
         }
-      } catch { /* Redis down — already handled by in-memory path above */ }
+      }
     }
 
-    // Fresh join — only allowed during LOBBY
     if (snapshot.value !== 'LOBBY') {
-      return ack({ ok: false, error: 'Game already in progress' });
+      reply({ ok: false, error: 'This game has already started.' });
+      return;
     }
-
-    // Check max players
     if (ctx.players.length >= ctx.settings.maxPlayers) {
-      return ack({ ok: false, error: 'Room is full' });
+      reply({ ok: false, error: 'This room is full.' });
+      return;
     }
 
-    // Validate name
-    const trimmedName = (name ?? '').trim().slice(0, 16);
-    if (!trimmedName) return ack({ ok: false, error: 'Name required' });
+    const trimmedName = (name ?? '').trim().slice(0, TEXT_LIMITS.name);
+    if (!trimmedName) {
+      reply({ ok: false, error: 'Please enter a name.' });
+      return;
+    }
 
     const token = sessionToken ?? uuidv4();
-
     socket.join(roomCode);
     socket.join(`player:${socket.id}`);
-    // No-TV mode: phones also receive the shared broadcast.
     if (ctx.settings.phonesOnly) socket.join(`tv:${roomCode}`);
 
     entry.actor.send({
@@ -104,400 +166,346 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       name: trimmedName,
       socketId: socket.id,
       sessionToken: token,
-      avatar: payload.avatar ?? 'blob',
+      avatar: avatar ?? 'blob',
     });
 
-    // After the send, get the new player's id
-    const newCtx = entry.actor.getSnapshot().context;
-    const newPlayer = newCtx.players.find((p) => p.socketId === socket.id);
-
+    const newPlayer = entry.actor.getSnapshot().context.players.find((player) => player.socketId === socket.id);
     if (!newPlayer) {
-      return ack({ ok: false, error: 'Failed to join' });
+      reply({ ok: false, error: 'Could not join. Please try again.' });
+      return;
     }
 
-    // Set socket.data and send ack IMMEDIATELY — before Redis, so that any
-    // event fired right after join (e.g. submit:questions) finds the player.
-    socket.data = {
-      roomCode,
-      playerId: newPlayer.id,
-      role: 'player',
-      sessionToken: token,
-    };
-
-    // Safety-net: push current state directly to this socket in case the
-    // actor.subscribe broadcast fired before the socket finished joining
-    // the player room (timing edge case).
+    socket.data = { roomCode, playerId: newPlayer.id, role: 'player', sessionToken: token };
     sendCurrentState(io, roomCode, socket.id);
+    reply({ ok: true, playerId: newPlayer.id, sessionToken: token, color: newPlayer.color });
 
-    ack({
-      ok: true,
-      playerId: newPlayer.id,
-      sessionToken: token,
-      color: newPlayer.color,
-    });
-
-    // Fire-and-forget Redis save — don't block the ack on a flaky connection.
     saveSession(token, newPlayer.id, roomCode).catch((err) => {
-      console.error('[join] saveSession failed (non-fatal):', err);
+      console.error('[join] saveSession failed:', err instanceof Error ? err.message : err);
     });
   });
 
-  // ── Host start ───────────────────────────────────────────────────────────
-  socket.on('host:start', (ack?: (res: { ok: boolean; error?: string }) => void) => {
-    const { roomCode, role, playerId } = socket.data ?? {};
-    console.log('[host:start] roomCode=%s role=%s playerId=%s', roomCode, role, playerId);
-
+  on(socket, 'host:start', (...args) => {
+    const ack = args[0] as ((res: { ok: boolean; error?: string }) => void) | undefined;
+    const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) {
-      console.log('[host:start] room not found');
-      ack?.({ ok: false, error: 'Room not found' });
+      ack?.({ ok: false, error: 'That room does not exist. Check the code and try again.' });
       return;
     }
-
     const ctx = entry.actor.getSnapshot().context;
-    // TV socket has no playerId — it IS the host's screen, so always allow it.
-    // Player sockets must be the designated host.
-    if (role !== 'tv' && ctx.hostId !== playerId) {
-      console.log('[host:start] not authorized');
-      ack?.({ ok: false, error: 'Not authorized' });
+    if (!canHost(socket, ctx.hostId)) {
+      ack?.({ ok: false, error: 'Not allowed to do that.' });
       return;
     }
-
-    // Guard: require at least 2 players to have joined (regardless of current
-    // connection state — a player may be mid-reconnect when host clicks Start).
     const minToStart = Math.min(2, ctx.settings.maxPlayers);
     if (ctx.players.length < minToStart) {
-      console.log('[host:start] not enough players: %d joined', ctx.players.length);
-      ack?.({ ok: false, error: `Need ${minToStart} players (have ${ctx.players.length})` });
+      ack?.({ ok: false, error: `Need ${minToStart} players before you can start.` });
       return;
     }
 
     entry.actor.send({ type: 'HOST_START' });
-    console.log('[host:start] sent HOST_START, new state:', entry.actor.getSnapshot().value);
-
-    // Only set timer if the transition succeeded
     if (entry.actor.getSnapshot().value === 'QUESTION_SUBMISSION') {
       ack?.({ ok: true });
-      // Matches the machine's enterWrite stamp: intro + a window that scales
-      // with how many questions each player has to write.
       const writeWindow = INTRO_MS + writeMs(ctx.settings.questionsToWrite);
       setRoomTimer(io, roomCode, 'question-sub', writeWindow, () => {
-        const e = getRoom(roomCode);
-        if (e) {
-          e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-          if (e.actor.getSnapshot().value === 'ANSWER_PHASE') {
-            startAnswerPhase(io, roomCode);
-          }
-        }
+        const current = getRoom(roomCode);
+        if (!current) return;
+        current.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+        if (current.actor.getSnapshot().value === 'ANSWER_PHASE') startAnswerPhase(io, roomCode);
       });
     } else {
-      ack?.({ ok: false, error: 'Transition failed (guard not met?)' });
+      ack?.({ ok: false, error: 'The game could not start yet.' });
     }
   });
 
-  // ── Submit questions ─────────────────────────────────────────────────────
-  socket.on('submit:questions', (questions: string[], ack?: (res: { ok: boolean; error?: string }) => void) => {
+  on(socket, 'submit:questions', (...args) => {
+    const ack = args[1] as ((res: { ok: boolean; error?: string }) => void) | undefined;
     const { roomCode, playerId } = socket.data ?? {};
-    console.log('[submit:questions] socket=%s room=%s player=%s', socket.id.slice(0, 8), roomCode, playerId);
-
     const entry = getRoom(roomCode);
     if (!entry || !playerId) {
-      console.log('[submit:questions] REJECTED: no room or no playerId');
-      ack?.({ ok: false, error: `Not joined (playerId=${playerId ?? 'none'})` });
+      ack?.({ ok: false, error: 'Could not join. Please try again.' });
       return;
     }
-
-    // Input is gated while the round instructions are still showing.
     if (entry.actor.getSnapshot().context.introEndsAt > Date.now()) {
-      ack?.({ ok: false, error: 'Read the instructions first…' });
+      ack?.({ ok: false, error: 'Read the instructions first.' });
       return;
     }
-
+    const parsed = parseQuestions(args[0]);
+    if (!parsed) {
+      ack?.({ ok: false, error: 'Those questions could not be read.' });
+      return;
+    }
     const required = entry.actor.getSnapshot().context.settings.questionsToWrite;
-    const qs = questions
-      .map((q: string) => q.trim().slice(0, 80))
-      .filter((q: string) => q.length > 0)
+    const questions = parsed
+      .map((question) => question.trim().slice(0, TEXT_LIMITS.question))
+      .filter((question) => question.length > 0)
       .slice(0, required);
-
-    if (qs.length < required) {
-      console.log('[submit:questions] REJECTED: only %d valid questions (need %d)', qs.length, required);
-      ack?.({ ok: false, error: `Need ${required} non-empty questions` });
+    if (questions.length < required) {
+      ack?.({ ok: false, error: `Need ${required} questions with some text.` });
       return;
     }
-
-    entry.actor.send({ type: 'SUBMIT_QUESTIONS', playerId, questions: qs });
+    entry.actor.send({ type: 'SUBMIT_QUESTIONS', playerId, questions });
     ack?.({ ok: true });
 
     const ctx = entry.actor.getSnapshot().context;
-    const submitted = ctx.players.filter((p) => p.submittedQuestionIds.length >= ctx.settings.questionsToWrite).length;
-    console.log('[submit:questions] recorded for %s — %d/%d done', playerId, submitted, ctx.players.length);
-
-    const allDone = submitted === ctx.players.length;
-    if (allDone) {
+    const submitted = ctx.players.filter((player) => player.submittedQuestionIds.length >= ctx.settings.questionsToWrite).length;
+    if (submitted === ctx.players.length) {
       clearRoomTimer(roomCode, 'question-sub');
       entry.actor.send({ type: 'ALL_QUESTIONS_SUBMITTED' });
       startAnswerPhase(io, roomCode);
     }
   });
 
-  // ── Submit answer ────────────────────────────────────────────────────────
-  socket.on('submit:answer', (data: { assignmentId: string; answer: string; skipped?: boolean }) => {
+  on(socket, 'submit:answer', (...args) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
     if (entry.actor.getSnapshot().context.introEndsAt > Date.now()) return;
-
+    const parsed = parseAnswer(args[0]);
+    if (!parsed) return;
     entry.actor.send({
       type: 'SUBMIT_ANSWER',
       playerId,
-      assignmentId: data.assignmentId,
-      answer: (data.answer ?? '').trim(),
-      skipped: data.skipped ?? false,
+      assignmentId: parsed.assignmentId,
+      answer: parsed.answer,
+      skipped: parsed.skipped,
       elapsedMs: 0,
     });
-
     checkAnswerPhaseComplete(io, roomCode);
   });
 
-  // ── Submit guess ─────────────────────────────────────────────────────────
-  socket.on('submit:guess', (text: string) => {
+  on(socket, 'submit:guess', (...args) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
     if (entry.actor.getSnapshot().context.introEndsAt > Date.now()) return;
-
-    entry.actor.send({ type: 'SUBMIT_GUESS', playerId, text: (text ?? '').trim().slice(0, 120) });
-
-    const ctx = entry.actor.getSnapshot().context;
-    const turn = ctx.playerTurns[ctx.currentTurnIndex];
-    if (!turn) return;
-    const eligibleGuessers = ctx.players.filter(
-      (p) => p.id !== turn.subjectPlayerId && p.isConnected,
-    );
-    const allIn = eligibleGuessers.every((p) =>
-      ctx.playerTurns[ctx.currentTurnIndex].guesses.some((g) => g.guesserPlayerId === p.id),
-    );
-    if (allIn) {
-      clearRoomTimer(roomCode, 'guess');
-      entry.actor.send({ type: 'ALL_GUESSES_IN' });
-      // Always goes to REVEAL_PHASE for this question immediately
-      startReveal(io, roomCode);
-    }
+    const text = parseGuess(args[0]);
+    if (text === null) return;
+    entry.actor.send({ type: 'SUBMIT_GUESS', playerId, text });
+    maybeCompleteGuesses(io, roomCode);
   });
 
-  // ── Submit vote (subject-only marking) ───────────────────────────────────
-  socket.on('submit:vote', (votes: Array<{ guessId: string; isCorrect: boolean }>) => {
+  on(socket, 'submit:vote', (...args) => {
     const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
     if (entry.actor.getSnapshot().value !== 'REVEAL_PHASE') return;
+    const votes = parseVotes(args[0]);
+    if (!votes) return;
 
     const ctx = entry.actor.getSnapshot().context;
     const turn = ctx.playerTurns[ctx.currentTurnIndex];
-    if (!turn) return;
+    if (!turn || playerId !== turn.subjectPlayerId) return;
 
-    // Only the subject player can mark guesses
-    if (playerId !== turn.subjectPlayerId) return;
-
-    // Apply marks directly
     for (const vote of votes) {
       entry.actor.send({ type: 'MARK_GUESS', guessId: vote.guessId, isCorrect: vote.isCorrect });
     }
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
     clearRoomTimer(roomCode, 'marking');
-
-    // Stay on the results (who guessed right + points) until the marking player
-    // taps "Next round" — with RESULT_HOLD_MS as an AFK fallback.
     setRoomTimer(io, roomCode, 'reveal-hold', RESULT_HOLD_MS, () => {
       goToScore(io, roomCode);
     });
   });
 
-  // ── Play again ───────────────────────────────────────────────────────────
-  socket.on('play:again', () => {
-    const { roomCode, playerId, role } = socket.data ?? {};
+  on(socket, 'play:again', () => {
+    const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
-    // TV (role === 'tv') always allowed; player sockets must be the host
-    if (role !== 'tv' && ctx.hostId !== playerId) return;
+    if (!canHost(socket, ctx.hostId)) return;
     entry.actor.send({ type: 'PLAY_AGAIN' });
   });
 
-  // ── Skip the round instructions (host only) ───────────────────────────────
-  socket.on('skip:intro', () => {
-    const { roomCode, playerId, role } = socket.data ?? {};
+  on(socket, 'skip:intro', () => {
+    const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
-    if (role !== 'tv' && ctx.hostId !== playerId) return;
-    if (!(ctx.introEndsAt > Date.now())) return; // no active intro
+    if (!canHost(socket, ctx.hostId)) return;
+    if (!(ctx.introEndsAt > Date.now())) return;
 
     entry.actor.send({ type: 'SKIP_INTRO' });
-
-    // Dismissing the instructions starts the working window now, so re-arm the
-    // matching room timer to stay in sync with the machine's stamp.
     const phase = entry.actor.getSnapshot().value;
-    const c = entry.actor.getSnapshot().context;
+    const next = entry.actor.getSnapshot().context;
     if (phase === 'GUESS_PHASE') {
       setRoomTimer(io, roomCode, 'guess', TIMER.GUESS, () => {
-        const e = getRoom(roomCode);
-        if (!e) return;
-        e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
+        const current = getRoom(roomCode);
+        if (!current) return;
+        current.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
         startReveal(io, roomCode);
       });
     } else if (phase === 'QUESTION_SUBMISSION') {
-      setRoomTimer(io, roomCode, 'question-sub', writeMs(c.settings.questionsToWrite), () => {
-        const e = getRoom(roomCode);
-        if (!e) return;
-        e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-        if (e.actor.getSnapshot().value === 'ANSWER_PHASE') startAnswerPhase(io, roomCode);
+      setRoomTimer(io, roomCode, 'question-sub', writeMs(next.settings.questionsToWrite), () => {
+        const current = getRoom(roomCode);
+        if (!current) return;
+        current.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+        if (current.actor.getSnapshot().value === 'ANSWER_PHASE') startAnswerPhase(io, roomCode);
       });
     } else if (phase === 'ANSWER_PHASE') {
-      const per = answersPerPlayer(c.questionAssignments.length, c.players.length);
+      const per = answersPerPlayer(next.questionAssignments.length, next.players.length);
       setRoomTimer(io, roomCode, 'answer', answerMs(per), () => {
-        const e = getRoom(roomCode);
-        if (!e) return;
-        e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-        if (e.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
+        const current = getRoom(roomCode);
+        if (!current) return;
+        current.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+        if (current.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
       });
     }
   });
 
-  // ── Host advances the results / scoreboard (host only) ────────────────────
-  socket.on('host:continue', () => {
-    const { roomCode, playerId, role } = socket.data ?? {};
+  on(socket, 'host:continue', () => {
+    const { roomCode, playerId } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
-
     const phase = entry.actor.getSnapshot().value;
     if (phase === 'REVEAL_PHASE') {
-      // The player who marked owns "Next round"; the host can also advance in
-      // case they've wandered off.
       const turn = ctx.playerTurns[ctx.currentTurnIndex];
       const isMarker = !!turn && playerId === turn.subjectPlayerId;
-      if (role !== 'tv' && ctx.hostId !== playerId && !isMarker) return;
-      // Only once the subject has finished marking (or there were no guesses).
-      const marked = !turn || turn.guesses.length === 0 || turn.guesses.every((g) => g.isCorrect !== undefined);
+      if (!canHost(socket, ctx.hostId) && !isMarker) return;
+      const marked = !turn || turn.guesses.length === 0 || turn.guesses.every((guess) => guess.isCorrect !== undefined);
       if (!marked) return;
       goToScore(io, roomCode);
     } else if (phase === 'SCORE_PHASE') {
-      if (role !== 'tv' && ctx.hostId !== playerId) return;
+      if (!canHost(socket, ctx.hostId)) return;
       clearRoomTimer(roomCode, 'score-hold');
       advanceToNextTurn(io, roomCode);
     }
   });
 
-  // ── Host restarts: end the game for everyone (host only) ─────────────────
-  socket.on('host:restart', () => {
-    const { roomCode, playerId, role } = socket.data ?? {};
+  on(socket, 'host:restart', () => {
+    const { roomCode } = socket.data ?? {};
     const entry = getRoom(roomCode);
     if (!entry) return;
     const ctx = entry.actor.getSnapshot().context;
-    if (role !== 'tv' && ctx.hostId !== playerId) return;
-
-    // Kill every pending timer first so nothing fires into a dead room.
-    for (const key of ['question-sub', 'answer', 'guess', 'marking', 'reveal-hold', 'score-hold']) {
+    if (!canHost(socket, ctx.hostId)) return;
+    for (const key of ['question-sub', 'answer', 'guess', 'guess-grace', 'marking', 'reveal-hold', 'score-hold']) {
       clearRoomTimer(roomCode, key);
     }
-    // Players and the TV are all in the `roomCode` room.
     io.to(roomCode).emit('room:closed');
     deleteRoom(roomCode);
-    console.log('[host:restart] room %s closed by host', roomCode);
   });
 
-  // ── Disconnect ───────────────────────────────────────────────────────────
-  socket.on('disconnect', () => {
-    const { roomCode, playerId } = socket.data ?? {};
+  on(socket, 'disconnect', () => {
+    const { roomCode, playerId, role } = socket.data ?? {};
+    if (!roomCode) return;
+    if (role === 'tv') {
+      detachTv(roomCode, socket.id);
+      return;
+    }
     const entry = getRoom(roomCode);
     if (!entry || !playerId) return;
-
     entry.actor.send({ type: 'PLAYER_LEAVE', socketId: socket.id });
-
-    // Only clean up if ALL players have been gone for 10 minutes AND
-    // the room is still in LOBBY (never delete an in-progress game).
-    setTimeout(() => {
-      const e = getRoom(roomCode);
-      if (!e) return;
-      const snap = e.actor.getSnapshot();
-      // Never auto-delete a room that has progressed past the lobby
-      if (snap.value !== 'LOBBY') return;
-      const anyConnected = snap.context.players.some((p) => p.isConnected);
-      if (!anyConnected) deleteRoom(roomCode);
-    }, 10 * 60 * 1000); // 10 minutes
+    if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
+      const ctx = entry.actor.getSnapshot().context;
+      if (guessersOutstanding(ctx)) {
+        setRoomTimer(io, roomCode, 'guess-grace', RECONNECT_GRACE_MS, () => {
+          maybeCompleteGuesses(io, roomCode);
+        });
+      } else {
+        maybeCompleteGuesses(io, roomCode);
+      }
+    }
   });
 }
 
-// ── Timer helpers ──────────────────────────────────────────────────────────
-
-/** Called after ALL_QUESTIONS_SUBMITTED or question-sub timer expires. */
-function startAnswerPhase(io: Server, roomCode: string): void {
+export function armRestoredTimers(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
-  if (entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
+  const phase = String(entry.actor.getSnapshot().value);
+  const ctx = entry.actor.getSnapshot().context;
+  const soon = (timerEnd: number) => (timerEnd > Date.now() ? timerEnd - Date.now() : 1000);
 
-  // Matches the machine's enterAnswer stamp: intro + a window scaled to how
-  // many questions each player was dealt (everyone gets the same number).
+  if (phase === 'QUESTION_SUBMISSION') {
+    setRoomTimer(io, roomCode, 'question-sub', soon(ctx.timerEnd), () => {
+      const current = getRoom(roomCode);
+      if (!current) return;
+      current.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+      if (current.actor.getSnapshot().value === 'ANSWER_PHASE') startAnswerPhase(io, roomCode);
+    });
+  } else if (phase === 'ANSWER_PHASE') {
+    setRoomTimer(io, roomCode, 'answer', soon(ctx.timerEnd), () => {
+      const current = getRoom(roomCode);
+      if (!current) return;
+      current.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+      if (current.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
+    });
+  } else if (phase === 'GUESS_PHASE') {
+    setRoomTimer(io, roomCode, 'guess', soon(ctx.timerEnd), () => {
+      const current = getRoom(roomCode);
+      if (!current) return;
+      current.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
+      startReveal(io, roomCode);
+    });
+  } else if (phase === 'REVEAL_PHASE') {
+    const turn = ctx.playerTurns[ctx.currentTurnIndex];
+    const unmarked = !!turn && turn.guesses.some((guess) => guess.isCorrect === undefined);
+    if (unmarked) {
+      setRoomTimer(io, roomCode, 'marking', MARKING_MS, () => finishUnmarked(io, roomCode));
+    } else {
+      setRoomTimer(io, roomCode, 'reveal-hold', soon(ctx.timerEnd), () => goToScore(io, roomCode));
+    }
+  } else if (phase === 'SCORE_PHASE') {
+    setRoomTimer(io, roomCode, 'score-hold', soon(ctx.timerEnd), () => advanceToNextTurn(io, roomCode));
+  }
+}
+
+function maybeCompleteGuesses(io: Server, roomCode: string): void {
+  const entry = getRoom(roomCode);
+  if (!entry || entry.actor.getSnapshot().value !== 'GUESS_PHASE') return;
+  const ctx = entry.actor.getSnapshot().context;
+  if (guessersOutstanding(ctx)) return;
+  clearRoomTimer(roomCode, 'guess');
+  clearRoomTimer(roomCode, 'guess-grace');
+  entry.actor.send({ type: 'ALL_GUESSES_IN' });
+  if (entry.actor.getSnapshot().value === 'REVEAL_PHASE') startReveal(io, roomCode);
+}
+
+function startAnswerPhase(io: Server, roomCode: string): void {
+  const entry = getRoom(roomCode);
+  if (!entry || entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
   const actx = entry.actor.getSnapshot().context;
   const perPlayer = answersPerPlayer(actx.questionAssignments.length, actx.players.length);
   setRoomTimer(io, roomCode, 'answer', INTRO_MS + answerMs(perPlayer), () => {
-    const e = getRoom(roomCode);
-    if (!e) return;
-    e.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
-    if (e.actor.getSnapshot().value === 'GUESS_PHASE') {
-      startGuessPhaseTurn(io, roomCode);
-    }
+    const current = getRoom(roomCode);
+    if (!current) return;
+    current.actor.send({ type: 'SLOT_TIMER_EXPIRED' });
+    if (current.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
   });
 }
 
-/** Check whether all players have answered all their questions; if so, advance. */
 function checkAnswerPhaseComplete(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
-  if (!entry) return;
-  if (entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
+  if (!entry || entry.actor.getSnapshot().value !== 'ANSWER_PHASE') return;
   const ctx = entry.actor.getSnapshot().context;
-
   const byPlayer: Record<string, typeof ctx.questionAssignments> = {};
-  for (const a of ctx.questionAssignments) {
-    if (!byPlayer[a.assignedToPlayerId]) byPlayer[a.assignedToPlayerId] = [];
-    byPlayer[a.assignedToPlayerId].push(a);
+  for (const assignment of ctx.questionAssignments) {
+    if (!byPlayer[assignment.assignedToPlayerId]) byPlayer[assignment.assignedToPlayerId] = [];
+    byPlayer[assignment.assignedToPlayerId].push(assignment);
   }
-
-  const allDone = ctx.players.every((p) => {
-    const mine = byPlayer[p.id] ?? [];
-    return mine.length > 0 && mine.every((a) => a.answer !== undefined || a.skipped === true);
+  const allDone = ctx.players.every((player) => {
+    const mine = byPlayer[player.id] ?? [];
+    return mine.length > 0 && mine.every((assignment) => assignment.answer !== undefined || assignment.skipped === true);
   });
-
-  if (allDone) {
-    clearRoomTimer(roomCode, 'answer');
-    entry.actor.send({ type: 'ALL_ANSWERS_IN' });
-    if (entry.actor.getSnapshot().value === 'GUESS_PHASE') {
-      startGuessPhaseTurn(io, roomCode);
-    }
-  }
+  if (!allDone) return;
+  clearRoomTimer(roomCode, 'answer');
+  entry.actor.send({ type: 'ALL_ANSWERS_IN' });
+  if (entry.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
 }
 
 function startGuessPhaseTurn(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
-
   const ctx = entry.actor.getSnapshot().context;
-  // No turn at this index — skip to reveal (which handles the empty case)
   if (!ctx.playerTurns[ctx.currentTurnIndex]) {
-    console.log('[startGuessPhaseTurn] no turn at index %d — skipping', ctx.currentTurnIndex);
     entry.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
     startReveal(io, roomCode);
     return;
   }
-
-  // The first guess turn shows the round instructions first, so its timer
-  // includes the intro window (host can skip, which restarts the timer).
   const introOffset = ctx.currentTurnIndex === 0 ? INTRO_MS : 0;
   setRoomTimer(io, roomCode, 'guess', introOffset + TIMER.GUESS, () => {
-    const e = getRoom(roomCode);
-    if (!e) return;
-    e.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
+    const current = getRoom(roomCode);
+    if (!current) return;
+    current.actor.send({ type: 'GUESS_TIMER_EXPIRED' });
     startReveal(io, roomCode);
   });
 }
@@ -505,53 +513,35 @@ function startGuessPhaseTurn(io: Server, roomCode: string): void {
 function startReveal(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
-
   const ctx = entry.actor.getSnapshot().context;
   const turn = ctx.playerTurns[ctx.currentTurnIndex];
-  if (!turn) {
-    // No turn (empty playerTurns) — go straight to the scoreboard, which then
-    // advances to FINAL_AWARDS.
+  if (!turn || turn.guesses.length === 0) {
     entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
     goToScore(io, roomCode);
     return;
   }
-
-  const total = turn.guesses.length;
-
-  // Edge case: no guesses — nothing to reveal, skip the result hold.
-  if (total === 0) {
-    entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
-    goToScore(io, roomCode);
-    return;
-  }
-
-  // Reveal all guesses immediately (the TV/phone play the drumroll client-side)
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < turn.guesses.length; i++) {
     entry.actor.send({ type: 'ADVANCE_REVEAL' });
   }
-  // State is now broadcast via actor.subscribe — subject's phone will show VOTE_GUESSES
-
-  // Deadlock guard: if the subject never submits their marks, don't hang the
-  // room forever — count anything undecided as wrong and move on.
-  setRoomTimer(io, roomCode, 'marking', MARKING_MS, () => {
-    const e = getRoom(roomCode);
-    if (!e) return;
-    if (e.actor.getSnapshot().value !== 'REVEAL_PHASE') return;
-    const c = e.actor.getSnapshot().context;
-    const t = c.playerTurns[c.currentTurnIndex];
-    if (!t) return;
-    if (t.guesses.every((g) => g.isCorrect !== undefined)) return; // already marked
-    for (const g of t.guesses) {
-      if (g.isCorrect === undefined) {
-        e.actor.send({ type: 'MARK_GUESS', guessId: g.id, isCorrect: false });
-      }
-    }
-    e.actor.send({ type: 'ALL_GUESSES_MARKED' });
-    setRoomTimer(io, roomCode, 'reveal-hold', RESULT_HOLD_MS, () => goToScore(io, roomCode));
-  });
+  setRoomTimer(io, roomCode, 'marking', MARKING_MS, () => finishUnmarked(io, roomCode));
 }
 
-/** Move from the result hold to the scoreboard, then arm the scoreboard hold. */
+function finishUnmarked(io: Server, roomCode: string): void {
+  const entry = getRoom(roomCode);
+  if (!entry || entry.actor.getSnapshot().value !== 'REVEAL_PHASE') return;
+  const ctx = entry.actor.getSnapshot().context;
+  const turn = ctx.playerTurns[ctx.currentTurnIndex];
+  if (!turn) return;
+  if (turn.guesses.every((guess) => guess.isCorrect !== undefined)) return;
+  for (const guess of turn.guesses) {
+    if (guess.isCorrect === undefined) {
+      entry.actor.send({ type: 'MARK_GUESS', guessId: guess.id, isCorrect: false });
+    }
+  }
+  entry.actor.send({ type: 'ALL_GUESSES_MARKED' });
+  setRoomTimer(io, roomCode, 'reveal-hold', RESULT_HOLD_MS, () => goToScore(io, roomCode));
+}
+
 function goToScore(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
@@ -569,14 +559,7 @@ function goToScore(io: Server, roomCode: string): void {
 function advanceToNextTurn(io: Server, roomCode: string): void {
   const entry = getRoom(roomCode);
   if (!entry) return;
-
   clearRoomTimer(roomCode, 'score-hold');
   entry.actor.send({ type: 'NEXT_TURN' });
-
-  const newVal = entry.actor.getSnapshot().value;
-  if (newVal === 'GUESS_PHASE') {
-    // Next question — start the guess timer for it
-    startGuessPhaseTurn(io, roomCode);
-  }
-  // FINAL_AWARDS: no action needed — machine broadcasts the phase change
+  if (entry.actor.getSnapshot().value === 'GUESS_PHASE') startGuessPhaseTurn(io, roomCode);
 }

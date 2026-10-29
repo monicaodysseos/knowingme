@@ -76,7 +76,7 @@ export default function PhoneReveal({ state }: { state: TVState }) {
         <div className="flex flex-col gap-2">
           <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 12, color: Y2K.deepPink, textTransform: 'uppercase', letterSpacing: '0.05em' }}>the guesses</div>
           {guesses.length === 0 && (
-            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#9CA3AF', textAlign: 'center' }}>nobody guessed this one 😬</div>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: '#374151', textAlign: 'center' }}>nobody guessed this one 😬</div>
           )}
           {guesses.map((g, i) => {
             const marked = g.isCorrect !== undefined;
@@ -97,7 +97,7 @@ export default function PhoneReveal({ state }: { state: TVState }) {
                     <span style={{ fontFamily: Y2K.display, fontWeight: 800, fontSize: 13, color: g.guesserColor.hex, WebkitTextStroke: `0.3px ${Y2K.dark}` }}>{g.guesserName}</span>
                   </>
                 ) : (
-                  <span style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.1em' }}>guess #{i + 1}</span>
+                  <span style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 10, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.1em' }}>guess #{i + 1}</span>
                 )}
                 <span style={{ flex: 1, textAlign: 'right', fontFamily: Y2K.body, fontWeight: 700, fontSize: 13, color: Y2K.dark, textDecoration: g.isCorrect === false ? 'line-through' : 'none' }}>
                   &ldquo;{g.text}&rdquo;
@@ -117,7 +117,7 @@ export default function PhoneReveal({ state }: { state: TVState }) {
             );
           })}
           {guesses.length > 0 && guesses.every((g) => g.isCorrect === undefined) && (
-            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>
+            <div style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 12, color: '#374151', textAlign: 'center', marginTop: 4 }}>
               {subject.name} is marking the guesses…
             </div>
           )}

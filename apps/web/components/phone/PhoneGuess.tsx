@@ -116,10 +116,10 @@ export default function PhoneGuess({
           }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF' }}>
+          <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#374151' }}>
             • hidden till reveal. closer guess = more points.
           </span>
-          <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#9CA3AF' }}>{guess.length}/120</span>
+          <span style={{ fontFamily: Y2K.body, fontSize: 11, color: '#374151' }}>{guess.length}/120</span>
         </div>
       </div>
 

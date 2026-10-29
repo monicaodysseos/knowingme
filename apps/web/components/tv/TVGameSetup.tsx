@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { GameSettings } from '@ksero-se/types';
 import { DEFAULT_SETTINGS } from '@ksero-se/types';
@@ -55,6 +55,8 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
         {/* Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <motion.button
+            type="button"
+            aria-label={`Decrease ${label}`}
             whileTap={{ scale: 0.88 }}
             onClick={() => onChange(Math.max(min, value - 1))}
             disabled={value <= min}
@@ -83,6 +85,8 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
           </div>
 
           <motion.button
+            type="button"
+            aria-label={`Increase ${label}`}
             whileTap={{ scale: 0.88 }}
             onClick={() => onChange(Math.min(max, value + 1))}
             disabled={value >= max}
@@ -106,6 +110,20 @@ function Stepper({ label, sublabel, value, min, max, onChange, accentColor }: St
 
 export default function TVGameSetup({ onConfirm }: Props) {
   const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_SETTINGS });
+  const [showHelp, setShowHelp] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem('ksero-howto-seen')) setShowHelp(true);
+    } catch {
+      setShowHelp(true);
+    }
+  }, []);
+
+  const dismissHelp = () => {
+    try { localStorage.setItem('ksero-howto-seen', '1'); } catch { /* private mode */ }
+    setShowHelp(false);
+  };
 
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
     setSettings((s) => ({ ...s, [key]: value }));
@@ -153,6 +171,28 @@ export default function TVGameSetup({ onConfirm }: Props) {
           </p>
         </div>
 
+        {showHelp && (
+          <Sticker color="#fff" r={22} style={{ padding: '18px 22px' }}>
+            <div style={{ fontFamily: Y2K.display, fontWeight: 900, fontSize: 18, color: Y2K.dark, textTransform: 'uppercase' }}>
+              How to play
+            </div>
+            <p style={{ fontFamily: Y2K.body, fontWeight: 700, fontSize: 14, color: '#3a1555', margin: '8px 0 14px', lineHeight: 1.45 }}>
+              Leave this screen on the TV. Friends join from their phones with the room code. You write questions, answer them, then guess what your friends said.
+            </p>
+            <button
+              type="button"
+              onClick={dismissHelp}
+              style={{
+                fontFamily: Y2K.display, fontWeight: 900, fontSize: 16, color: '#fff',
+                background: Y2K.dark, border: `2.5px solid ${Y2K.dark}`, borderRadius: 999,
+                padding: '8px 18px', cursor: 'pointer',
+              }}
+            >
+              Got it
+            </button>
+          </Sticker>
+        )}
+
         {/* Settings */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Stepper
@@ -197,6 +237,7 @@ export default function TVGameSetup({ onConfirm }: Props) {
             }}
           >
             <button
+              type="button"
               onClick={() => onConfirm(settings)}
               style={{
                 fontFamily: Y2K.display, fontWeight: 900, fontSize: 28, color: '#fff',
