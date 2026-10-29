@@ -2,8 +2,35 @@
 // KseroSe — Shared TypeScript Types
 // ─────────────────────────────────────────────
 
+import type { CharacterArt, PlayerCharacter } from './characters';
+import { CHARACTER_ROSTER, PLAYER_CHARACTERS, characterName } from './characters';
+
+export type { CharacterArt, PlayerCharacter };
+export { CHARACTER_ROSTER, PLAYER_CHARACTERS, characterName };
+
 export type GameMode = 'corporate' | 'social';
 export type QuestionTier = 'T1' | 'T2';
+
+export type { RulesMode, FakesPhase, FakesView, FakesOption, FakesPrompt, FakesReveal, FakesAwardView, FakesScoreRow } from './fakes';
+export {
+  copy,
+  writeTv,
+  progressDone,
+  wasAsked,
+  everyoneElse,
+  writeWhat,
+  soundLike,
+  literallyFlag,
+  whichReal,
+  fakeBy,
+  fooledLine,
+  saysLiterally,
+  realSaid,
+  theyKnow,
+  crownLine,
+  nameWins,
+  nameList,
+} from './strings';
 
 // ── Game settings (chosen by host before room creation) ───────────────────
 
@@ -12,6 +39,8 @@ export interface GameSettings {
   questionsToWrite: number;   // 1 to 5, default 2
   questionsToAnswer: number;  // 2 to 10, default 5
   phonesOnly?: boolean;       // true = no TV; every phone shows the synced game
+  /** Read only when the server is running the fakes rules. Ignored otherwise. */
+  longGame?: boolean;
 }
 
 // Room codes stay four characters so the TV sticker and the join boxes
@@ -26,12 +55,6 @@ export const DEFAULT_SETTINGS: GameSettings = {
 };
 
 // ── Player characters (selectable avatars) ────────────────────────────────
-
-export const PLAYER_CHARACTERS = [
-  'blob', 'star', 'diamond', 'cloud', 'hex', 'drop', 'shield', 'crown',
-] as const;
-
-export type PlayerCharacter = (typeof PLAYER_CHARACTERS)[number];
 
 export type GamePhase =
   | 'LOBBY'
@@ -224,6 +247,8 @@ export interface TVState {
   isRoundEnd?: boolean;   // true if next turn is a different subject (or no more turns)
   isLastRound?: boolean;  // true if no more turns remain after this one (→ FINAL_AWARDS next)
   introEndsAt?: number;   // unix ms — while > now, show the round instructions slide
+  rules?: 'classic' | 'fakes';
+  fakes?: import('./fakes').FakesView;
 }
 
 // Whether the host can advance the current screen (reveal results / scoreboard).
@@ -244,6 +269,8 @@ export interface PhoneState {
   phonesOnly: boolean;    // no TV — this phone must render the shared "show" itself
   finalRevealAt: number;  // unix ms — final results reveal on phones once past this
   canContinue: boolean;   // host can advance the current reveal/scoreboard screen now
+  rules?: 'classic' | 'fakes';
+  fakes?: import('./fakes').FakesView;
 }
 
 export type PhoneAction =

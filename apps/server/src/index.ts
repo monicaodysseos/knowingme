@@ -8,8 +8,16 @@ import { registerSocketHandlers, armRestoredTimers } from './socketHandlers';
 import { forgetPersistedRoom, loadRoom, persistRoom, restoreAllRooms, schedulePersist } from './persistence';
 import { allowedOrigins, clientIp, isAllowedOrigin, rejectUnlistedOrigin, requestOrigin } from './origins';
 import { rateLimit, pruneRateLimits } from './rateLimit';
-import { RATE, sanitizeMode, sanitizeSettings } from './settings';
+import { RATE, sanitizeFakesSettings, sanitizeMode, sanitizeSettings } from './settings';
 import { isRoomCode } from './codes';
+import { rulesMode } from './rules';
+import {
+  createFakesRoom,
+  isFakesRoom,
+  restoreFakesRoom,
+  setFakesHooks,
+  sweepFakesRooms,
+} from './fakesRooms';
 
 // Handler failures are caught per room. This listener stops Node from exiting
 // the process, which would end every live game. A repeating fatal error is
@@ -22,6 +30,11 @@ process.on('unhandledRejection', (reason) => {
 });
 
 setRoomHooks({
+  onChanged: (code) => schedulePersist(code),
+  onDeleted: (code) => forgetPersistedRoom(code),
+});
+
+setFakesHooks({
   onChanged: (code) => schedulePersist(code),
   onDeleted: (code) => forgetPersistedRoom(code),
 });
@@ -70,14 +83,23 @@ app.use(rejectUnlistedOrigin);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+app.get('/api/config', (_req, res) => {
+  const rules = rulesMode();
+  res.json({
+    rules,
+    questionsToWriteMax: rules === 'fakes' ? 3 : 5,
+    longGame: rules === 'fakes',
+  });
+});
+
 app.post('/api/rooms', async (req, res) => {
   if (!rateLimit(`create:${clientIp(req)}`, RATE.create.limit, RATE.create.windowMs)) {
     res.status(429).json({ error: 'Too many rooms. Wait a moment and try again.' });
     return;
   }
-  const mode = sanitizeMode(req.body?.mode);
-  const settings = sanitizeSettings(req.body?.settings);
-  const created = createRoom(io, mode, settings);
+  const created = rulesMode() === 'fakes'
+    ? createFakesRoom(io, sanitizeFakesSettings(req.body?.settings))
+    : createRoom(io, sanitizeMode(req.body?.mode), sanitizeSettings(req.body?.settings));
   if (!created) {
     res.status(503).json({ error: 'The server is full. Try again in a few minutes.' });
     return;
@@ -101,14 +123,16 @@ app.get('/api/rooms/:code', async (req, res) => {
     return;
   }
   let entry = getRoom(code);
-  if (!entry) {
+  let fakes = isFakesRoom(code);
+  if (!entry && !fakes) {
     const saved = await loadRoom(code);
-    if (saved && restoreRoom(io, saved)) {
+    if (saved?.v === 2 && restoreFakesRoom(io, saved)) fakes = true;
+    else if (saved?.v === 1 && restoreRoom(io, saved)) {
       entry = getRoom(code);
       if (entry) armRestoredTimers(io, code);
     }
   }
-  if (!entry) {
+  if (!entry && !fakes) {
     res.status(404).json({ error: 'Not found' });
     return;
   }
@@ -124,7 +148,9 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 async function main(): Promise<void> {
   try {
     const restored = await restoreAllRooms(io);
-    for (const code of restored) armRestoredTimers(io, code);
+    for (const code of restored) {
+      if (!isFakesRoom(code)) armRestoredTimers(io, code);
+    }
     if (restored.length) console.log(`[KseroSe server] restored ${restored.length} room(s)`);
   } catch (err) {
     console.error('[KseroSe server] restore failed:', err instanceof Error ? err.message : err);
@@ -132,7 +158,7 @@ async function main(): Promise<void> {
 
   setInterval(() => {
     try {
-      const removed = sweepRooms();
+      const removed = [...sweepRooms(), ...sweepFakesRooms()];
       if (removed.length) console.log(`[KseroSe server] swept ${removed.length} idle room(s)`);
       pruneRateLimits();
     } catch (err) {
